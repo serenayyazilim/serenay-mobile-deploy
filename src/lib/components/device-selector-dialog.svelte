@@ -4,6 +4,7 @@
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
   import type { FlutterDevice } from "$lib/stores/build.svelte";
+  import { t } from "$lib/i18n/index.svelte";
 
   let { open = $bindable(false), onSelect, projectName }: {
     open: boolean;
@@ -43,7 +44,7 @@
 
   function typeBadge(device: FlutterDevice): string {
     if (device.type === "simulator" || device.platform.toLowerCase().includes("simulator")) return "Simulator";
-    if (device.type === "mobile") return "Fiziksel";
+    if (device.type === "mobile") return t("deviceSelector.physical");
     if (device.type === "desktop") return "Desktop";
     return "";
   }
@@ -52,33 +53,33 @@
 <Dialog bind:open>
   <DialogContent class="sm:max-w-md">
     <DialogHeader>
-      <DialogTitle class="flex items-center gap-2"><Smartphone class="w-5 h-5" /> Cihaz Seçin</DialogTitle>
-      <p class="text-sm text-muted-foreground">{projectName} için hedef cihazı seçin</p>
+      <DialogTitle class="flex items-center gap-2"><Smartphone class="w-5 h-5" /> {t("deviceSelector.title")}</DialogTitle>
+      <p class="text-sm text-muted-foreground">{t("deviceSelector.subtitle", { project: projectName })}</p>
     </DialogHeader>
 
     <div class="space-y-3 mt-4">
       {#if loading}
         <div class="flex items-center justify-center py-8">
           <LoaderCircle class="w-6 h-6 animate-spin text-muted-foreground" />
-          <span class="ml-2 text-muted-foreground">Cihazlar taranıyor...</span>
+          <span class="ml-2 text-muted-foreground">{t("deviceSelector.scanning")}</span>
         </div>
       {:else if error}
         <div class="text-center py-8">
           <p class="text-red-500 mb-3">{error}</p>
           <Button variant="outline" size="sm" onclick={() => fetchDevices(true)}>
-            <RefreshCw class="w-4 h-4 mr-2" /> Tekrar Dene
+            <RefreshCw class="w-4 h-4 mr-2" /> {t("common.retry")}
           </Button>
         </div>
       {:else if devices.length === 0}
         <div class="text-center py-8">
-          <p class="text-muted-foreground mb-3">Bağlı cihaz bulunamadı</p>
+          <p class="text-muted-foreground mb-3">{t("deviceSelector.noDevices")}</p>
           <Button variant="outline" size="sm" onclick={() => fetchDevices(true)}>
-            <RefreshCw class="w-4 h-4 mr-2" /> Yenile
+            <RefreshCw class="w-4 h-4 mr-2" /> {t("common.refresh")}
           </Button>
         </div>
       {:else}
         <div class="flex items-center justify-between mb-2">
-          <span class="text-sm text-muted-foreground">{devices.length} cihaz bulundu</span>
+          <span class="text-sm text-muted-foreground">{t("deviceSelector.devicesFound", { count: devices.length })}</span>
           <Button variant="ghost" size="sm" onclick={() => fetchDevices(true)}><RefreshCw class="w-4 h-4" /></Button>
         </div>
 

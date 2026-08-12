@@ -3,6 +3,7 @@
   import { open } from "@tauri-apps/plugin-dialog";
   import { LoaderCircle, CircleAlert, Check, ArrowLeft, Trash2, Plus, ImagePlus, Send } from "@lucide/svelte";
   import { EVENT_STATE_LABELS, LOCALE_SUGGESTIONS } from "$lib/appstoreconnect/labels";
+  import { i18n, t } from "$lib/i18n/index.svelte";
 
   let { workspacePath, appId, eventId, onBack, onDeleted }: {
     workspacePath: string;
@@ -51,7 +52,7 @@
   });
 
   async function handleDeleteEvent() {
-    if (!confirm("Bu etkinliği tamamen silmek istediğinize emin misiniz?")) return;
+    if (!confirm(t("eventEditor.confirmDeleteEvent"))) return;
     deleting = true;
     try {
       await invoke("asc_event_delete", { workspace: workspacePath, id: eventId });
@@ -66,7 +67,7 @@
     submitResult = null;
     try {
       await invoke("asc_event_submit", { workspace: workspacePath, id: eventId, appId });
-      submitResult = { success: true, message: "İnceleme gönderimine eklendi" };
+      submitResult = { success: true, message: t("eventEditor.submittedForReview") };
       load();
     } catch (e) {
       submitResult = { success: false, message: String(e) };
@@ -162,13 +163,13 @@
   }
 
   async function deleteLocalization(loc: Localization) {
-    if (!confirm(`"${loc.attributes.locale}" yerelleştirmesini silmek istediğinize emin misiniz?`)) return;
+    if (!confirm(t("eventEditor.confirmDeleteLocalization", { locale: loc.attributes.locale }))) return;
     await invoke("asc_localization_delete", { workspace: workspacePath, id: loc.id });
     load();
   }
 
   async function uploadAsset(loc: Localization, assetType: "EVENT_CARD" | "EVENT_DETAILS_PAGE") {
-    const filePath = await open({ filters: [{ name: "Görsel", extensions: ["png", "jpg", "jpeg"] }] });
+    const filePath = await open({ filters: [{ name: "Image", extensions: ["png", "jpg", "jpeg"] }] });
     if (!filePath || Array.isArray(filePath)) return;
 
     uploading[loc.id] = assetType;
@@ -202,11 +203,11 @@
 {:else if error || !event}
   <div class="space-y-3">
     <button onclick={onBack} class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-      <ArrowLeft class="w-3.5 h-3.5" /> Listeye Dön
+      <ArrowLeft class="w-3.5 h-3.5" /> {t("eventEditor.backToList")}
     </button>
     <div class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-red-500/10 text-red-600">
       <CircleAlert class="w-4 h-4 flex-shrink-0" />
-      {error || "Etkinlik bulunamadı"}
+      {error || t("eventEditor.eventNotFound")}
     </div>
   </div>
 {:else}
@@ -216,7 +217,7 @@
   <div class="space-y-4">
     <div class="flex items-center justify-between">
       <button onclick={onBack} class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-        <ArrowLeft class="w-3.5 h-3.5" /> Listeye Dön
+        <ArrowLeft class="w-3.5 h-3.5" /> {t("eventEditor.backToList")}
       </button>
       <span class={`text-xs font-medium px-2.5 py-1 rounded-full ${stateInfo.className}`}>{stateInfo.label}</span>
     </div>
@@ -224,12 +225,12 @@
     <div class="p-4 rounded-xl bg-secondary/30 ring-1 ring-border/30">
       <p class="text-sm font-semibold">{event.attributes.referenceName}</p>
       <p class="text-xs text-muted-foreground mt-1">
-        {event.attributes.badge} · {event.attributes.priority} · Ana dil: {event.attributes.primaryLocale}
+        {event.attributes.badge} · {event.attributes.priority} · {t("eventEditor.primaryLocale")}: {event.attributes.primaryLocale}
       </p>
       {#if event.attributes.territorySchedules?.[0]}
         {@const sched = event.attributes.territorySchedules[0]}
         <p class="text-xs text-muted-foreground mt-1">
-          {new Date(sched.eventStart).toLocaleString("tr-TR")} → {new Date(sched.eventEnd).toLocaleString("tr-TR")}
+          {new Date(sched.eventStart).toLocaleString(i18n.locale === "tr" ? "tr-TR" : "en-US")} → {new Date(sched.eventEnd).toLocaleString(i18n.locale === "tr" ? "tr-TR" : "en-US")}
           · {sched.territories.join(", ")}
         </p>
       {/if}
@@ -237,15 +238,15 @@
 
     <div class="space-y-3">
       <div class="flex items-center justify-between">
-        <p class="text-xs font-medium text-muted-foreground">Yerelleştirmeler</p>
+        <p class="text-xs font-medium text-muted-foreground">{t("eventEditor.localizations")}</p>
         <button onclick={() => (addingLocalization = true)} class="flex items-center gap-1 text-xs text-primary hover:underline">
-          <Plus class="w-3.5 h-3.5" /> Ekle
+          <Plus class="w-3.5 h-3.5" /> {t("common.add")}
         </button>
       </div>
 
       {#if addingLocalization}
         <div class="p-4 rounded-xl bg-secondary/30 ring-1 ring-border/30 space-y-3">
-          <p class="text-xs font-medium">Yeni Yerelleştirme</p>
+          <p class="text-xs font-medium">{t("eventEditor.newLocalization")}</p>
           <div class="space-y-1">
             <label class={labelClass} for="new-locale">Locale</label>
             <input id="new-locale" bind:value={newLocale} class={inputClass} list="asc-locale-suggestions-edit" />
@@ -254,24 +255,24 @@
             </datalist>
           </div>
           <div class="space-y-1">
-            <label class={labelClass} for="new-name">Başlık</label>
+            <label class={labelClass} for="new-name">{t("eventForm.headline")}</label>
             <input id="new-name" bind:value={newName} class={inputClass} maxlength={30} />
           </div>
           <div class="space-y-1">
-            <label class={labelClass} for="new-short">Kısa Açıklama</label>
+            <label class={labelClass} for="new-short">{t("eventForm.shortDescription")}</label>
             <input id="new-short" bind:value={newShort} class={inputClass} maxlength={50} />
           </div>
           <div class="space-y-1">
-            <label class={labelClass} for="new-long">Uzun Açıklama</label>
+            <label class={labelClass} for="new-long">{t("eventForm.longDescription")}</label>
             <textarea id="new-long" bind:value={newLong} rows={2} maxlength={500}
               class="w-full px-3 py-2 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none resize-none"></textarea>
           </div>
           {#if addError}<div class="text-xs text-red-600">{addError}</div>{/if}
           <div class="flex gap-2 justify-end">
-            <button onclick={() => (addingLocalization = false)} class="px-3 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:bg-secondary">Vazgeç</button>
+            <button onclick={() => (addingLocalization = false)} class="px-3 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:bg-secondary">{t("common.cancel")}</button>
             <button onclick={handleAddLocalization} disabled={addSaving || !newLocale.trim() || !newName.trim()}
               class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-              {#if addSaving}<LoaderCircle class="w-3 h-3 animate-spin" />{:else}Ekle{/if}
+              {#if addSaving}<LoaderCircle class="w-3 h-3 animate-spin" />{:else}{t("common.add")}{/if}
             </button>
           </div>
         </div>
@@ -291,21 +292,21 @@
             </div>
 
             <div class="space-y-1">
-              <label class={labelClass} for="loc-{loc.id}-name">Başlık</label>
+              <label class={labelClass} for="loc-{loc.id}-name">{t("eventForm.headline")}</label>
               <input id="loc-{loc.id}-name" bind:value={s.name} class={inputClass} maxlength={30} />
             </div>
             <div class="space-y-1">
-              <label class={labelClass} for="loc-{loc.id}-short">Kısa Açıklama</label>
+              <label class={labelClass} for="loc-{loc.id}-short">{t("eventForm.shortDescription")}</label>
               <input id="loc-{loc.id}-short" bind:value={s.short} class={inputClass} maxlength={50} />
             </div>
             <div class="space-y-1">
-              <label class={labelClass} for="loc-{loc.id}-long">Uzun Açıklama</label>
+              <label class={labelClass} for="loc-{loc.id}-long">{t("eventForm.longDescription")}</label>
               <textarea id="loc-{loc.id}-long" bind:value={s.long} rows={2} maxlength={500}
                 class="w-full px-3 py-2 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none resize-none"></textarea>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
-              {#each [["EVENT_CARD", "Kart Görseli", cardShot], ["EVENT_DETAILS_PAGE", "Detay Sayfası Görseli", detailShot]] as [assetType, label, shot] (assetType)}
+              {#each [["EVENT_CARD", t("eventEditor.cardImage"), cardShot], ["EVENT_DETAILS_PAGE", t("eventEditor.detailPageImage"), detailShot]] as [assetType, label, shot] (assetType)}
                 {@const shotState = (shot as any)?.attributes?.assetDeliveryState?.state}
                 {@const imgUrl = assetImageUrl(shot)}
                 <div class="space-y-1">
@@ -316,12 +317,12 @@
                     {:else if shotState === "COMPLETE" && imgUrl}
                       <img src={imgUrl} alt={label as string} class="w-full h-full object-cover" />
                     {:else if shot}
-                      <span class="text-xs text-muted-foreground">İşleniyor... ({shotState})</span>
+                      <span class="text-xs text-muted-foreground">{t("eventEditor.processing")} ({shotState})</span>
                     {:else}
                       <button onclick={() => uploadAsset(loc, assetType as "EVENT_CARD" | "EVENT_DETAILS_PAGE")}
                         class="flex flex-col items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                         <ImagePlus class="w-5 h-5" />
-                        Görsel Yükle
+                        {t("eventEditor.uploadImage")}
                       </button>
                     {/if}
                   </div>
@@ -341,7 +342,7 @@
                 <button onclick={() => saveLocalization(loc)} disabled={s.saving}
                   class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90">
                   {#if s.saving}<LoaderCircle class="w-3 h-3 animate-spin" />{:else}<Check class="w-3 h-3" />{/if}
-                  Kaydet
+                  {t("common.save")}
                 </button>
               </div>
             {/if}
@@ -361,12 +362,12 @@
       <button onclick={handleDeleteEvent} disabled={deleting}
         class="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold text-red-600 hover:bg-red-500/10 transition-colors">
         {#if deleting}<LoaderCircle class="w-3.5 h-3.5 animate-spin" />{:else}<Trash2 class="w-3.5 h-3.5" />{/if}
-        Etkinliği Sil
+        {t("eventEditor.deleteEvent")}
       </button>
       <button onclick={handleSubmitForReview} disabled={submitting || !canSubmit}
         class={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all ${canSubmit ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-secondary text-muted-foreground cursor-not-allowed"}`}>
         {#if submitting}<LoaderCircle class="w-3.5 h-3.5 animate-spin" />{:else}<Send class="w-3.5 h-3.5" />{/if}
-        İncelemeye Gönder
+        {t("eventEditor.submitForReview")}
       </button>
     </div>
   </div>

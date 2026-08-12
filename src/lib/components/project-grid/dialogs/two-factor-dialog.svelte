@@ -2,6 +2,7 @@
   import { ShieldCheck } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from "$lib/components/ui/dialog";
+  import { t } from "$lib/i18n/index.svelte";
 
   let { open = $bindable(false), prompt, onSubmit, onCancel }: {
     open: boolean;
@@ -59,13 +60,13 @@
     <DialogHeader>
       <DialogTitle class="flex items-center gap-2">
         <ShieldCheck class="w-5 h-5 text-blue-500" />
-        Apple Kimlik Doğrulama
+        {t("twoFactor.title")}
       </DialogTitle>
     </DialogHeader>
 
     <div class="space-y-5 py-1">
       <p class="text-sm text-muted-foreground">
-        Apple hesabınız için 6 haneli doğrulama kodunu girin. Kodu cihazınızdan veya SMS'ten alabilirsiniz.
+        {t("twoFactor.description")}
       </p>
 
       {#if prompt}
@@ -90,8 +91,8 @@
     </div>
 
     <div class="flex justify-end gap-2 pt-2">
-      <Button variant="outline" onclick={onCancel}>İptal</Button>
-      <Button onclick={handleSubmit} disabled={code.length !== 6}>Gönder</Button>
+      <Button variant="outline" onclick={onCancel}>{t("common.cancel")}</Button>
+      <Button onclick={handleSubmit} disabled={code.length !== 6}>{t("common.submit")}</Button>
     </div>
   </DialogContent>
 </Dialog>

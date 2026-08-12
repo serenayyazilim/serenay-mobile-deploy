@@ -6,6 +6,7 @@
   import { deployState } from "$lib/stores/deploy.svelte";
   import { buildState } from "$lib/stores/build.svelte";
   import type { WorkspaceProject } from "$lib/stores/projects.svelte";
+  import { t } from "$lib/i18n/index.svelte";
 
   let { project, workspacePath, version, onSettings }: {
     project: WorkspaceProject;
@@ -44,7 +45,7 @@
     <button
       onclick={() => buildState.handleBuildClick(project)}
       disabled={buildState.buildingProjectId !== null || deployState.deployingProjectId !== null}
-      title="Build & Run"
+      title={t("projectCard.buildAndRun")}
       class={`absolute top-3 left-3 p-2 rounded-full transition-all duration-200 disabled:opacity-50 ${
         isBuildRunning || isBuildSuccess ? "bg-green-500 text-white" : isBuildError ? "bg-red-500 text-white" : "opacity-0 group-hover:opacity-100 bg-green-500 text-white hover:scale-110"
       }`}
@@ -60,7 +61,7 @@
     <button
       onclick={() => deployState.handleDeploy(project)}
       disabled={deployState.deployingProjectId !== null || buildState.buildingProjectId !== null}
-      title="Deploy"
+      title={t("projectCard.deploy")}
       class={`absolute top-3 right-3 p-2 rounded-full transition-all duration-200 disabled:opacity-50 ${
         isDeployProcessing ? "bg-primary text-primary-foreground" : isDeploySuccess ? "bg-green-500 text-white" : isDeployError ? "bg-red-500 text-white" : "opacity-0 group-hover:opacity-100 bg-primary text-primary-foreground hover:scale-110"
       }`}
@@ -76,7 +77,7 @@
     <button
       onclick={(e) => { e.stopPropagation(); onSettings(project); }}
       class="absolute bottom-3 right-3 p-2 rounded-full opacity-0 group-hover:opacity-100 bg-secondary hover:bg-secondary/80 transition-all duration-200"
-      title="Ayarlar"
+      title={t("common.settings")}
     >
       <Settings class="w-4 h-4 text-muted-foreground" />
     </button>
@@ -119,13 +120,13 @@
       </p>
 
       {#if isDeployProcessing}
-        <p class="text-[10px] text-center text-amber-600 dark:text-amber-500">Sayfayı kapatırsanız deploy durdurulur</p>
+        <p class="text-[10px] text-center text-amber-600 dark:text-amber-500">{t("projectCard.deployStopsOnClose")}</p>
       {/if}
     </div>
   {/if}
 
   {#if isDeploySuccess || isDeployError}
-    <Button size="sm" variant="ghost" class="mt-3 h-7 text-xs rounded-full" onclick={() => deployState.resetDeploy()}>Kapat</Button>
+    <Button size="sm" variant="ghost" class="mt-3 h-7 text-xs rounded-full" onclick={() => deployState.resetDeploy()}>{t("common.close")}</Button>
   {/if}
 
   {#if isBuilding}
@@ -139,17 +140,17 @@
       {/if}
 
       <p class={`text-xs text-center truncate max-w-full ${isBuildSuccess ? "text-green-600" : isBuildError ? "text-red-600" : "text-muted-foreground"}`}>
-        {#if isBuildRunning}Build &amp; Run devam ediyor...{/if}
-        {#if isBuildSuccess}Uygulama çalışıyor{/if}
-        {#if isBuildError}Build hatası{/if}
+        {#if isBuildRunning}{t("projectCard.buildRunning")}{/if}
+        {#if isBuildSuccess}{t("projectCard.appRunning")}{/if}
+        {#if isBuildError}{t("projectCard.buildError")}{/if}
       </p>
 
       {#if isBuildRunning}
-        <p class="text-[10px] text-center text-amber-600 dark:text-amber-500">Sayfayı kapatırsanız build durdurulur</p>
+        <p class="text-[10px] text-center text-amber-600 dark:text-amber-500">{t("projectCard.buildStopsOnClose")}</p>
       {/if}
 
       {#if isBuildSuccess || isBuildError}
-        <Button size="sm" variant="ghost" class="w-full h-7 text-xs rounded-full" onclick={() => buildState.resetBuild()}>Kapat</Button>
+        <Button size="sm" variant="ghost" class="w-full h-7 text-xs rounded-full" onclick={() => buildState.resetBuild()}>{t("common.close")}</Button>
       {/if}
     </div>
   {/if}

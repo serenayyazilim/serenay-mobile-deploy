@@ -15,6 +15,7 @@
   import TwoFactorDialog from "./dialogs/two-factor-dialog.svelte";
   import ErrorDialog from "./dialogs/error-dialog.svelte";
   import SyncVersionsDialog from "./dialogs/sync-versions-dialog.svelte";
+  import { t } from "$lib/i18n/index.svelte";
 
   const supportsMultipleProjects = $derived(workspaceState.mode === "sermobileboss");
 
@@ -62,7 +63,7 @@
 
       {#if projectsState.filtered.length === 0}
         <div class="text-center py-20 text-muted-foreground">
-          {projectsState.searchQuery ? "Sonuç bulunamadı" : "Proje bulunamadı"}
+          {projectsState.searchQuery ? t("projectGrid.noResults") : t("projectGrid.noProjects")}
         </div>
       {/if}
     </div>

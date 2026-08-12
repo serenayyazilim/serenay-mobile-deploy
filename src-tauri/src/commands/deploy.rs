@@ -21,8 +21,8 @@ async fn stream_lines<R: tokio::io::AsyncRead + Unpin>(stream: R, app: AppHandle
     }
 }
 
-/// `POST /api/deploy` (SSE) karşılığı. Komut hemen bir `processId` döner;
-/// deploy ilerlemesi `deploy-event-{processId}` event'i üzerinden yayınlanır.
+/// Equivalent of `POST /api/deploy` (SSE). The command returns a `processId` immediately;
+/// deploy progress is published via the `deploy-event-{processId}` event.
 #[tauri::command]
 pub async fn deploy_start(
     app: AppHandle,
@@ -32,14 +32,14 @@ pub async fn deploy_start(
     whats_new: Option<String>,
 ) -> Result<String, String> {
     if !["ios", "android", "huawei", "all"].contains(&platform.as_str()) {
-        return Err("Geçersiz platform. ios, android, huawei veya all olmalı".to_string());
+        return Err("Invalid platform. Must be ios, android, huawei or all".to_string());
     }
 
-    let script_path = find_script_path(&app, "deploy.rb").ok_or("Deploy script bulunamadı")?;
+    let script_path = find_script_path(&app, "deploy.rb").ok_or("Deploy script not found")?;
 
     let whats_new_text = whats_new
         .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| "Hata düzeltmeleri ve performans iyileştirmeleri.".to_string());
+        .unwrap_or_else(|| "Bug fixes and performance improvements.".to_string());
 
     let (ios_locales, android_locales) = get_store_locales(&workspace_path).await;
     let translations = build_translations(&whats_new_text, &ios_locales, &android_locales).await;
@@ -61,13 +61,13 @@ pub async fn deploy_start(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Process hatası: {e}"))?;
+        .map_err(|e| format!("Process error: {e}"))?;
 
-    let stdin = child.stdin.take().ok_or("stdin alınamadı")?;
+    let stdin = child.stdin.take().ok_or("Failed to get stdin")?;
     registry.insert(process_id.clone(), stdin);
 
-    let stdout = child.stdout.take().ok_or("stdout alınamadı")?;
-    let stderr = child.stderr.take().ok_or("stderr alınamadı")?;
+    let stdout = child.stdout.take().ok_or("Failed to get stdout")?;
+    let stderr = child.stderr.take().ok_or("Failed to get stderr")?;
 
     tokio::spawn(stream_lines(stdout, app.clone(), event_name.clone(), false));
     tokio::spawn(stream_lines(stderr, app.clone(), event_name.clone(), true));
@@ -87,10 +87,10 @@ pub async fn deploy_start(
     Ok(process_id)
 }
 
-/// `POST /api/deploy/input` karşılığı — 2FA kodunu çalışan process'in stdin'ine yazar.
+/// Equivalent of `POST /api/deploy/input` — writes the 2FA code to the running process's stdin.
 #[tauri::command]
 pub async fn deploy_submit_two_factor_code(registry: State<'_, DeployRegistry>, process_id: String, code: String) -> Result<(), String> {
-    let stdin_arc = registry.get(&process_id).ok_or("Process bulunamadı veya zaten tamamlandı")?;
+    let stdin_arc = registry.get(&process_id).ok_or("Process not found or already finished")?;
     let mut stdin = stdin_arc.lock().await;
     stdin.write_all(format!("{}\n", code.trim()).as_bytes()).await.map_err(|e| e.to_string())?;
     Ok(())

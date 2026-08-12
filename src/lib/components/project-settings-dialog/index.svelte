@@ -8,6 +8,7 @@
   import SettingsContent from "./settings-content.svelte";
   import EventsTab from "$lib/components/events-tab/index.svelte";
   import type { WorkspaceProject } from "$lib/stores/projects.svelte";
+  import { t } from "$lib/i18n/index.svelte";
 
   let { open = $bindable(false), project, workspacePath, workspaceMode, onProjectRenamed }: {
     open: boolean;
@@ -97,7 +98,7 @@
     try {
       await invoke("config_serconf_save", { workspace: workspacePath, projectId: project.id, config });
       originalConfig = { ...config };
-      configResult = { success: true, message: "Kaydedildi" };
+      configResult = { success: true, message: t("projectSettings.saved") };
     } catch (e) {
       configResult = { success: false, message: String(e) };
     } finally {
@@ -112,7 +113,7 @@
     try {
       await invoke("config_colors_save", { workspace: workspacePath, projectId: project.id, colors });
       originalColors = { ...colors };
-      colorsResult = { success: true, message: "Renkler kaydedildi" };
+      colorsResult = { success: true, message: t("projectSettings.colorsSaved") };
     } catch (e) {
       colorsResult = { success: false, message: String(e) };
     } finally {
@@ -136,7 +137,7 @@
   }
 
   const allCategories = $derived([
-    ...(supportsTenantConfig ? [{ id: "colors", label: "Renkler" }] : []),
+    ...(supportsTenantConfig ? [{ id: "colors", label: t("projectSettings.colors") }] : []),
     { id: "events", label: "In-App Events" },
     ...(supportsTenantConfig ? SERCONF_CATEGORIES : []),
   ]);
@@ -175,7 +176,7 @@
               </button>
             </div>
           {/if}
-          <p class="text-sm text-muted-foreground">Proje Ayarları</p>
+          <p class="text-sm text-muted-foreground">{t("projectSettings.title")}</p>
         </div>
       </div>
     </div>
@@ -207,7 +208,7 @@
     {#if activeCategory === "events"}
       <div class="px-6 py-4 bg-secondary/30 border-t border-border/50 flex justify-end">
         <button onclick={() => (open = false)} class="px-5 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-          Kapat
+          {t("common.close")}
         </button>
       </div>
     {:else}
@@ -231,7 +232,7 @@
             class={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${hasChanges ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-secondary text-muted-foreground cursor-not-allowed"}`}
           >
             {#if saving}<LoaderCircle class="w-4 h-4 animate-spin" />{/if}
-            Kaydet
+            {t("common.save")}
           </button>
         </div>
       </div>

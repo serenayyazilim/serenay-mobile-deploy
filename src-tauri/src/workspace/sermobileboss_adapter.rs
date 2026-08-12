@@ -39,7 +39,7 @@ impl WorkspaceAdapter for SermobilebossAdapter {
                 } else if let Some(prefix) = &bundle_id_prefix {
                     format!("{prefix}.{key}")
                 } else {
-                    "? (Workspace Ayarları eksik)".to_string()
+                    "? (Workspace Settings missing)".to_string()
                 };
                 WorkspaceProject {
                     id: key,
@@ -49,10 +49,10 @@ impl WorkspaceAdapter for SermobilebossAdapter {
             })
             .collect();
 
-        // Not: orijinal TS `localeCompare(..., "tr")` kullanıyor; burada Türkçe
-        // koleksiyon kurallarına (ı/i, ç, ş, ö, ü, ğ sıralaması) tam uyum için
-        // basit case-insensitive karşılaştırma yeterli değil, ama Faz 0 kapsamında
-        // (salt-okunur olmayan bir sıralama detayı) kabul edilebilir bir yaklaşım.
+        // Note: the original TS uses `localeCompare(..., "tr")`; a simple
+        // case-insensitive comparison doesn't fully match Turkish collation
+        // rules (ı/i, ç, ş, ö, ü, ğ ordering), but is an acceptable approach
+        // for this non-critical sorting detail.
         projects.sort_by(|a, b| a.app_name.to_lowercase().cmp(&b.app_name.to_lowercase()));
         projects
     }

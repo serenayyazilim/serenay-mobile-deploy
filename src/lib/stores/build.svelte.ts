@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { WorkspaceProject } from "$lib/stores/projects.svelte";
+import { t } from "$lib/i18n/index.svelte";
 
 export type BuildStatus = "idle" | "running" | "success" | "error";
 
@@ -44,9 +45,9 @@ class BuildState {
     let unlisten: UnlistenFn | null = null;
 
     try {
-      this.buildLogs = [...this.buildLogs, "📁 Proje aktif ediliyor..."];
+      this.buildLogs = [...this.buildLogs, `📁 ${t("build.activatingProject")}`];
       await invoke("project_activate", { workspacePath, projectId: project.id, backup: false });
-      this.buildLogs = [...this.buildLogs, "✅ Proje aktif edildi"];
+      this.buildLogs = [...this.buildLogs, `✅ ${t("build.projectActivated")}`];
 
       const jobId = await invoke<string>("flutter_build_start", {
         workspacePath,
@@ -69,7 +70,7 @@ class BuildState {
               this.buildStatus = "error";
               const newLogs = [...this.buildLogs, `❌ ${data.message}`];
               this.buildLogs = newLogs;
-              this.errorTitle = `Build Hatası - ${project.appName}`;
+              this.errorTitle = t("build.buildError", { name: project.appName });
               this.errorLogs = newLogs;
               this.errorDialogOpen = true;
             }
@@ -82,7 +83,7 @@ class BuildState {
       this.buildStatus = "error";
       const newLogs = [...this.buildLogs, `❌ ${errorMsg}`];
       this.buildLogs = newLogs;
-      this.errorTitle = `Build Hatası - ${project.appName}`;
+      this.errorTitle = t("build.buildError", { name: project.appName });
       this.errorLogs = newLogs;
       this.errorDialogOpen = true;
     } finally {

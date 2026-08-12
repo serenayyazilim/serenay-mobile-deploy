@@ -3,6 +3,7 @@
   import { User, LogIn, LogOut, LoaderCircle, Terminal, RefreshCw } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "$lib/components/ui/dialog";
+  import { t } from "$lib/i18n/index.svelte";
 
   let currentAccount = $state<string | null>(null);
   let loading = $state(true);
@@ -38,7 +39,7 @@
 {#if loading}
   <Button variant="outline" class="gap-2 h-9 px-3 rounded-full" disabled>
     <LoaderCircle class="w-4 h-4 animate-spin" />
-    <span class="text-sm">Yükleniyor...</span>
+    <span class="text-sm">{t("common.loading")}</span>
   </Button>
 {:else if currentAccount}
   <div class="flex items-center gap-2">
@@ -48,13 +49,13 @@
     </div>
     <Button variant="outline" size="sm" class="gap-2 h-9 px-3 rounded-full" onclick={handleLogout}>
       <LogOut class="w-4 h-4" />
-      <span class="text-sm">Çıkış</span>
+      <span class="text-sm">{t("firebase.logout")}</span>
     </Button>
   </div>
 {:else}
   <Button variant="outline" class="gap-2 h-9 px-3 rounded-full border-orange-500/50 text-orange-600 hover:bg-orange-500/10" onclick={() => (showLoginDialog = true)}>
     <LogIn class="w-4 h-4" />
-    <span class="text-sm">Firebase Giriş</span>
+    <span class="text-sm">{t("firebase.login")}</span>
   </Button>
 
   <Dialog bind:open={showLoginDialog}>
@@ -62,24 +63,24 @@
       <DialogHeader>
         <DialogTitle class="flex items-center gap-2">
           <Terminal class="w-5 h-5" />
-          Firebase Giriş Gerekli
+          {t("firebase.loginRequired")}
         </DialogTitle>
-        <DialogDescription>Firebase CLI ile terminal üzerinden giriş yapmanız gerekiyor.</DialogDescription>
+        <DialogDescription>{t("firebase.loginRequiredDescription")}</DialogDescription>
       </DialogHeader>
 
       <div class="space-y-4 py-4">
         <div class="p-4 bg-secondary rounded-xl">
-          <p class="text-sm text-muted-foreground mb-3">Terminal'de şu komutu çalıştırın:</p>
+          <p class="text-sm text-muted-foreground mb-3">{t("firebase.runInTerminal")}</p>
           <code class="block p-3 bg-black text-green-400 rounded-lg text-sm font-mono">firebase login</code>
         </div>
-        <p class="text-sm text-muted-foreground">Giriş yaptıktan sonra aşağıdaki butona tıklayarak durumu kontrol edin.</p>
+        <p class="text-sm text-muted-foreground">{t("firebase.checkAfterLogin")}</p>
       </div>
 
       <div class="flex gap-3">
-        <Button variant="outline" class="flex-1" onclick={() => (showLoginDialog = false)}>Kapat</Button>
+        <Button variant="outline" class="flex-1" onclick={() => (showLoginDialog = false)}>{t("common.close")}</Button>
         <Button class="flex-1 gap-2" onclick={() => { showLoginDialog = false; checkCurrentAccount(); }}>
           <RefreshCw class="w-4 h-4" />
-          Kontrol Et
+          {t("firebase.checkStatus")}
         </Button>
       </div>
     </DialogContent>

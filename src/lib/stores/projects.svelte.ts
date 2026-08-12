@@ -24,7 +24,7 @@ class ProjectsState {
     try {
       this.projects = await invoke<WorkspaceProject[]>("projects_list", { workspace });
     } catch (error) {
-      console.error("Projeler yüklenemedi:", error);
+      console.error("Failed to load projects:", error);
     } finally {
       this.loading = false;
     }
@@ -35,7 +35,7 @@ class ProjectsState {
       const result = await invoke<{ versions: Record<string, string> }>("projects_versions", { workspace });
       this.versions = result.versions;
     } catch (error) {
-      console.error("Versiyonlar yüklenemedi:", error);
+      console.error("Failed to load versions:", error);
     }
   }
 

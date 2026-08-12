@@ -16,7 +16,7 @@ pub struct WorkspaceProject {
     pub app_name: String,
 }
 
-/// `lib/workspace/types.ts`'teki `WorkspaceAdapter` interface'inin Rust karşılığı.
+/// Rust counterpart of the `WorkspaceAdapter` interface in `lib/workspace/types.ts`.
 pub trait WorkspaceAdapter {
     fn mode(&self) -> WorkspaceMode;
 
@@ -25,7 +25,7 @@ pub trait WorkspaceAdapter {
 
     fn get_active_project_id(&self, workspace: &str) -> Option<String>;
 
-    /// Bir projenin asset/config dosyalarının kök klasörü.
+    /// Root folder for a project's asset/config files.
     fn get_project_dir(&self, workspace: &str, project_id: &str) -> String;
 
     fn supports_multiple_projects(&self) -> bool;

@@ -4,6 +4,7 @@
   import { BADGE_OPTIONS, EVENT_STATE_LABELS } from "$lib/appstoreconnect/labels";
   import EventCreateForm from "./event-create-form.svelte";
   import EventEditor from "./event-editor.svelte";
+  import { i18n, t } from "$lib/i18n/index.svelte";
 
   let { workspacePath, bundleId }: { workspacePath: string; bundleId: string } = $props();
 
@@ -54,7 +55,7 @@
 
   async function handleDelete(id: string, e: MouseEvent) {
     e.stopPropagation();
-    if (!confirm("Bu etkinliği silmek istediğinize emin misiniz?")) return;
+    if (!confirm(t("events.confirmDelete"))) return;
     deletingId = id;
     try {
       await invoke("asc_event_delete", { workspace: workspacePath, id });
@@ -72,8 +73,8 @@
 {:else if configured === false}
   <div class="text-center py-16 text-muted-foreground">
     <CalendarClock class="w-10 h-10 mx-auto mb-3 opacity-30" />
-    <p class="text-sm">App Store Connect API bilgileri girilmemiş</p>
-    <p class="text-xs mt-1">Üst menüdeki "App Store Connect" butonundan API anahtarınızı ekleyin</p>
+    <p class="text-sm">{t("events.notConfigured")}</p>
+    <p class="text-xs mt-1">{t("events.notConfiguredHint")}</p>
   </div>
 {:else if typeof view === "object" && "edit" in view && appId}
   <EventEditor
@@ -93,12 +94,12 @@
 {:else}
   <div class="space-y-3">
     <div class="flex items-center justify-between">
-      <p class="text-xs font-medium text-muted-foreground">{events.length} etkinlik</p>
+      <p class="text-xs font-medium text-muted-foreground">{t("events.count", { count: events.length })}</p>
       <button
         onclick={() => (view = "create")}
         class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
       >
-        <Plus class="w-3.5 h-3.5" /> Yeni Etkinlik
+        <Plus class="w-3.5 h-3.5" /> {t("events.newEvent")}
       </button>
     </div>
 
@@ -112,7 +113,7 @@
     {#if events.length === 0 && !error}
       <div class="text-center py-16 text-muted-foreground">
         <CalendarClock class="w-10 h-10 mx-auto mb-3 opacity-30" />
-        <p class="text-sm">Henüz bir In-App Event oluşturulmamış</p>
+        <p class="text-sm">{t("events.noEvents")}</p>
       </div>
     {:else}
       <div class="space-y-2">
@@ -138,7 +139,7 @@
               <p class="text-xs text-muted-foreground mt-0.5 truncate">
                 {badgeLabel(ev.attributes.badge)}
                 {#if ev.attributes.territorySchedules?.[0]}
-                  · {new Date(ev.attributes.territorySchedules[0].eventStart).toLocaleDateString("tr-TR")} - {new Date(ev.attributes.territorySchedules[0].eventEnd).toLocaleDateString("tr-TR")}
+                  · {new Date(ev.attributes.territorySchedules[0].eventStart).toLocaleDateString(i18n.locale === "tr" ? "tr-TR" : "en-US")} - {new Date(ev.attributes.territorySchedules[0].eventEnd).toLocaleDateString(i18n.locale === "tr" ? "tr-TR" : "en-US")}
                 {/if}
               </p>
             </div>

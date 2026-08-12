@@ -4,6 +4,7 @@
   import { RefreshCw } from "@lucide/svelte";
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
+  import { t } from "$lib/i18n/index.svelte";
 
   interface SyncResult {
     updated: { id: string; old: string | null; new: string }[];
@@ -65,13 +66,14 @@
     <DialogHeader>
       <DialogTitle class="flex items-center gap-2">
         <RefreshCw class="w-5 h-5" />
-        Mağaza Versiyonlarını Senkronize Et
+        {t("syncVersions.title")}
       </DialogTitle>
     </DialogHeader>
 
     <p class="text-sm text-muted-foreground">
-      Tüm projelerin mevcut mağaza versiyonlarını Google Play ve App Store'dan çekip
-      <code class="text-xs bg-muted px-1 py-0.5 rounded">version.json</code> dosyalarını günceller.
+      {t("syncVersions.descriptionBefore")}
+      <code class="text-xs bg-muted px-1 py-0.5 rounded">version.json</code>
+      {t("syncVersions.descriptionAfter")}
     </p>
 
     {#if logs.length > 0}
@@ -86,19 +88,19 @@
 
     {#if result}
       <div class="rounded-md border bg-muted/30 px-4 py-3 space-y-2 text-sm">
-        <p class="font-medium">Sonuç</p>
+        <p class="font-medium">{t("syncVersions.result")}</p>
         <div class="grid grid-cols-3 gap-3 text-center">
           <div class="rounded-md bg-green-500/10 border border-green-500/20 py-2">
             <p class="text-lg font-bold text-green-500">{result.updated.length}</p>
-            <p class="text-xs text-muted-foreground">Güncellendi</p>
+            <p class="text-xs text-muted-foreground">{t("syncVersions.updated")}</p>
           </div>
           <div class="rounded-md bg-muted/50 border py-2">
             <p class="text-lg font-bold">{result.skipped.length}</p>
-            <p class="text-xs text-muted-foreground">Değişmedi</p>
+            <p class="text-xs text-muted-foreground">{t("syncVersions.unchanged")}</p>
           </div>
           <div class="rounded-md bg-red-500/10 border border-red-500/20 py-2">
             <p class="text-lg font-bold text-red-500">{result.failed.length}</p>
-            <p class="text-xs text-muted-foreground">Başarısız</p>
+            <p class="text-xs text-muted-foreground">{t("syncVersions.failed")}</p>
           </div>
         </div>
         {#if result.updated.length > 0}
@@ -117,10 +119,10 @@
     {/if}
 
     <div class="flex justify-end gap-2 pt-1">
-      <Button variant="outline" onclick={handleClose} disabled={running}>Kapat</Button>
+      <Button variant="outline" onclick={handleClose} disabled={running}>{t("common.close")}</Button>
       <Button onclick={handleStart} disabled={running}>
         <RefreshCw class={`w-4 h-4 mr-2 ${running ? "animate-spin" : ""}`} />
-        {running ? "Senkronize ediliyor..." : "Başlat"}
+        {running ? t("syncVersions.syncing") : t("syncVersions.start")}
       </Button>
     </div>
   </DialogContent>

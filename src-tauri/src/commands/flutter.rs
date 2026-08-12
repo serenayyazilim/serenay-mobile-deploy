@@ -45,7 +45,7 @@ pub async fn flutter_devices(refresh: bool) -> Result<Vec<FlutterDevice>, String
         Command::new("flutter").args(["devices", "--machine"]).output(),
     )
     .await
-    .map_err(|_| "Cihazlar alınamadı".to_string())?
+    .map_err(|_| "Failed to get devices".to_string())?
     .map_err(|e| e.to_string())?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -84,7 +84,7 @@ fn apply_project_setup(workspace_path: &str, project_id: &str, app: &AppHandle, 
     };
 
     if !project_folder.exists() {
-        log(format!("⚠️ Proje klasörü bulunamadı: {project_id}"));
+        log(format!("⚠️ Project folder not found: {project_id}"));
         return;
     }
 
@@ -96,19 +96,19 @@ fn apply_project_setup(workspace_path: &str, project_id: &str, app: &AppHandle, 
     let src_key_props = project_folder.join("key.properties");
     let dest_key_props = android_folder.join("key.properties");
     if src_key_props.exists() && std::fs::copy(&src_key_props, &dest_key_props).is_ok() {
-        log(format!("🔑 key.properties güncellendi ({project_id})"));
+        log(format!("🔑 key.properties updated ({project_id})"));
     } else {
-        log(format!("⚠️ key.properties bulunamadı: {project_id}"));
+        log(format!("⚠️ key.properties not found: {project_id}"));
     }
 
     let bundle_name = format!("{}.{}", boss_config.bundle_id_prefix, project_id);
     if xcode_gradle::patch_android_gradle(&android_folder, &bundle_name) {
-        log(format!("📦 applicationId güncellendi: {bundle_name}"));
+        log(format!("📦 applicationId updated: {bundle_name}"));
     }
 
     let ios_folder = root.join("ios");
     if xcode_gradle::patch_pbxproj(&ios_folder, &bundle_name, None) {
-        log(format!("🍎 iOS Bundle ID güncellendi: {bundle_name}"));
+        log(format!("🍎 iOS Bundle ID updated: {bundle_name}"));
     }
 
     let version_json_path = project_folder.join("version.json");
@@ -125,7 +125,7 @@ fn apply_project_setup(workspace_path: &str, project_id: &str, app: &AppHandle, 
                     .replace(&pubspec_content, format!("version: {version}"))
                     .to_string();
                 let _ = std::fs::write(&pubspec_path, pubspec_content);
-                log(format!("🔢 Versiyon ayarlandı: {version}"));
+                log(format!("🔢 Version set: {version}"));
             }
         }
     }
@@ -164,9 +164,9 @@ async fn run_logged_command(cmd: &str, args: &[&str], cwd: &str, app: &AppHandle
     child.wait().await.map(|s| s.success()).unwrap_or(false)
 }
 
-/// `POST /api/flutter/build` (SSE) karşılığı — proje kurulumu (sermobileboss modunda)
-/// + `flutterfire configure` + `flutter pub get` + `flutter run` akışını `flutter-build-event-{jobId}`
-/// event'i üzerinden stream eder.
+/// Equivalent of `POST /api/flutter/build` (SSE) — streams project setup (in sermobileboss
+/// mode) + `flutterfire configure` + `flutter pub get` + `flutter run` via the
+/// `flutter-build-event-{jobId}` event.
 #[tauri::command]
 pub async fn flutter_build_start(
     app: AppHandle,
@@ -188,21 +188,21 @@ pub async fn flutter_build_start(
             });
             if let Some(active_project_id) = active_project_id {
                 if !active_project_id.is_empty() {
-                    emit_log(&app, &format!("⚙️ Proje kurulumu yapılıyor: {active_project_id}"));
+                    emit_log(&app, &format!("⚙️ Setting up project: {active_project_id}"));
                     apply_project_setup(&workspace_path, &active_project_id, &app, &event_name);
                 }
             }
         }
 
-        emit_log(&app, "🔥 FlutterFire configure başlatılıyor...");
+        emit_log(&app, "🔥 Starting FlutterFire configure...");
         let configure_ok = run_logged_command("flutterfire", &["configure", "--yes"], &workspace_path, &app, &event_name).await;
-        emit_log(&app, if configure_ok { "✅ FlutterFire configure tamamlandı" } else { "⚠️ FlutterFire configure atlandı (hata veya zaten yapılandırılmış)" });
+        emit_log(&app, if configure_ok { "✅ FlutterFire configure completed" } else { "⚠️ FlutterFire configure skipped (error or already configured)" });
 
-        emit_log(&app, "📦 Dependencies yükleniyor...");
+        emit_log(&app, "📦 Installing dependencies...");
         run_logged_command("flutter", &["pub", "get"], &workspace_path, &app, &event_name).await;
-        emit_log(&app, "✅ Dependencies yüklendi");
+        emit_log(&app, "✅ Dependencies installed");
 
-        emit_log(&app, &format!("🚀 Uygulama başlatılıyor ({})...", device_id.as_deref().unwrap_or("varsayılan cihaz")));
+        emit_log(&app, &format!("🚀 Starting app ({})...", device_id.as_deref().unwrap_or("default device")));
 
         let mut run_args = vec!["run".to_string()];
         if let Some(id) = &device_id {
@@ -218,7 +218,7 @@ pub async fn flutter_build_start(
             .stderr(Stdio::piped())
             .spawn()
         else {
-            let _ = app.emit(&event_name, json!({ "type": "done", "success": false, "message": "flutter run başlatılamadı" }));
+            let _ = app.emit(&event_name, json!({ "type": "done", "success": false, "message": "Failed to start flutter run" }));
             return;
         };
 
@@ -249,7 +249,7 @@ pub async fn flutter_build_start(
 
         let status = child.wait().await;
         let success = status.map(|s| s.success()).unwrap_or(false);
-        let message = if success { "Uygulama başarıyla çalıştırıldı" } else { "Flutter run hata verdi" };
+        let message = if success { "App started successfully" } else { "Flutter run failed" };
         let _ = app.emit(&event_name, json!({ "type": "done", "success": success, "message": message }));
     });
 

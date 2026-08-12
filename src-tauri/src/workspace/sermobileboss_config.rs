@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-/// sermobileboss (çoklu alt-uygulama) modunda her workspace'in kendi bundle ID
-/// prefix'i ve Android keystore imzalama kimliği olur — bunlar kod içine
-/// gömülmez, bu dosyadan okunur/yazılır.
+/// In sermobileboss (multi sub-app) mode, each workspace has its own bundle ID
+/// prefix and Android keystore signing identity — these are not hardcoded,
+/// they are read from/written to this file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SermobilebossConfig {
     #[serde(rename = "bundleIdPrefix")]
@@ -65,4 +65,4 @@ pub fn build_keystore_dname(config: &SermobilebossConfig) -> String {
 }
 
 pub const MISSING_CONFIG_MESSAGE: &str =
-    "Bundle ID / keystore ayarları eksik. Üst menüdeki \"Workspace Ayarları\"ndan doldurun.";
+    "Bundle ID / keystore settings are missing. Fill them in via \"Workspace Settings\" in the top menu.";

@@ -19,6 +19,6 @@ export async function sendSlackNotification(
       duration,
     });
   } catch (err) {
-    console.error("Slack bildirimi gönderilemedi:", err);
+    console.error("Failed to send Slack notification:", err);
   }
 }

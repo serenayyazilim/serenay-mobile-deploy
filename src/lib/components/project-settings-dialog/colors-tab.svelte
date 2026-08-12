@@ -1,14 +1,16 @@
 <script lang="ts">
+  import { t } from "$lib/i18n/index.svelte";
+
   let { colors, onUpdateColor }: {
     colors: Record<string, string>;
     onUpdateColor: (key: string, value: string) => void;
   } = $props();
 
-  const rows = [
-    { key: "fallbackPrimary", label: "Primary Renk", description: "Uygulamanın ana tema rengi (fallbackPrimary)" },
-    { key: "fallbackAccent", label: "Accent Renk", description: "İkincil vurgu rengi (fallbackAccent)" },
-    { key: "fallbackDark", label: "Dark Renk", description: "Koyu tema rengi (fallbackDark)" },
-  ];
+  const rows = $derived([
+    { key: "fallbackPrimary", label: t("colorsTab.primaryColor"), description: t("colorsTab.primaryColorDescription") },
+    { key: "fallbackAccent", label: t("colorsTab.accentColor"), description: t("colorsTab.accentColorDescription") },
+    { key: "fallbackDark", label: t("colorsTab.darkColor"), description: t("colorsTab.darkColorDescription") },
+  ]);
 
   function handleTextChange(key: string, raw: string) {
     let v = raw.toUpperCase();
@@ -18,7 +20,7 @@
 </script>
 
 <div class="space-y-3">
-  <p class="text-xs text-muted-foreground pb-1">Flutter uygulamasındaki renk sabitlerini düzenleyin (colors.dart)</p>
+  <p class="text-xs text-muted-foreground pb-1">{t("colorsTab.description")}</p>
 
   {#each rows as row (row.key)}
     {@const value = colors[row.key] || "#FFFFFF"}
@@ -50,7 +52,7 @@
   {/each}
 
   <div class="p-4 rounded-xl bg-secondary/30 ring-1 ring-border/30">
-    <p class="text-xs text-muted-foreground mb-3">Önizleme</p>
+    <p class="text-xs text-muted-foreground mb-3">{t("colorsTab.preview")}</p>
     <div class="flex gap-3">
       {#each rows as row (row.key)}
         <div class="flex-1 flex flex-col items-center gap-1.5">

@@ -2,6 +2,7 @@
   import { CircleX } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from "$lib/components/ui/dialog";
+  import { t } from "$lib/i18n/index.svelte";
 
   let { open = $bindable(false), title, logs }: { open: boolean; title: string; logs: string[] } = $props();
 
@@ -32,8 +33,8 @@
     </div>
 
     <div class="flex justify-end gap-2 pt-4">
-      <Button variant="outline" onclick={copyLogs}>Kopyala</Button>
-      <Button onclick={() => (open = false)}>Kapat</Button>
+      <Button variant="outline" onclick={copyLogs}>{t("common.copy")}</Button>
+      <Button onclick={() => (open = false)}>{t("common.close")}</Button>
     </div>
   </DialogContent>
 </Dialog>

@@ -24,12 +24,12 @@ async fn stream_lines<R: tokio::io::AsyncRead + Unpin>(stream: R, app: AppHandle
     }
 }
 
-/// `POST /api/sync-versions` (SSE) karşılığı — Google Play Developer API + fastlane
-/// `fetch_all_versions` lane'i ile mağazadaki gerçek versiyonları çekip yerel
-/// `version.json`'ları senkronize eden `scripts/sync_versions.rb`'yi çalıştırır.
+/// Equivalent of `POST /api/sync-versions` (SSE) — runs `scripts/sync_versions.rb`,
+/// which fetches the real store versions via the Google Play Developer API + the fastlane
+/// `fetch_all_versions` lane, and syncs them into local `version.json` files.
 #[tauri::command]
 pub async fn sync_versions_start(app: AppHandle, workspace_path: String) -> Result<String, String> {
-    let script_path = find_script_path(&app, "sync_versions.rb").ok_or("sync_versions.rb bulunamadı")?;
+    let script_path = find_script_path(&app, "sync_versions.rb").ok_or("sync_versions.rb not found")?;
 
     let job_id = uuid::Uuid::new_v4().to_string();
     let event_name = format!("sync-versions-event-{job_id}");
@@ -42,8 +42,8 @@ pub async fn sync_versions_start(app: AppHandle, workspace_path: String) -> Resu
         .spawn()
         .map_err(|e| e.to_string())?;
 
-    let stdout = child.stdout.take().ok_or("stdout alınamadı")?;
-    let stderr = child.stderr.take().ok_or("stderr alınamadı")?;
+    let stdout = child.stdout.take().ok_or("Failed to get stdout")?;
+    let stderr = child.stderr.take().ok_or("Failed to get stderr")?;
 
     tokio::spawn(stream_lines(stdout, app.clone(), event_name.clone(), false));
     tokio::spawn(stream_lines(stderr, app.clone(), event_name.clone(), true));

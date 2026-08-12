@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Search } from "@lucide/svelte";
   import { Input } from "$lib/components/ui/input";
+  import { t } from "$lib/i18n/index.svelte";
 
   let { value = $bindable("") }: { value: string } = $props();
 </script>
@@ -10,7 +11,7 @@
   <Input
     type="text"
     bind:value
-    placeholder="Ara..."
+    placeholder={t("common.search")}
     class="pl-11 h-12 rounded-2xl bg-secondary/30 border-0 focus-visible:ring-1 focus-visible:ring-primary/50"
   />
 </div>

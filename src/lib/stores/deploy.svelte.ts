@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { detectProgressFromLog } from "$lib/deploy-utils";
 import { sendSlackNotification } from "$lib/slack";
 import type { WorkspaceProject } from "$lib/stores/projects.svelte";
+import { t } from "$lib/i18n/index.svelte";
 
 type DeployStatus = "idle" | "activating" | "deploying" | "success" | "error";
 type DeployPlatform = "ios" | "android" | "all";
@@ -97,13 +98,13 @@ class DeployState {
 
     try {
       this.deployStatus = "activating";
-      this.deployMessage = "Proje aktif ediliyor...";
+      this.deployMessage = t("deploy.activatingProject");
       this.deployProgress = 20;
 
       await invoke("project_activate", { workspacePath, projectId: project.id, backup: false });
 
       this.deployStatus = "deploying";
-      this.deployMessage = "Deploy başlatılıyor...";
+      this.deployMessage = t("deploy.starting");
       this.deployProgress = 30;
 
       const processId = await invoke<string>("deploy_start", { platform, workspacePath, whatsNew });
@@ -116,7 +117,7 @@ class DeployState {
             this.twoFactorPrompt = data.prompt || "";
             this.twoFactorOpen = true;
             this.deployStatus = "deploying";
-            this.deployMessage = "Apple kimlik doğrulaması bekleniyor...";
+            this.deployMessage = t("deploy.waitingForAppleAuth");
 
             const code = await new Promise<string | null>((r) => {
               this.twoFactorResolve = r;
@@ -124,7 +125,7 @@ class DeployState {
 
             if (code) {
               await invoke("deploy_submit_two_factor_code", { processId, code }).catch(() => {});
-              this.deployMessage = "Doğrulama kodu gönderildi...";
+              this.deployMessage = t("deploy.codeSubmitted");
             }
           } else if (data.type === "log") {
             const msg = data.message || "";
@@ -142,7 +143,7 @@ class DeployState {
             if (data.success) {
               resolve();
             } else {
-              reject(new Error(lastError || "Deploy başarısız"));
+              reject(new Error(lastError || t("deploy.failed")));
             }
           }
         }).then((fn) => (unlisten = fn));
@@ -151,7 +152,7 @@ class DeployState {
       this.stopElapsedTimer();
       const duration = Math.round((Date.now() - this.startTime) / 1000);
       this.deployStatus = "success";
-      this.deployMessage = "Tamamlandı";
+      this.deployMessage = t("deploy.completed");
       this.deployProgress = 100;
       await onVersionRefresh();
       sendSlackNotification(project, true, projectVersions[project.id] || "19.0.x", undefined, duration);
@@ -165,7 +166,7 @@ class DeployState {
       this.deployMessage = errorMsg;
 
       if (!this.errorDialogOpen) {
-        this.errorTitle = `Deploy Hatası - ${project.appName}`;
+        this.errorTitle = t("deploy.errorTitle", { name: project.appName });
         this.errorLogs = allLogs.length > 0 ? allLogs : [errorMsg];
         this.errorDialogOpen = true;
       }

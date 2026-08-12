@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
-# Tüm projelerin mağaza versiyonlarını çekip version.json dosyalarını günceller.
-# Kullanım: ruby sync_versions.rb /path/to/sermobilepro
+# Fetches store versions for all projects and updates their version.json files.
+# Usage: ruby sync_versions.rb /path/to/sermobilepro
 
 require 'json'
 require 'fileutils'
@@ -23,7 +23,7 @@ PROJECTS_PATH  = File.join(workspace, 'lib/conf/sermobplus-projects')
 ANDROID_DIR    = File.join(workspace, 'android')
 IOS_APPFILE    = File.join(workspace, 'ios/fastlane/Appfile')
 
-# ─── Yardımcılar ───────────────────────────────────────────────────────────────
+# ─── Helpers ────────────────────────────────────────────────────────────────
 
 def log(emoji, msg)  = puts("#{emoji} #{msg}")
 def err(msg)         = STDERR.puts("❌ #{msg}")
@@ -48,31 +48,31 @@ def read_current_version(project_id)
   JSON.parse(File.read(file))['version'] rescue nil
 end
 
-# ─── Proje listesi ─────────────────────────────────────────────────────────────
+# ─── Project list ───────────────────────────────────────────────────────────
 
 unless File.exist?(PROJECTS_FILE)
-  err("sermobileboss_projects.json bulunamadı: #{PROJECTS_FILE}")
+  err("sermobileboss_projects.json not found: #{PROJECTS_FILE}")
   exit 1
 end
 
 projects = JSON.parse(File.read(PROJECTS_FILE))
-log("📋", "#{projects.size} proje bulundu")
+log("📋", "#{projects.size} projects found")
 
 results = { updated: [], skipped: [], failed: [] }
 
-# ─── Android — Google Play API ─────────────────────────────────────────────────
+# ─── Android — Google Play API ───────────────────────────────────────────────
 
-log("🤖", "Android — Google Play versiyonları çekiliyor...")
+log("🤖", "Android — fetching Google Play versions...")
 
 android_versions = {}
 begin
-  raise "Bundle ID prefix ayarlanmamış: #{CONFIG_FILE} (Workspace Ayarları'ndan doldurun)" unless BUNDLE_ID_PREFIX
+  raise "Bundle ID prefix not set: #{CONFIG_FILE} (fill it in via Workspace Settings)" unless BUNDLE_ID_PREFIX
 
   require 'google/apis/androidpublisher_v3'
   require 'googleauth'
 
   json_key = Dir[File.join(ANDROID_DIR, 'api-*.json')].first
-  raise "Google Play API key bulunamadı: #{ANDROID_DIR}/api-*.json" unless json_key
+  raise "Google Play API key not found: #{ANDROID_DIR}/api-*.json" unless json_key
 
   log("🔑", "API key: #{File.basename(json_key)}")
 
@@ -88,7 +88,7 @@ begin
       edit  = service.insert_edit(package)
       tracks = service.list_edit_tracks(package, edit.id)
 
-      # Production track'ten en güncel completed release'i bul
+      # Find the most recent completed release on the production track
       production = tracks.tracks&.find { |t| t.track == 'production' }
       release    = production&.releases&.find { |r| r.status == 'completed' } ||
                    production&.releases&.first
@@ -97,7 +97,7 @@ begin
         raw_name     = release.name.to_s.strip
         version_code = release.version_codes.first.to_i
 
-        # "54700000 (5.4.7)" veya "1 (1.0.0)" gibi formatlardan X.Y.Z'yi çıkar
+        # Extract X.Y.Z from formats like "54700000 (5.4.7)" or "1 (1.0.0)"
         version_name = if raw_name =~ /\((\d+\.\d+[\.\d]*)\)/
           $1
         elsif raw_name =~ /^(\d+\.\d+[\.\d]*)/
@@ -110,7 +110,7 @@ begin
         android_versions[project_id] = version_str
         log("  ✅", "#{project_id}: #{version_str}")
       else
-        log("  ⚠️", "#{project_id}: production release bulunamadı")
+        log("  ⚠️", "#{project_id}: no production release found")
       end
 
       begin; service.delete_edit(package, edit.id); rescue; end
@@ -119,12 +119,12 @@ begin
     end
   end
 rescue => e
-  err("Google Play API başlatılamadı: #{e.message}")
+  err("Failed to initialize Google Play API: #{e.message}")
 end
 
-# ─── iOS — App Store Connect (bundle exec fastlane) ───────────────────────────
+# ─── iOS — App Store Connect (bundle exec fastlane) ──────────────────────────
 
-log("🍎", "iOS — App Store Connect versiyonları çekiliyor...")
+log("🍎", "iOS — fetching App Store Connect versions...")
 
 ios_versions = {}
 ios_dir = File.join(workspace, 'ios')
@@ -135,25 +135,25 @@ if Dir.exist?(ios_dir)
     match  = output.match(/IOS_VERSIONS=(\{.+\})/)
     if match
       ios_versions = JSON.parse(match[1])
-      log("  ✅", "#{ios_versions.size} uygulama bulundu")
+      log("  ✅", "#{ios_versions.size} apps found")
     else
-      # Hata çıktısını özetle
+      # Summarize the error output
       error_line = output.lines.select { |l| l.include?('Error') || l.include?('error') || l.include?('[!]') }.first
-      log("  ⚠️", "iOS versiyon çekme başarısız: #{error_line&.strip || 'çıktı parse edilemedi'}")
+      log("  ⚠️", "Failed to fetch iOS versions: #{error_line&.strip || 'could not parse output'}")
     end
   rescue => e
-    err("iOS fastlane çalıştırılamadı: #{e.message}")
+    err("Failed to run iOS fastlane: #{e.message}")
   end
 else
-  log("  ⚠️", "ios klasörü bulunamadı: #{ios_dir}")
+  log("  ⚠️", "ios folder not found: #{ios_dir}")
 end
 
-# ─── version.json güncelle ─────────────────────────────────────────────────────
+# ─── Update version.json ─────────────────────────────────────────────────────
 
-log("💾", "version.json dosyaları güncelleniyor...")
+log("💾", "Updating version.json files...")
 
 projects.each_key do |project_id|
-  # Android öncelikli (version_code doğru gelir), fallback iOS
+  # Android takes priority (version_code is accurate), fallback to iOS
   version_str = android_versions[project_id] || ios_versions[project_id]
 
   unless version_str
@@ -165,7 +165,7 @@ projects.each_key do |project_id|
 
   if current == version_str
     results[:skipped] << project_id
-    log("  ⏭️",  "#{project_id}: değişmedi (#{version_str})")
+    log("  ⏭️",  "#{project_id}: unchanged (#{version_str})")
     next
   end
 
@@ -174,15 +174,15 @@ projects.each_key do |project_id|
     log("  💾", "#{project_id}: #{current || '?'} → #{version_str}")
   else
     results[:failed] << project_id
-    err("#{project_id}: klasör bulunamadı")
+    err("#{project_id}: folder not found")
   end
 end
 
-# ─── Özet ──────────────────────────────────────────────────────────────────────
+# ─── Summary ──────────────────────────────────────────────────────────────────
 
-log("📊", "Tamamlandı:")
-log("  ✅", "Güncellendi: #{results[:updated].size}")
-log("  ⏭️",  "Değişmedi:   #{results[:skipped].size}")
-log("  ❌", "Başarısız:   #{results[:failed].size}")
+log("📊", "Completed:")
+log("  ✅", "Updated:   #{results[:updated].size}")
+log("  ⏭️",  "Unchanged: #{results[:skipped].size}")
+log("  ❌", "Failed:    #{results[:failed].size}")
 
 puts "SYNC_RESULT=#{JSON.generate(results)}"

@@ -26,7 +26,7 @@ async fn run_shell(command: &str) -> Result<ExecOutput, String> {
     })
 }
 
-/// `firebase` CLI çağrısını çalıştırır; 429/kota hatalarında (maks 3 deneme, 20sn ara) tekrar dener.
+/// Runs a `firebase` CLI call, retrying on 429/quota errors (up to 3 attempts, 20s apart).
 pub async fn exec_with_retry(command: &str, max_retries: u32, retry_delay: Duration) -> Result<ExecOutput, String> {
     let mut last_output: Option<ExecOutput> = None;
     for attempt in 1..=max_retries {

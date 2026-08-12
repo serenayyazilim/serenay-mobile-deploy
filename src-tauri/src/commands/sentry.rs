@@ -41,7 +41,7 @@ pub async fn sentry_check() -> SentryCheckResult {
         return SentryCheckResult {
             authenticated: false,
             org: None,
-            message: Some("Sentry auth token bulunamadı. ~/.sentryclirc veya SENTRY_AUTH_TOKEN ayarlayın.".to_string()),
+            message: Some("Sentry auth token not found. Set ~/.sentryclirc or SENTRY_AUTH_TOKEN.".to_string()),
         };
     };
 
@@ -66,7 +66,7 @@ pub async fn sentry_check() -> SentryCheckResult {
                 return SentryCheckResult {
                     authenticated: false,
                     org: None,
-                    message: Some("Sentry token geçersiz veya süresi dolmuş.".to_string()),
+                    message: Some("Sentry token is invalid or expired.".to_string()),
                 };
             }
         }
@@ -100,7 +100,7 @@ pub async fn sentry_create_project(project_id: String, org_slug: String) -> Resu
     let Some(token) = token else {
         return Ok(SentryCreateResult {
             success: false,
-            message: "Sentry auth token bulunamadı. ~/.sentryclirc veya SENTRY_AUTH_TOKEN ayarlayın.".to_string(),
+            message: "Sentry auth token not found. Set ~/.sentryclirc or SENTRY_AUTH_TOKEN.".to_string(),
             dsn: String::new(),
         });
     };
@@ -115,7 +115,7 @@ pub async fn sentry_create_project(project_id: String, org_slug: String) -> Resu
     let Some(team_slug) = team_slug else {
         return Ok(SentryCreateResult {
             success: false,
-            message: "Organizasyonda team bulunamadı. Sentry dashboard'dan en az bir team oluşturun.".to_string(),
+            message: "No team found in the organization. Create at least one team in the Sentry dashboard.".to_string(),
             dsn: String::new(),
         });
     };
@@ -134,7 +134,7 @@ pub async fn sentry_create_project(project_id: String, org_slug: String) -> Resu
             .or_else(|| create_data.get("slug"))
             .map(|v| v.to_string())
             .unwrap_or_else(|| create_data.to_string());
-        return Ok(SentryCreateResult { success: false, message: format!("Sentry projesi oluşturulamadı: {detail}"), dsn: String::new() });
+        return Ok(SentryCreateResult { success: false, message: format!("Failed to create Sentry project: {detail}"), dsn: String::new() });
     }
 
     let (keys_ok, keys_data) = sentry_api(reqwest::Method::GET, &format!("/projects/{org_slug}/{project_id}/keys/"), &token, None).await?;
@@ -154,10 +154,10 @@ pub async fn sentry_create_project(project_id: String, org_slug: String) -> Resu
     if dsn.is_empty() {
         return Ok(SentryCreateResult {
             success: true,
-            message: "Sentry projesi oluşturuldu ancak DSN alınamadı. Sentry dashboard'dan kopyalayın.".to_string(),
+            message: "Sentry project created but the DSN could not be retrieved. Copy it from the Sentry dashboard.".to_string(),
             dsn: String::new(),
         });
     }
 
-    Ok(SentryCreateResult { success: true, message: "Sentry projesi oluşturuldu ve DSN alındı".to_string(), dsn })
+    Ok(SentryCreateResult { success: true, message: "Sentry project created and DSN retrieved".to_string(), dsn })
 }

@@ -3,6 +3,7 @@
   import { CalendarClock, LoaderCircle, Check, CircleAlert, KeyRound } from "@lucide/svelte";
   import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
+  import { t } from "$lib/i18n/index.svelte";
 
   let { workspacePath }: { workspacePath: string } = $props();
 
@@ -38,7 +39,7 @@
     result = null;
     try {
       await invoke("asc_config_save", { workspace: workspacePath, issuerId, keyId, privateKey });
-      result = { success: true, message: "Bağlantı doğrulandı ve kaydedildi" };
+      result = { success: true, message: t("ascSettings.verifiedAndSaved") };
       configured = true;
       privateKey = "";
       setTimeout(() => (showDialog = false), 900);
@@ -91,8 +92,7 @@
         App Store Connect API
       </DialogTitle>
       <DialogDescription>
-        In-App Events (uygulama içi etkinlik) yönetimi için App Store Connect API anahtarınızı girin.
-        Users and Access &gt; Integrations &gt; App Store Connect API üzerinden oluşturabilirsiniz.
+        {t("ascSettings.description")}
       </DialogDescription>
     </DialogHeader>
 
@@ -117,7 +117,7 @@
       </div>
       <div class="space-y-1">
         <label class="text-xs text-muted-foreground" for="asc-private-key">
-          Private Key (.p8 içeriği) {#if configured}<span class="text-green-600">— kayıtlı, değiştirmek için yapıştırın</span>{/if}
+          {t("ascSettings.privateKey")} {#if configured}<span class="text-green-600">{t("ascSettings.privateKeyStored")}</span>{/if}
         </label>
         <textarea
           id="asc-private-key"
@@ -143,13 +143,13 @@
     <div class="flex gap-3">
       {#if configured}
         <Button variant="outline" class="text-red-600 hover:text-red-700" onclick={handleRemove} disabled={saving}>
-          Kaldır
+          {t("common.remove")}
         </Button>
       {/if}
-      <Button variant="outline" class="flex-1" onclick={() => (showDialog = false)}>Kapat</Button>
+      <Button variant="outline" class="flex-1" onclick={() => (showDialog = false)}>{t("common.close")}</Button>
       <Button class="flex-1 gap-2" onclick={handleSave} disabled={saving || !issuerId || !keyId || (!privateKey && !configured)}>
         {#if saving}<LoaderCircle class="w-4 h-4 animate-spin" />{/if}
-        Kaydet ve Doğrula
+        {t("ascSettings.saveAndVerify")}
       </Button>
     </div>
   </DialogContent>

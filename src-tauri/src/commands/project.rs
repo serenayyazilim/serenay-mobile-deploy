@@ -56,10 +56,10 @@ pub async fn project_create(params: CreateProjectParams) -> Result<String, Strin
     let bg_color = params.bg_color.clone().unwrap_or_else(|| "#FFFFFF".to_string());
 
     let boss_config = read_sermobileboss_config(&workspace_path)
-        .ok_or("Bundle ID / keystore ayarları eksik. Üst menüdeki \"Workspace Ayarları\"ndan doldurun.")?;
+        .ok_or("Bundle ID / keystore settings are missing. Fill them in via \"Workspace Settings\" in the top menu.")?;
 
     if !Regex::new(r"^[a-z0-9]+$").unwrap().is_match(&project_id) {
-        return Err("Proje ID sadece küçük harf ve rakam içerebilir".to_string());
+        return Err("Project ID may only contain lowercase letters and digits".to_string());
     }
 
     let root = Path::new(&workspace_path);
@@ -70,18 +70,18 @@ pub async fn project_create(params: CreateProjectParams) -> Result<String, Strin
         .unwrap_or_default();
 
     if projects_data.contains_key(&project_id) && !params.resume {
-        return Err("Bu proje ID zaten mevcut".to_string());
+        return Err("This project ID already exists".to_string());
     }
 
     let projects_folder = root.join("lib/conf/sermobplus-projects");
     let project_folder = projects_folder.join(&project_id);
 
-    // 1. Proje klasörleri
+    // 1. Project folders
     std::fs::create_dir_all(project_folder.join("Launch")).map_err(|e| e.to_string())?;
     std::fs::create_dir_all(project_folder.join("Store")).map_err(|e| e.to_string())?;
     std::fs::create_dir_all(project_folder.join("Graphic")).map_err(|e| e.to_string())?;
 
-    // 2. Icon dosyaları
+    // 2. Icon files
     let launchers_dir = root.join("assets/launchers");
     std::fs::create_dir_all(&launchers_dir).map_err(|e| e.to_string())?;
 
@@ -105,7 +105,7 @@ pub async fn project_create(params: CreateProjectParams) -> Result<String, Strin
     copy_if_present(&params.firebase_android_path, &project_folder.join("google-services.json")).map_err(|e| e.to_string())?;
     copy_if_present(&params.firebase_ios_path, &project_folder.join("GoogleService-Info.plist")).map_err(|e| e.to_string())?;
 
-    // 4. serconf.dart template kopyala
+    // 4. Copy serconf.dart template
     let active_project = std::fs::read_to_string(root.join("sermobileboss.txt")).ok().map(|s| s.trim().to_string());
     let mut template_project = active_project.clone();
     if template_project.as_deref().map(|p| !projects_folder.join(p).join("serconf.dart").exists()).unwrap_or(true) {
@@ -130,7 +130,7 @@ pub async fn project_create(params: CreateProjectParams) -> Result<String, Strin
         std::fs::write(&colors_path, content).map_err(|e| e.to_string())?;
     }
 
-    // 4b. serconf alanlarını uygula
+    // 4b. Apply serconf fields
     if let Some(mut serconf) = params.serconf {
         if serconf_path.exists() {
             let mut content = std::fs::read_to_string(&serconf_path).map_err(|e| e.to_string())?;
@@ -194,7 +194,7 @@ pub async fn project_create(params: CreateProjectParams) -> Result<String, Strin
     );
     std::fs::write(root.join(format!("icons-{project_id}.yaml")), icons_yaml).map_err(|e| e.to_string())?;
 
-    // 5.5. Başlangıç versiyonu
+    // 5.5. Initial version
     let version_path = project_folder.join("version.json");
     let mut version_data: serde_json::Map<String, Value> = std::fs::read_to_string(&version_path)
         .ok()
@@ -203,11 +203,11 @@ pub async fn project_create(params: CreateProjectParams) -> Result<String, Strin
     version_data.insert("version".to_string(), Value::String("1.0.0+1".to_string()));
     std::fs::write(&version_path, serde_json::to_string_pretty(&version_data).unwrap()).map_err(|e| e.to_string())?;
 
-    // 6. sermobileboss_projects.json güncelle
+    // 6. Update sermobileboss_projects.json
     projects_data.insert(project_id.clone(), app_name.clone());
     std::fs::write(&projects_json_path, serde_json::to_string_pretty(&projects_data).unwrap()).map_err(|e| e.to_string())?;
 
-    // 7. Android keystore (yoksa)
+    // 7. Android keystore (if missing)
     let keystore_path = project_folder.join(format!("{project_id}.keystore"));
     let keystore_alias = format!("{}{}", boss_config.keystore_alias_prefix, project_id);
     let keystore_password = boss_config.keystore_password.clone();
@@ -259,7 +259,7 @@ pub async fn project_create(params: CreateProjectParams) -> Result<String, Strin
             .await;
     }
 
-    Ok(format!("{app_name} ({project_id}) projesi başarıyla oluşturuldu"))
+    Ok(format!("{app_name} ({project_id}) project created successfully"))
 }
 
 fn copy_file_content(src: &Path, dest: &Path) -> bool {
@@ -314,14 +314,14 @@ pub struct ActivateResult {
     pub details: ActivateDetails,
 }
 
-/// `app/api/project/activate/route.ts`'in portu — bir alt-uygulamayı aktif hale getirip
-/// native (Android/Gradle, iOS/pbxproj) proje dosyalarını regex ile in-place patch eder.
-/// Davranış paritesi kritik: regex sırası ve pattern'ler orijinaliyle birebir aynı olmalı.
+/// Port of `app/api/project/activate/route.ts` — activates a sub-app and patches
+/// native (Android/Gradle, iOS/pbxproj) project files in place via regex.
+/// Behavioral parity is critical: the regex order and patterns must exactly match the original.
 #[tauri::command]
 pub async fn project_activate(workspace_path: String, project_id: String, backup: bool) -> Result<ActivateResult, String> {
     if detect_workspace_mode(&workspace_path) == WorkspaceMode::Generic {
         return Ok(ActivateResult {
-            message: "Proje zaten aktif".to_string(),
+            message: "Project is already active".to_string(),
             details: ActivateDetails {
                 colors_copied: false, config_copied: false, firebase_options_generated: false, splash_generated: false,
                 android_keys_copied: false, firebase_configured: false, android_manifest_updated: false,
@@ -331,7 +331,7 @@ pub async fn project_activate(workspace_path: String, project_id: String, backup
     }
 
     let boss_config = read_sermobileboss_config(&workspace_path)
-        .ok_or("Bundle ID / keystore ayarları eksik. Üst menüdeki \"Workspace Ayarları\"ndan doldurun.")?;
+        .ok_or("Bundle ID / keystore settings are missing. Fill them in via \"Workspace Settings\" in the top menu.")?;
 
     let root = Path::new(&workspace_path);
     let config_folder = root.join("lib/conf");
@@ -343,7 +343,7 @@ pub async fn project_activate(workspace_path: String, project_id: String, backup
     let project_folder = projects_folder.join(&project_id);
 
     if !project_folder.exists() {
-        return Err("Proje klasörü bulunamadı".to_string());
+        return Err("Project folder not found".to_string());
     }
 
     let mut details = ActivateDetails {
@@ -352,7 +352,7 @@ pub async fn project_activate(workspace_path: String, project_id: String, backup
         android_gradle_updated: false, ios_bundle_updated: false, launcher_icons_updated: false,
     };
 
-    // 1. Eski aktif projeyi backup + pubspec versiyonunu kaydet
+    // 1. Back up the previously active project + save the pubspec version
     let active_project = std::fs::read_to_string(&data_file).ok().map(|s| s.trim().to_string());
     let pubspec_path = root.join("pubspec.yaml");
 
@@ -385,14 +385,14 @@ pub async fn project_activate(workspace_path: String, project_id: String, backup
         }
     }
 
-    // 2-3. colors.dart / serconf.dart kopyala
+    // 2-3. Copy colors.dart / serconf.dart
     details.colors_copied = copy_file_content(&project_folder.join("colors.dart"), &config_folder.join("colors.dart"));
     details.config_copied = copy_file_content(&project_folder.join("serconf.dart"), &config_folder.join("serconf.dart"));
 
-    // 4. Aktif proje pointer'ı
+    // 4. Active project pointer
     std::fs::write(&data_file, &project_id).map_err(|e| e.to_string())?;
 
-    // 4.5. pubspec.yaml versiyonu + Generated.xcconfig senkronu
+    // 4.5. Sync pubspec.yaml version + Generated.xcconfig
     let saved_version = read_project_version(&project_folder);
     if let Some(version) = &saved_version {
         if pubspec_path.exists() {
@@ -453,10 +453,10 @@ pub async fn project_activate(workspace_path: String, project_id: String, backup
         details.splash_generated = output.map(|o| o.status.success()).unwrap_or(false);
     }
 
-    // 6. Android key.properties
+    // 6. Android key.properties (copy)
     details.android_keys_copied = copy_file(&project_folder.join("key.properties"), &android_folder.join("key.properties"));
 
-    // 7. Firebase dosyaları
+    // 7. Firebase files
     let google_services_updated = copy_file(&project_folder.join("google-services.json"), &android_folder.join("app/google-services.json"));
     let google_service_info_updated = copy_file(&project_folder.join("GoogleService-Info.plist"), &ios_folder.join("Runner/GoogleService-Info.plist"));
     details.firebase_configured = google_services_updated || google_service_info_updated;
@@ -479,7 +479,7 @@ pub async fn project_activate(workspace_path: String, project_id: String, backup
     details.ios_bundle_updated = xcode_gradle::patch_pbxproj(&ios_folder, &bundle_name, saved_version.as_deref());
     xcode_gradle::patch_info_plist(&ios_folder, &display_name, saved_version.as_deref());
 
-    // 11. flutter_launcher_icons (arka planda, sonucu beklenmiyor — orijinal davranışla aynı)
+    // 11. flutter_launcher_icons (runs in the background, result not awaited — matches original behavior)
     let icons_config_path = root.join(format!("icons-{project_id}.yaml"));
     if icons_config_path.exists() {
         let workspace_path_clone = workspace_path.clone();
@@ -494,5 +494,5 @@ pub async fn project_activate(workspace_path: String, project_id: String, backup
         details.launcher_icons_updated = true;
     }
 
-    Ok(ActivateResult { message: format!("{project_id} projesi aktif edildi"), details })
+    Ok(ActivateResult { message: format!("{project_id} project activated"), details })
 }

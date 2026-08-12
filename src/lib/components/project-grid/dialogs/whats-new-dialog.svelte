@@ -4,6 +4,7 @@
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
   import type { WorkspaceProject } from "$lib/stores/projects.svelte";
+  import { t } from "$lib/i18n/index.svelte";
 
   type DeployPlatform = "ios" | "android" | "all";
 
@@ -15,26 +16,26 @@
     onCancel: () => void;
   } = $props();
 
-  const FLAG_TO_LANG: Record<string, { flag: string; label: string }> = {
-    ENGLISH: { flag: "🇺🇸", label: "İngilizce" },
-    RUSSIAN: { flag: "🇷🇺", label: "Rusça" },
-    FRENCH: { flag: "🇫🇷", label: "Fransızca" },
-    ITALIAN: { flag: "🇮🇹", label: "İtalyanca" },
-    ARABIC: { flag: "🇸🇦", label: "Arapça" },
-    SPANISH: { flag: "🇪🇸", label: "İspanyolca" },
-    KAZAKH: { flag: "🇰🇿", label: "Kazakça" },
+  const FLAG_TO_LANG: Record<string, { flag: string; labelKey: string }> = {
+    ENGLISH: { flag: "🇺🇸", labelKey: "language.english" },
+    RUSSIAN: { flag: "🇷🇺", labelKey: "language.russian" },
+    FRENCH: { flag: "🇫🇷", labelKey: "language.french" },
+    ITALIAN: { flag: "🇮🇹", labelKey: "language.italian" },
+    ARABIC: { flag: "🇸🇦", labelKey: "language.arabic" },
+    SPANISH: { flag: "🇪🇸", labelKey: "language.spanish" },
+    KAZAKH: { flag: "🇰🇿", labelKey: "language.kazakh" },
   };
 
   let text = $state("");
   let platform = $state<DeployPlatform>("all");
-  let languages = $state<{ flag: string; label: string }[]>([]);
+  let languages = $state<{ flag: string; labelKey: string }[]>([]);
 
   $effect(() => {
     if (!open || !project || !workspacePath) return;
     languages = [];
     invoke<Record<string, string | number | boolean>>("config_serconf_get", { workspace: workspacePath, projectId: project.id })
       .then((config) => {
-        const result = [{ flag: "🇹🇷", label: "Türkçe" }];
+        const result = [{ flag: "🇹🇷", labelKey: "language.turkish" }];
         for (const [key, meta] of Object.entries(FLAG_TO_LANG)) {
           if (config[key] === true) result.push(meta);
         }
@@ -44,7 +45,7 @@
   });
 
   function handleConfirm() {
-    onConfirm(text.trim() || "Hata düzeltmeleri ve performans iyileştirmeleri.", platform);
+    onConfirm(text.trim() || t("whatsNew.defaultText"), platform);
     text = "";
     platform = "all";
   }
@@ -55,10 +56,10 @@
     onCancel();
   }
 
-  const platformOptions: { value: DeployPlatform; label: string }[] = [
-    { value: "ios", label: "Sadece iOS" },
-    { value: "android", label: "Sadece Android" },
-    { value: "all", label: "İkisi de" },
+  const platformOptions: { value: DeployPlatform; labelKey: string }[] = [
+    { value: "ios", labelKey: "whatsNew.iosOnly" },
+    { value: "android", labelKey: "whatsNew.androidOnly" },
+    { value: "all", labelKey: "whatsNew.both" },
   ];
 </script>
 
@@ -73,11 +74,11 @@
 
     <div class="space-y-3 py-1">
       <p class="text-sm text-muted-foreground">
-        Bu sürümdeki yenilikleri girin. Metin, mağazada aktif olan dillere otomatik çevrilecek ve her iki store'a gönderilecek.
+        {t("whatsNew.description")}
       </p>
 
       <textarea
-        placeholder="Hata düzeltmeleri ve performans iyileştirmeleri."
+        placeholder={t("whatsNew.defaultText")}
         bind:value={text}
         rows={4}
         class="placeholder:text-muted-foreground border-input w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none resize-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
@@ -85,17 +86,17 @@
 
       {#if languages.length > 0}
         <div class="rounded-md bg-muted/50 px-3 py-2 space-y-1">
-          <p class="text-xs text-muted-foreground font-medium">Tahmini diller (mağazadan deploy sırasında güncellenir):</p>
+          <p class="text-xs text-muted-foreground font-medium">{t("whatsNew.estimatedLanguages")}</p>
           <div class="flex flex-wrap gap-x-3 gap-y-1">
-            {#each languages as lang (lang.label)}
-              <span class="text-xs text-foreground">{lang.flag} {lang.label}</span>
+            {#each languages as lang (lang.labelKey)}
+              <span class="text-xs text-foreground">{lang.flag} {t(lang.labelKey)}</span>
             {/each}
           </div>
         </div>
       {/if}
 
       <div class="space-y-1.5">
-        <p class="text-xs text-muted-foreground font-medium">Platform:</p>
+        <p class="text-xs text-muted-foreground font-medium">{t("whatsNew.platform")}</p>
         <div class="flex gap-2">
           {#each platformOptions as opt (opt.value)}
             <button
@@ -105,7 +106,7 @@
                 platform === opt.value ? "border-primary bg-primary text-primary-foreground" : "border-input bg-transparent text-foreground hover:bg-muted"
               }`}
             >
-              {opt.label}
+              {t(opt.labelKey)}
             </button>
           {/each}
         </div>
@@ -113,8 +114,8 @@
     </div>
 
     <div class="flex justify-end gap-2 pt-2">
-      <Button variant="outline" onclick={handleCancel}>İptal</Button>
-      <Button onclick={handleConfirm}>Deploy Başlat</Button>
+      <Button variant="outline" onclick={handleCancel}>{t("common.cancel")}</Button>
+      <Button onclick={handleConfirm}>{t("whatsNew.startDeploy")}</Button>
     </div>
   </DialogContent>
 </Dialog>

@@ -5,6 +5,7 @@
   import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
   import { getBasicFields } from "$lib/serconf-schema";
+  import { t } from "$lib/i18n/index.svelte";
 
   let { open: dialogOpen = $bindable(false), workspacePath, onProjectCreated }: {
     open: boolean;
@@ -46,12 +47,12 @@
   });
 
   async function pickImage(setter: (path: string) => void) {
-    const path = await open({ filters: [{ name: "Görsel", extensions: ["png", "jpg", "jpeg"] }] });
+    const path = await open({ filters: [{ name: "Image", extensions: ["png", "jpg", "jpeg"] }] });
     if (path && !Array.isArray(path)) setter(path);
   }
 
   async function pickJson(setter: (path: string) => void) {
-    const path = await open({ filters: [{ name: "Dosya", extensions: ["json", "plist"] }] });
+    const path = await open({ filters: [{ name: "File", extensions: ["json", "plist"] }] });
     if (path && !Array.isArray(path)) setter(path);
   }
 
@@ -94,24 +95,24 @@
 <Dialog bind:open={dialogOpen}>
   <DialogContent class="sm:max-w-lg max-h-[85vh] overflow-y-auto">
     <DialogHeader>
-      <DialogTitle class="flex items-center gap-2"><Sparkles class="w-5 h-5" /> Yeni Alt-Uygulama</DialogTitle>
-      <DialogDescription>Bu workspace'e yeni bir white-label alt-uygulama ekle.</DialogDescription>
+      <DialogTitle class="flex items-center gap-2"><Sparkles class="w-5 h-5" /> {t("createProject.title")}</DialogTitle>
+      <DialogDescription>{t("createProject.description")}</DialogDescription>
     </DialogHeader>
 
     <div class="space-y-4 py-2">
       <div class="grid grid-cols-2 gap-3">
         <div class="space-y-1">
-          <label class={labelClass} for="cp-id">Proje ID (küçük harf/rakam) *</label>
+          <label class={labelClass} for="cp-id">{t("createProject.projectId")}</label>
           <input id="cp-id" bind:value={projectId} placeholder="myapp" class="{inputClass} font-mono" />
         </div>
         <div class="space-y-1">
-          <label class={labelClass} for="cp-name">Uygulama Adı *</label>
+          <label class={labelClass} for="cp-name">{t("createProject.appName")}</label>
           <input id="cp-name" bind:value={appName} placeholder="My App" class={inputClass} />
         </div>
       </div>
 
       <div class="space-y-1">
-        <label class={labelClass} for="cp-bg">Marka Rengi (renk/splash arka planı)</label>
+        <label class={labelClass} for="cp-bg">{t("createProject.brandColor")}</label>
         <div class="flex items-center gap-2">
           <input id="cp-bg" type="color" bind:value={bgColor} class="w-10 h-10 rounded-xl border-0 cursor-pointer bg-transparent" />
           <input bind:value={bgColor} class="{inputClass} font-mono w-28" maxlength={7} />
@@ -121,24 +122,24 @@
       <div class="grid grid-cols-2 gap-3">
         <button onclick={() => pickImage((p) => (icon512Path = p))} class="flex flex-col items-center gap-1 p-4 rounded-xl bg-secondary/30 ring-1 ring-border/30 hover:ring-border/60 text-xs text-muted-foreground">
           <ImagePlus class="w-5 h-5" />
-          {icon512Path ? "512x512 seçildi ✓" : "Android İkon (512x512)"}
+          {icon512Path ? t("createProject.selected512") : t("createProject.androidIcon")}
         </button>
         <button onclick={() => pickImage((p) => (icon1024Path = p))} class="flex flex-col items-center gap-1 p-4 rounded-xl bg-secondary/30 ring-1 ring-border/30 hover:ring-border/60 text-xs text-muted-foreground">
           <ImagePlus class="w-5 h-5" />
-          {icon1024Path ? "1024x1024 seçildi ✓" : "iOS İkon (1024x1024)"}
+          {icon1024Path ? t("createProject.selected1024") : t("createProject.iosIcon")}
         </button>
         <button onclick={() => pickImage((p) => (appLogoPath = p))} class="flex flex-col items-center gap-1 p-4 rounded-xl bg-secondary/30 ring-1 ring-border/30 hover:ring-border/60 text-xs text-muted-foreground">
           <ImagePlus class="w-5 h-5" />
-          {appLogoPath ? "Logo seçildi ✓" : "Uygulama İçi Logo (ops.)"}
+          {appLogoPath ? t("createProject.selectedLogo") : t("createProject.inAppLogo")}
         </button>
         <button onclick={() => pickImage((p) => (splashPath = p))} class="flex flex-col items-center gap-1 p-4 rounded-xl bg-secondary/30 ring-1 ring-border/30 hover:ring-border/60 text-xs text-muted-foreground">
           <ImagePlus class="w-5 h-5" />
-          {splashPath ? "Splash seçildi ✓" : "Splash Görseli"}
+          {splashPath ? t("createProject.selectedSplash") : t("createProject.splashImage")}
         </button>
       </div>
 
       <div class="pt-2 border-t border-border/50 space-y-3">
-        <p class="text-xs font-medium text-muted-foreground">Temel Ayarlar</p>
+        <p class="text-xs font-medium text-muted-foreground">{t("createProject.basicSettings")}</p>
         {#each basicFields as field (field.key)}
           {@const value = serconf[field.key] ?? field.defaultValue}
           <div class="space-y-1">
@@ -159,7 +160,7 @@
       </div>
 
       <div class="pt-2 border-t border-border/50 space-y-3">
-        <p class="text-xs font-medium text-muted-foreground">Firebase &amp; Sentry (opsiyonel)</p>
+        <p class="text-xs font-medium text-muted-foreground">{t("createProject.firebaseSentry")}</p>
         <div class="grid grid-cols-2 gap-3">
           <button onclick={() => pickJson((p) => (firebaseAndroidPath = p))} class="flex flex-col items-center gap-1 p-3 rounded-xl bg-secondary/30 ring-1 ring-border/30 hover:ring-border/60 text-xs text-muted-foreground">
             {firebaseAndroidPath ? "google-services.json ✓" : "google-services.json"}
@@ -183,10 +184,10 @@
     </div>
 
     <div class="flex gap-3">
-      <Button variant="outline" class="flex-1" onclick={() => (dialogOpen = false)}>Vazgeç</Button>
+      <Button variant="outline" class="flex-1" onclick={() => (dialogOpen = false)}>{t("common.cancel")}</Button>
       <Button class="flex-1 gap-2" onclick={handleCreate} disabled={saving || !canSave}>
         {#if saving}<LoaderCircle class="w-4 h-4 animate-spin" />{/if}
-        Oluştur
+        {t("createProject.create")}
       </Button>
     </div>
   </DialogContent>

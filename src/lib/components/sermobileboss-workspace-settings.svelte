@@ -3,6 +3,7 @@
   import { Settings2, LoaderCircle, Check, CircleAlert } from "@lucide/svelte";
   import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
+  import { t } from "$lib/i18n/index.svelte";
 
   let { workspacePath }: { workspacePath: string } = $props();
 
@@ -50,7 +51,7 @@
     result = null;
     try {
       await invoke("workspace_config_save", { workspace: workspacePath, config: form });
-      result = { success: true, message: "Kaydedildi" };
+      result = { success: true, message: t("projectSettings.saved") };
       configured = true;
       setTimeout(() => (showDialog = false), 900);
     } catch (e) {
@@ -63,13 +64,13 @@
 
 <button
   onclick={() => { result = null; showDialog = true; }}
-  title="Workspace Ayarları"
+  title={t("workspaceSettings.title")}
   class={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium ring-1 transition-all ${
     configured ? "bg-secondary/50 text-foreground ring-border/50 hover:bg-secondary" : "bg-orange-500/10 text-orange-600 ring-orange-500/20 hover:bg-orange-500/20"
   }`}
 >
   <Settings2 class="w-4 h-4" />
-  <span class="hidden sm:inline">Workspace Ayarları</span>
+  <span class="hidden sm:inline">{t("workspaceSettings.title")}</span>
   {#if configured === false}<span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>{/if}
 </button>
 
@@ -78,35 +79,35 @@
     <DialogHeader>
       <DialogTitle class="flex items-center gap-2">
         <Settings2 class="w-5 h-5" />
-        Workspace Ayarları
+        {t("workspaceSettings.title")}
       </DialogTitle>
       <DialogDescription>
-        Bu workspace'teki tüm alt-uygulamalar için ortak Bundle ID öneki ve Android keystore imzalama kimliği.
+        {t("workspaceSettings.description")}
       </DialogDescription>
     </DialogHeader>
 
     <div class="space-y-3 py-2">
       <div class="space-y-1">
-        <label class="text-xs text-muted-foreground" for="bundle-id-prefix">Bundle ID Öneki</label>
-        <input id="bundle-id-prefix" bind:value={form.bundleIdPrefix} placeholder="com.sirketiniz" class="w-full h-9 px-3 text-sm font-mono rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
+        <label class="text-xs text-muted-foreground" for="bundle-id-prefix">{t("workspaceSettings.bundleIdPrefix")}</label>
+        <input id="bundle-id-prefix" bind:value={form.bundleIdPrefix} placeholder="com.yourcompany" class="w-full h-9 px-3 text-sm font-mono rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
       </div>
       <div class="space-y-1">
-        <label class="text-xs text-muted-foreground" for="keystore-alias-prefix">Keystore Alias Öneki</label>
+        <label class="text-xs text-muted-foreground" for="keystore-alias-prefix">{t("workspaceSettings.keystoreAliasPrefix")}</label>
         <input id="keystore-alias-prefix" bind:value={form.keystoreAliasPrefix} placeholder="app" class="w-full h-9 px-3 text-sm font-mono rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
       </div>
       <div class="space-y-1">
-        <label class="text-xs text-muted-foreground" for="keystore-password">Keystore Şifresi</label>
-        <input id="keystore-password" bind:value={form.keystorePassword} placeholder="güçlü bir şifre" class="w-full h-9 px-3 text-sm font-mono rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
+        <label class="text-xs text-muted-foreground" for="keystore-password">{t("workspaceSettings.keystorePassword")}</label>
+        <input id="keystore-password" bind:value={form.keystorePassword} placeholder={t("workspaceSettings.strongPassword")} class="w-full h-9 px-3 text-sm font-mono rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
       </div>
 
-      <p class="text-xs text-muted-foreground pt-1">Keystore imzalama kimliği (keytool -dname)</p>
+      <p class="text-xs text-muted-foreground pt-1">{t("workspaceSettings.signingIdentity")}</p>
       <div class="grid grid-cols-2 gap-2">
-        <input bind:value={form.keystoreCommonName} placeholder="Ad Soyad (CN)" class="h-9 px-3 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
-        <input bind:value={form.keystoreOrgUnit} placeholder="Birim (OU)" class="h-9 px-3 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
-        <input bind:value={form.keystoreOrgName} placeholder="Şirket (O)" class="h-9 px-3 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
-        <input bind:value={form.keystoreLocality} placeholder="Şehir (L)" class="h-9 px-3 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
-        <input bind:value={form.keystoreState} placeholder="İl/Eyalet (S)" class="h-9 px-3 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
-        <input bind:value={form.keystoreCountry} placeholder="Ülke kodu (C, ör. TR)" maxlength={2} class="h-9 px-3 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
+        <input bind:value={form.keystoreCommonName} placeholder={t("workspaceSettings.fullName")} class="h-9 px-3 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
+        <input bind:value={form.keystoreOrgUnit} placeholder={t("workspaceSettings.orgUnit")} class="h-9 px-3 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
+        <input bind:value={form.keystoreOrgName} placeholder={t("workspaceSettings.orgName")} class="h-9 px-3 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
+        <input bind:value={form.keystoreLocality} placeholder={t("workspaceSettings.locality")} class="h-9 px-3 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
+        <input bind:value={form.keystoreState} placeholder={t("workspaceSettings.state")} class="h-9 px-3 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
+        <input bind:value={form.keystoreCountry} placeholder={t("workspaceSettings.country")} maxlength={2} class="h-9 px-3 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
       </div>
 
       {#if result}
@@ -118,10 +119,10 @@
     </div>
 
     <div class="flex gap-3">
-      <Button variant="outline" class="flex-1" onclick={() => (showDialog = false)}>Kapat</Button>
+      <Button variant="outline" class="flex-1" onclick={() => (showDialog = false)}>{t("common.close")}</Button>
       <Button class="flex-1 gap-2" onclick={handleSave} disabled={saving || !canSave}>
         {#if saving}<LoaderCircle class="w-4 h-4 animate-spin" />{/if}
-        Kaydet
+        {t("common.save")}
       </Button>
     </div>
   </DialogContent>

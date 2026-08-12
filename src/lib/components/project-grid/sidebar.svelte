@@ -4,6 +4,8 @@
   import AppStoreConnectSettings from "$lib/components/appstoreconnect-settings.svelte";
   import FirebaseAccountSelector from "$lib/components/firebase-account-selector.svelte";
   import SermobilebossWorkspaceSettings from "$lib/components/sermobileboss-workspace-settings.svelte";
+  import LanguageSwitcher from "$lib/components/language-switcher.svelte";
+  import { t } from "$lib/i18n/index.svelte";
 
   let { projectCount, supportsMultipleProjects, onCreateProject, onSyncVersions }: {
     projectCount: number;
@@ -18,7 +20,7 @@
 <aside class="w-64 shrink-0 h-screen sticky top-0 flex flex-col bg-secondary/20 border-r border-border/50 p-4">
   <div class="px-2 pt-2 pb-6">
     <h1 class="text-lg font-semibold tracking-tight">Serenay Mobile Deploy</h1>
-    <p class="text-xs text-muted-foreground mt-0.5">{projectCount} proje</p>
+    <p class="text-xs text-muted-foreground mt-0.5">{t("sidebar.projectCount", { count: projectCount })}</p>
   </div>
 
   <nav class="flex-1 flex flex-col items-start gap-2 overflow-y-auto">
@@ -27,7 +29,7 @@
         onclick={onCreateProject}
         class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl font-semibold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all mb-1"
       >
-        <Plus class="w-4 h-4" /> Yeni Proje
+        <Plus class="w-4 h-4" /> {t("sidebar.newProject")}
       </button>
 
       <button
@@ -35,7 +37,7 @@
         class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium ring-1 ring-border/50 bg-secondary/50 hover:bg-secondary transition-all"
       >
         <RefreshCw class="w-4 h-4 text-muted-foreground" />
-        Versiyonları Senkronize Et
+        {t("sidebar.syncVersions")}
       </button>
 
       <SermobilebossWorkspaceSettings workspacePath={workspaceState.path ?? ""} />
@@ -52,12 +54,13 @@
       <FolderOpen class="w-4 h-4 shrink-0" />
       <span class="truncate">{workspaceName}</span>
     </div>
+    <LanguageSwitcher />
     <button
       onclick={() => workspaceState.clear()}
       class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
     >
       <LogOut class="w-4 h-4" />
-      Workspace'i Değiştir
+      {t("sidebar.switchWorkspace")}
     </button>
   </div>
 </aside>

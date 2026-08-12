@@ -78,9 +78,9 @@ fn extract_app_id(stdout: &str) -> Option<String> {
     re2.captures(stdout).map(|c| c[1].to_string())
 }
 
-/// `POST /api/firebase/create-project` karşılığı — Firebase CLI ile proje +
-/// Android/iOS app oluşturup config dosyalarını (`google-services.json`,
-/// `GoogleService-Info.plist`) proje klasörüne yazar. 429 kota hatalarında retry uygulanır.
+/// Equivalent of `POST /api/firebase/create-project` — creates a project and
+/// Android/iOS apps via the Firebase CLI, writing config files
+/// (`google-services.json`, `GoogleService-Info.plist`) into the project folder. Retries on 429 quota errors.
 #[tauri::command]
 pub async fn firebase_create_project(
     project_id: String,
@@ -107,18 +107,18 @@ pub async fn firebase_create_project(
     let create_cmd = format!("firebase projects:create {firebase_project_id} --display-name \"{app_name}\"");
     let create_output = exec(&create_cmd).await?;
     if create_output.success {
-        steps.push(FirebaseStep { step: "project".into(), success: true, message: "Firebase projesi oluşturuldu".into() });
+        steps.push(FirebaseStep { step: "project".into(), success: true, message: "Firebase project created".into() });
     } else {
         let msg = format!("{}{}", create_output.stdout, create_output.stderr);
         let lower = msg.to_lowercase();
         if lower.contains("already exists") || lower.contains("already a project") {
-            steps.push(FirebaseStep { step: "project".into(), success: true, message: "Firebase projesi zaten mevcut, devam ediliyor".into() });
+            steps.push(FirebaseStep { step: "project".into(), success: true, message: "Firebase project already exists, continuing".into() });
         } else {
             steps.push(FirebaseStep { step: "project".into(), success: false, message: msg });
             return Ok(FirebaseCreateResult {
                 success: false,
                 partial: false,
-                message: "Firebase projesi oluşturulamadı".into(),
+                message: "Failed to create Firebase project".into(),
                 steps,
                 firebase_project_id,
             });
@@ -131,14 +131,14 @@ pub async fn firebase_create_project(
     let android_output = exec_with_retry(&android_cmd, 3, retry_delay).await?;
     if android_output.success {
         android_app_id = extract_app_id(&android_output.stdout);
-        steps.push(FirebaseStep { step: "android-app".into(), success: true, message: "Android app oluşturuldu".into() });
+        steps.push(FirebaseStep { step: "android-app".into(), success: true, message: "Android app created".into() });
     } else {
         let msg = format!("{}{}", android_output.stdout, android_output.stderr);
         let lower = msg.to_lowercase();
         if lower.contains("already exists") || lower.contains("already a project") {
-            steps.push(FirebaseStep { step: "android-app".into(), success: true, message: "Android app zaten mevcut".into() });
+            steps.push(FirebaseStep { step: "android-app".into(), success: true, message: "Android app already exists".into() });
         } else if lower.contains("429") || lower.contains("quota exceeded") || lower.contains("rate_limit_exceeded") || lower.contains("resource_exhausted") {
-            steps.push(FirebaseStep { step: "android-app".into(), success: false, message: "Firebase kota limiti aşıldı (429). Birkaç dakika bekleyip tekrar deneyin.".into() });
+            steps.push(FirebaseStep { step: "android-app".into(), success: false, message: "Firebase quota limit exceeded (429). Wait a few minutes and try again.".into() });
         } else {
             steps.push(FirebaseStep { step: "android-app".into(), success: false, message: msg });
         }
@@ -171,7 +171,7 @@ pub async fn firebase_create_project(
             let content = json_re.find(&output.stdout).map(|m| m.as_str().to_string()).unwrap_or(output.stdout.clone());
             let config_path = project_folder.join("google-services.json");
             let _ = std::fs::write(&config_path, content);
-            steps.push(FirebaseStep { step: "android-config".into(), success: true, message: "google-services.json kaydedildi".into() });
+            steps.push(FirebaseStep { step: "android-config".into(), success: true, message: "google-services.json saved".into() });
         }
         Ok(output) => {
             steps.push(FirebaseStep { step: "android-config".into(), success: false, message: format!("{}{}", output.stdout, output.stderr) });
@@ -185,14 +185,14 @@ pub async fn firebase_create_project(
     let ios_output = exec_with_retry(&ios_cmd, 3, retry_delay).await?;
     if ios_output.success {
         ios_app_id = extract_app_id(&ios_output.stdout);
-        steps.push(FirebaseStep { step: "ios-app".into(), success: true, message: "iOS app oluşturuldu".into() });
+        steps.push(FirebaseStep { step: "ios-app".into(), success: true, message: "iOS app created".into() });
     } else {
         let msg = format!("{}{}", ios_output.stdout, ios_output.stderr);
         let lower = msg.to_lowercase();
         if lower.contains("already exists") || lower.contains("already a project") {
-            steps.push(FirebaseStep { step: "ios-app".into(), success: true, message: "iOS app zaten mevcut".into() });
+            steps.push(FirebaseStep { step: "ios-app".into(), success: true, message: "iOS app already exists".into() });
         } else if lower.contains("429") || lower.contains("quota exceeded") || lower.contains("rate_limit_exceeded") || lower.contains("resource_exhausted") {
-            steps.push(FirebaseStep { step: "ios-app".into(), success: false, message: "Firebase kota limiti aşıldı (429). Birkaç dakika bekleyip tekrar deneyin.".into() });
+            steps.push(FirebaseStep { step: "ios-app".into(), success: false, message: "Firebase quota limit exceeded (429). Wait a few minutes and try again.".into() });
         } else {
             steps.push(FirebaseStep { step: "ios-app".into(), success: false, message: msg });
         }
@@ -225,7 +225,7 @@ pub async fn firebase_create_project(
             let content = plist_re.find(&output.stdout).map(|m| m.as_str().to_string()).unwrap_or(output.stdout.clone());
             let config_path = project_folder.join("GoogleService-Info.plist");
             let _ = std::fs::write(&config_path, content);
-            steps.push(FirebaseStep { step: "ios-config".into(), success: true, message: "GoogleService-Info.plist kaydedildi".into() });
+            steps.push(FirebaseStep { step: "ios-config".into(), success: true, message: "GoogleService-Info.plist saved".into() });
         }
         Ok(output) => {
             steps.push(FirebaseStep { step: "ios-config".into(), success: false, message: format!("{}{}", output.stdout, output.stderr) });
@@ -240,11 +240,11 @@ pub async fn firebase_create_project(
         success: all_success,
         partial: !all_success && some_success,
         message: if all_success {
-            "Firebase projesi ve uygulamalar başarıyla oluşturuldu".to_string()
+            "Firebase project and apps created successfully".to_string()
         } else if some_success {
-            "Firebase kurulumu kısmen tamamlandı".to_string()
+            "Firebase setup partially completed".to_string()
         } else {
-            "Firebase kurulumu başarısız".to_string()
+            "Firebase setup failed".to_string()
         },
         steps,
         firebase_project_id,

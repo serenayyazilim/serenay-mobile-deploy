@@ -5,6 +5,7 @@
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { workspaceState, type WorkspaceMode } from "$lib/stores/workspace.svelte";
+  import { i18n, t } from "$lib/i18n/index.svelte";
 
   interface RecentWorkspace {
     path: string;
@@ -34,7 +35,7 @@
     try {
       recentWorkspaces = await invoke<RecentWorkspace[]>("workspace_recent_get");
     } catch (error) {
-      console.error("Recent workspaces yüklenemedi:", error);
+      console.error("Failed to load recent workspaces:", error);
     }
   }
 
@@ -51,7 +52,7 @@
         if (result.mode) await workspaceState.setWorkspace(path, result.mode);
       }
     } catch {
-      validationResult = { valid: false, message: "Doğrulama hatası" };
+      validationResult = { valid: false, message: t("workspaceSelector.validationError") };
     } finally {
       validating = false;
     }
@@ -73,7 +74,7 @@
         await validateAndSetWorkspace(path);
       }
     } catch (error) {
-      console.error("Klasör seçme hatası:", error);
+      console.error("Failed to select folder:", error);
     } finally {
       browsing = false;
     }
@@ -85,7 +86,7 @@
   }
 
   function formatDate(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString("tr-TR", {
+    return new Date(dateStr).toLocaleDateString(i18n.locale === "tr" ? "tr-TR" : "en-US", {
       day: "numeric",
       month: "short",
       hour: "2-digit",
@@ -98,17 +99,17 @@
   <div class="w-full max-w-2xl space-y-6">
     <div class="text-center space-y-2">
       <h1 class="text-3xl font-bold text-foreground">Serenay Mobile Deploy</h1>
-      <p class="text-muted-foreground">Flutter projenizi seçerek başlayın</p>
+      <p class="text-muted-foreground">{t("workspaceSelector.subtitle")}</p>
     </div>
 
     <Card>
       <CardHeader>
         <CardTitle class="flex items-center gap-2">
           <FolderOpen class="w-5 h-5" />
-          Proje Klasörü
+          {t("workspaceSelector.projectFolder")}
         </CardTitle>
         <CardDescription>
-          Flutter projesinin kök dizinini girin (pubspec.yaml'ın bulunduğu klasör)
+          {t("workspaceSelector.projectFolderDescription")}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -124,12 +125,12 @@
             {#if browsing}
               <div class="flex flex-col items-center gap-2">
                 <LoaderCircle class="w-8 h-8 animate-spin text-muted-foreground" />
-                <span class="text-sm text-muted-foreground">Klasör seçiliyor...</span>
+                <span class="text-sm text-muted-foreground">{t("workspaceSelector.selectingFolder")}</span>
               </div>
             {:else}
               <div class="flex flex-col items-center gap-2">
                 <FolderOpen class="w-8 h-8 text-muted-foreground" />
-                <span class="text-sm font-medium">Klasör Seç</span>
+                <span class="text-sm font-medium">{t("workspaceSelector.selectFolder")}</span>
               </div>
             {/if}
           </Button>
@@ -139,7 +140,7 @@
               <span class="w-full border-t"></span>
             </div>
             <div class="relative flex justify-center text-xs uppercase">
-              <span class="bg-card px-2 text-muted-foreground">veya yol girin</span>
+              <span class="bg-card px-2 text-muted-foreground">{t("workspaceSelector.orEnterPath")}</span>
             </div>
           </div>
 
@@ -156,7 +157,7 @@
               {#if validating}
                 <LoaderCircle class="w-4 h-4 animate-spin" />
               {:else}
-                Aç
+                {t("workspaceSelector.open")}
               {/if}
             </Button>
           </div>
@@ -180,7 +181,10 @@
                 </p>
                 {#if validationResult.valid && validationResult.projectName}
                   <p class="text-sm text-muted-foreground mt-1">
-                    {validationResult.projectName} - {validationResult.projectCount} proje
+                    {t("workspaceSelector.projectsFound", {
+                      name: validationResult.projectName,
+                      count: validationResult.projectCount ?? 0,
+                    })}
                   </p>
                 {/if}
               </div>
@@ -195,7 +199,7 @@
         <CardHeader>
           <CardTitle class="flex items-center gap-2">
             <History class="w-5 h-5" />
-            Son Kullanılanlar
+            {t("workspaceSelector.recentlyUsed")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -222,9 +226,11 @@
     {/if}
 
     <p class="text-center text-sm text-muted-foreground">
-      Proje klasörünüz <code class="bg-muted px-1.5 py-0.5 rounded text-xs">pubspec.yaml</code> ve
+      {t("workspaceSelector.folderRequirement.before")}
+      <code class="bg-muted px-1.5 py-0.5 rounded text-xs">pubspec.yaml</code>
+      {t("workspaceSelector.folderRequirement.and")}
       <code class="bg-muted px-1.5 py-0.5 rounded text-xs">sermobileboss_projects.json</code>
-      dosyalarını içermelidir.
+      {t("workspaceSelector.folderRequirement.after")}
     </p>
   </div>
 </div>

@@ -66,8 +66,8 @@ impl WorkspaceAdapter for GenericAdapter {
     }
 
     fn rename_project(&self, _workspace: &str, _project_id: &str, _app_name: &str) -> bool {
-        // Tek proje = workspace'in kendisi; yeniden adlandırma pubspec.yaml'ı elle
-        // düzenlemeyi gerektirir, bu araç üzerinden desteklenmiyor.
+        // Single project = the workspace itself; renaming would require manually
+        // editing pubspec.yaml, which is not supported through this tool.
         false
     }
 

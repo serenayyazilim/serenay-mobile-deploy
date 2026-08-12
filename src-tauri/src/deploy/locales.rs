@@ -19,11 +19,11 @@ fn strip_ansi(s: &str) -> String {
     Regex::new(r"\x1B\[[0-9;]*m").unwrap().replace_all(s, "").to_string()
 }
 
-/// `fastlane fetch_locales` lane'ini koşturur; stdout'tan `FASTLANE_LOCALES=...` satırını parse eder.
-/// Bulunamazsa hata mesajını (fastlane'in [!] satırları veya son birkaç satır) döndürür.
+/// Runs the `fastlane fetch_locales` lane and parses the `FASTLANE_LOCALES=...` line from stdout.
+/// If not found, returns an error message (fastlane's [!] lines or the last few lines).
 pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path) -> Result<Vec<String>, String> {
     if !fastlane_dir.exists() {
-        return Err(format!("Klasör bulunamadı: {}", fastlane_dir.display()));
+        return Err(format!("Folder not found: {}", fastlane_dir.display()));
     }
 
     let mut child = match Command::new("fastlane")
@@ -52,7 +52,7 @@ pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path) -> Result<Vec<Strin
     let _ = child.kill().await;
 
     let Ok((stdout_text, _stderr_text)) = result else {
-        return Err("Timeout (90s)".to_string());
+        return Err("Timed out (90s)".to_string());
     };
 
     let re = Regex::new(r"FASTLANE_LOCALES=(.+)").unwrap();
@@ -66,7 +66,7 @@ pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path) -> Result<Vec<Strin
     let clean = strip_ansi(&stdout_text);
     let error_lines: Vec<&str> = clean
         .lines()
-        .filter(|l| l.contains("[!]") || l.contains("Error") || l.contains("error") || l.contains("başarısız"))
+        .filter(|l| l.contains("[!]") || l.contains("Error") || l.contains("error") || l.contains("failed"))
         .map(|l| l.trim())
         .filter(|l| !l.is_empty())
         .collect();
@@ -76,7 +76,7 @@ pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path) -> Result<Vec<Strin
     } else {
         let tail: Vec<&str> = clean.lines().filter(|l| !l.trim().is_empty()).collect();
         let last3: Vec<&str> = tail.iter().rev().take(3).rev().copied().collect();
-        if last3.is_empty() { "Bilinmeyen hata".to_string() } else { last3.join(" | ") }
+        if last3.is_empty() { "Unknown error".to_string() } else { last3.join(" | ") }
     };
 
     Err(error)
@@ -99,8 +99,8 @@ fn read_fastlane_metadata_locales(metadata_path: &Path) -> Vec<String> {
     locales
 }
 
-/// Deploy akışındaki tam fallback zinciri: 1) mağazadan canlı çek, 2) fastlane
-/// metadata klasörleri, 3) serconf.dart dil bayrakları.
+/// Full fallback chain used during deploy: 1) fetch live from the store, 2) fastlane
+/// metadata folders, 3) serconf.dart language flags.
 pub async fn get_store_locales(workspace_path: &str) -> (Vec<String>, Vec<String>) {
     let root = Path::new(workspace_path);
 

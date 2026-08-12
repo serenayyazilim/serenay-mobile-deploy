@@ -2,7 +2,7 @@ use regex::Regex;
 use serde_json::Value;
 use std::path::Path;
 
-/// `Info.plist`/`.pbxproj` versiyon alanlarını `1.2.3+45` formatından ayırır.
+/// Splits `Info.plist`/`.pbxproj` version fields from `1.2.3+45` format.
 pub fn split_version(version: &str) -> (String, String) {
     let mut parts = version.splitn(2, '+');
     let semver = parts.next().unwrap_or("1.0.0").to_string();
@@ -18,9 +18,9 @@ pub fn update_generated_xcconfig(ios_folder: &Path, semver: &str, build_num: &st
     let _ = std::fs::write(&path, content);
 }
 
-/// `project.pbxproj`'da bundle ID (Runner + ImageNotification target) ve
-/// MARKETING_VERSION/CURRENT_PROJECT_VERSION regex ile patch edilir.
-/// Davranış paritesi kritik: sıralama (ImageNotification önce, sonra genel) korunmalı.
+/// Patches the bundle ID (Runner + ImageNotification target) and
+/// MARKETING_VERSION/CURRENT_PROJECT_VERSION in `project.pbxproj` via regex.
+/// Behavioral parity is critical: the order (ImageNotification first, then the general one) must be preserved.
 pub fn patch_pbxproj(ios_folder: &Path, bundle_name: &str, version: Option<&str>) -> bool {
     let path = ios_folder.join("Runner.xcodeproj/project.pbxproj");
     let Ok(mut content) = std::fs::read_to_string(&path) else { return false };
@@ -76,8 +76,8 @@ pub fn patch_info_plist(ios_folder: &Path, display_name: &str, version: Option<&
     std::fs::write(&path, content).is_ok()
 }
 
-/// `app/api/projects/versions/route.ts::updateNativeVersionFiles` karşılığı —
-/// bundle ID/display name'e dokunmadan sadece versiyon alanlarını günceller.
+/// Equivalent of `app/api/projects/versions/route.ts::updateNativeVersionFiles` —
+/// updates only the version fields, without touching the bundle ID/display name.
 pub fn patch_pbxproj_version_only(ios_folder: &Path, version: &str) -> bool {
     let path = ios_folder.join("Runner.xcodeproj/project.pbxproj");
     let Ok(mut content) = std::fs::read_to_string(&path) else { return false };
@@ -122,8 +122,8 @@ pub fn patch_android_gradle(android_folder: &Path, bundle_name: &str) -> bool {
     std::fs::write(&path, patched).is_ok()
 }
 
-/// `google-services.json` + `GoogleService-Info.plist`'i FlutterFire CLI'sız
-/// parse edip `firebase_options.dart`'ı manuel template ile üretir.
+/// Parses `google-services.json` + `GoogleService-Info.plist` without the
+/// FlutterFire CLI and generates `firebase_options.dart` from a manual template.
 pub fn generate_firebase_options(google_services_json: &Path, google_service_info_plist: &Path, output_path: &Path) -> bool {
     let Ok(gs_content) = std::fs::read_to_string(google_services_json) else { return false };
     let Ok(plist_content) = std::fs::read_to_string(google_service_info_plist) else { return false };

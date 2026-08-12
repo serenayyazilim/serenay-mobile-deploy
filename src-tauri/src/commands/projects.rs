@@ -20,9 +20,9 @@ pub fn projects_rename(workspace: String, project_id: String, app_name: String) 
     let renamed = adapter.rename_project(&workspace, &project_id, &app_name);
     if !renamed {
         return Err(if adapter.supports_multiple_projects() {
-            "Proje bulunamadı".to_string()
+            "Project not found".to_string()
         } else {
-            "Bu workspace'te proje yeniden adlandırma desteklenmiyor".to_string()
+            "Renaming projects is not supported in this workspace".to_string()
         });
     }
     Ok(())
@@ -75,15 +75,15 @@ pub fn projects_versions(workspace: String) -> VersionsResult {
     VersionsResult { versions }
 }
 
-/// `PUT /api/projects/versions` karşılığı — versiyonu yazar, aktif projeyse
-/// pubspec.yaml + Generated.xcconfig + pbxproj + Info.plist'i de senkronlar.
+/// Equivalent of `PUT /api/projects/versions` — writes the version, and also
+/// syncs pubspec.yaml + Generated.xcconfig + pbxproj + Info.plist if it's the active project.
 #[tauri::command]
 pub fn projects_version_set(workspace: String, project_id: String, version: String) -> Result<(), String> {
     let root = Path::new(&workspace);
 
     if detect_workspace_mode(&workspace) == WorkspaceMode::Generic {
         let pubspec_path = root.join("pubspec.yaml");
-        let mut content = std::fs::read_to_string(&pubspec_path).map_err(|_| "pubspec.yaml bulunamadı".to_string())?;
+        let mut content = std::fs::read_to_string(&pubspec_path).map_err(|_| "pubspec.yaml not found".to_string())?;
         content = Regex::new(r"(?m)^version:\s*.+$").unwrap().replace(&content, format!("version: {version}")).to_string();
         std::fs::write(&pubspec_path, content).map_err(|e| e.to_string())?;
 
@@ -94,7 +94,7 @@ pub fn projects_version_set(workspace: String, project_id: String, version: Stri
 
     let project_folder = root.join("lib/conf/sermobplus-projects").join(&project_id);
     if !project_folder.exists() {
-        return Err("Proje klasörü bulunamadı".to_string());
+        return Err("Project folder not found".to_string());
     }
 
     let version_file = project_folder.join("version.json");
@@ -136,8 +136,8 @@ fn read_icon_as_data_url(path: &Path) -> Option<String> {
     Some(format!("data:image/png;base64,{}", STANDARD.encode(bytes)))
 }
 
-/// components/project-grid/**'teki app icon <img> kaynağı; eski `/api/project-icon`
-/// route'unun karşılığı. `icon_type`: logo | splash | icon512 | icon1024 | (yok = varsayılan).
+/// App icon `<img>` source for components/project-grid/**; equivalent of the old
+/// `/api/project-icon` route. `icon_type`: logo | splash | icon512 | icon1024 | (none = default).
 #[tauri::command]
 pub fn project_icon(workspace: String, project_id: String, icon_type: Option<String>) -> Option<String> {
     let workspace_root = Path::new(&workspace);

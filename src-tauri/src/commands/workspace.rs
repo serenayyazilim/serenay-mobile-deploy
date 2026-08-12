@@ -10,7 +10,7 @@ const MAX_RECENT: usize = 5;
 
 fn recent_file_path() -> PathBuf {
     dirs::home_dir()
-        .expect("home dizini bulunamadı")
+        .expect("could not find home directory")
         .join(".sermobile-recent-workspaces.json")
 }
 
@@ -36,21 +36,21 @@ fn save_recent(recent: &[RecentWorkspace]) -> std::io::Result<()> {
     std::fs::write(recent_file_path(), json)
 }
 
-/// macOS/Windows/Linux'ta native klasör seçim dialogu açar.
-/// Eski (Next.js/osascript, sadece macOS) implementasyonun yerini alır.
+/// Opens a native folder picker dialog on macOS/Windows/Linux.
+/// Replaces the old (Next.js/osascript, macOS-only) implementation.
 #[tauri::command]
 pub async fn workspace_browse(app: tauri::AppHandle) -> Option<String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     app.dialog()
         .file()
-        .set_title("Flutter Proje Klasörünü Seçin")
+        .set_title("Select Flutter Project Folder")
         .pick_folder(move |folder| {
             let _ = tx.send(folder);
         });
 
     match rx.await {
         Ok(Some(path)) => {
-            // Path'in sonundaki slash'ı kaldır (eski davranışla aynı)
+            // Strip trailing slash from the path (matches old behavior)
             let s = path.to_string();
             Some(s.trim_end_matches('/').to_string())
         }
@@ -77,7 +77,7 @@ pub fn workspace_validate(workspace_path: String) -> ValidateResult {
     if !root.exists() {
         return ValidateResult {
             valid: false,
-            message: "Klasör bulunamadı".to_string(),
+            message: "Folder not found".to_string(),
             mode: None,
             project_name: None,
             project_count: None,
@@ -89,7 +89,7 @@ pub fn workspace_validate(workspace_path: String) -> ValidateResult {
     if !pubspec_path.exists() {
         return ValidateResult {
             valid: false,
-            message: "Bu bir Flutter projesi değil (pubspec.yaml bulunamadı)".to_string(),
+            message: "This is not a Flutter project (pubspec.yaml not found)".to_string(),
             mode: None,
             project_name: None,
             project_count: None,
@@ -125,9 +125,9 @@ pub fn workspace_validate(workspace_path: String) -> ValidateResult {
     ValidateResult {
         valid: true,
         message: if mode == WorkspaceMode::Sermobileboss {
-            "Geçerli serMobilePro projesi".to_string()
+            "Valid serMobilePro project".to_string()
         } else {
-            "Flutter projesi algılandı".to_string()
+            "Flutter project detected".to_string()
         },
         mode: Some(mode_str.to_string()),
         project_name: Some(project_name),
@@ -196,7 +196,7 @@ pub fn workspace_config_save(workspace: String, config: SermobilebossConfig) -> 
         &config.keystore_country,
     ];
     if required.iter().any(|v| v.trim().is_empty()) {
-        return Err("Tüm alanlar gerekli".to_string());
+        return Err("All fields are required".to_string());
     }
     write_sermobileboss_config(&workspace, &config).map_err(|e| e.to_string())
 }

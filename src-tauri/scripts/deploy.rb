@@ -4,7 +4,7 @@
 require 'fileutils'
 require 'json'
 
-# STDOUT buffering'i kapat - realtime log için zorunlu
+# Disable STDOUT buffering - required for realtime logging
 STDOUT.sync = true
 STDERR.sync = true
 
@@ -35,26 +35,26 @@ class Deployer
   end
 
   def self.log_error(message)
-    STDERR.puts "❌ HATA: #{message}"
+    STDERR.puts "❌ ERROR: #{message}"
   end
 
   def self.run_command(command, description)
     log("⚙️", description)
     success = system(command)
     if success
-      log("✅", "#{description} - Tamamlandı")
+      log("✅", "#{description} - Completed")
     else
-      log_error("#{description} - Başarısız")
+      log_error("#{description} - Failed")
     end
     success
   end
 
   # ============ STORE LOCALES ============
 
-  # fastlane metadata dizinlerindeki locale klasörlerini okur.
+  # Reads locale folders from the fastlane metadata directories.
   # iOS: ios/fastlane/metadata/{locale}/
   # Android: android/fastlane/metadata/android/{locale}/
-  # Bulunamazsa serconf.dart'tan fallback yapar.
+  # Falls back to serconf.dart if not found.
   def self.get_store_locales(project)
     ios_locales     = read_fastlane_locales(:ios)
     android_locales = read_fastlane_locales(:android)
@@ -62,17 +62,17 @@ class Deployer
     if ios_locales.any? || android_locales.any?
       ios_locales     = ios_locales.any?     ? ios_locales     : ['tr']
       android_locales = android_locales.any? ? android_locales : ['tr-TR']
-      log("🌍", "Mağaza locale'leri (fastlane metadata): iOS=#{ios_locales.join(', ')}  Android=#{android_locales.join(', ')}")
+      log("🌍", "Store locales (fastlane metadata): iOS=#{ios_locales.join(', ')}  Android=#{android_locales.join(', ')}")
       return { ios: ios_locales, android: android_locales }
     end
 
-    # Fallback: serconf.dart dil bayraklarından tespit et
-    log("⚠️", "fastlane metadata klasörü bulunamadı, serconf.dart kullanılıyor")
+    # Fallback: detect from serconf.dart language flags
+    log("⚠️", "fastlane metadata folder not found, using serconf.dart")
     get_store_locales_from_serconf(project)
   end
 
-  # ios/fastlane/metadata/ veya android/fastlane/metadata/android/ altındaki
-  # locale klasörlerini listeler (gizli dosyalar ve "default" atlanır).
+  # Lists locale folders under ios/fastlane/metadata/ or
+  # android/fastlane/metadata/android/ (skips hidden files and "default").
   def self.read_fastlane_locales(platform)
     metadata_path = case platform
                     when :ios     then File.join(ios_path, 'fastlane', 'metadata')
@@ -87,7 +87,7 @@ class Deployer
        .sort
   end
 
-  # serconf.dart dil bayraklarından App Store / Google Play locale kodlarına eşleme
+  # Maps serconf.dart language flags to App Store / Google Play locale codes
   LANGUAGE_LOCALE_MAP = {
     'ENGLISH' => { ios: 'en-US',  android: 'en-US'  },
     'RUSSIAN' => { ios: 'ru',     android: 'ru-RU'  },
@@ -104,7 +104,7 @@ class Deployer
 
     serconf_path = File.join(flutter_root, PROJECTS_PATH, project.to_s, 'serconf.dart')
     unless File.exist?(serconf_path)
-      log("⚠️", "serconf.dart bulunamadı, varsayılan locale kullanılıyor: tr + en-US")
+      log("⚠️", "serconf.dart not found, using default locale: tr + en-US")
       return { ios: ios_locales + ['en-US'], android: android_locales + ['en-US'] }
     end
 
@@ -117,15 +117,15 @@ class Deployer
       end
     end
 
-    log("🌍", "Store locale'leri (serconf.dart): iOS=#{ios_locales.join(', ')}  Android=#{android_locales.join(', ')}")
+    log("🌍", "Store locales (serconf.dart): iOS=#{ios_locales.join(', ')}  Android=#{android_locales.join(', ')}")
     { ios: ios_locales, android: android_locales }
   end
 
   def self.set_store_locale_envs
-    # TypeScript tarafından mağazadan fetch edildiyse tekrar tespit etme
+    # Skip re-detection if already fetched from the store on the TypeScript side
     if ENV['STORE_LOCALES_IOS'].to_s.strip.length > 0 &&
        ENV['STORE_LOCALES_ANDROID'].to_s.strip.length > 0
-      log("🌍", "Store locale'leri (mağazadan alındı): iOS=#{ENV['STORE_LOCALES_IOS']}  Android=#{ENV['STORE_LOCALES_ANDROID']}")
+      log("🌍", "Store locales (fetched from store): iOS=#{ENV['STORE_LOCALES_IOS']}  Android=#{ENV['STORE_LOCALES_ANDROID']}")
       return
     end
 
@@ -136,7 +136,7 @@ class Deployer
   end
 
   # ============ VERSION ============
-  MIN_VERSION = "19.0.0"  # Minimum versiyon - tüm projeler bu versiyondan başlar
+  MIN_VERSION = "19.0.0"  # Minimum version - all projects start from this version
 
   def self.get_current_project
     project_file = File.join(flutter_root, CURRENT_PROJECT_FILE)
@@ -152,7 +152,7 @@ class Deployer
     match ? match[1] : nil
   end
 
-  # Projenin kendi version.json dosyasından versiyonu oku
+  # Read the version from the project's own version.json file
   def self.get_project_version(project)
     return nil unless project
     version_file = File.join(flutter_root, PROJECTS_PATH, project, 'version.json')
@@ -167,26 +167,26 @@ class Deployer
     end
   end
 
-  # Versiyon karşılaştırma: v1 < v2 ise true döner
+  # Version comparison: returns true if v1 < v2
   def self.version_less_than?(v1, v2)
     return true if v1.nil?
 
-    # Build number'ı ayır (19.0.0+190000 -> 19.0.0)
+    # Strip the build number (19.0.0+190000 -> 19.0.0)
     v1_part = v1.split('+')[0]
     v2_part = v2.split('+')[0]
 
     v1_nums = v1_part.split('.').map(&:to_i)
     v2_nums = v2_part.split('.').map(&:to_i)
 
-    # Major karşılaştır
+    # Compare major
     return true if v1_nums[0] < v2_nums[0]
     return false if v1_nums[0] > v2_nums[0]
 
-    # Minor karşılaştır
+    # Compare minor
     return true if v1_nums[1] < v2_nums[1]
     return false if v1_nums[1] > v2_nums[1]
 
-    # Patch karşılaştır
+    # Compare patch
     return v1_nums[2] < v2_nums[2]
   end
 
@@ -194,20 +194,20 @@ class Deployer
     version_file = File.join(flutter_root, PROJECTS_PATH, project, 'version.json')
     FileUtils.mkdir_p(File.dirname(version_file))
     File.write(version_file, JSON.pretty_generate({ "version" => version }))
-    log("💾", "Proje versiyonu kaydedildi: #{project} -> #{version}")
+    log("💾", "Project version saved: #{project} -> #{version}")
   end
 
   def self.update_version(new_version)
-    log("🔢", "Versiyon güncelleniyor: #{new_version}")
+    log("🔢", "Updating version: #{new_version}")
 
     pubspec = File.join(flutter_root, PUBSPEC_PATH)
     content = File.read(pubspec)
     old_version = get_current_version
-    log("📋", "Mevcut versiyon: #{old_version}")
+    log("📋", "Current version: #{old_version}")
 
     content.gsub!(/version:\s*[^\s]+/, "version: #{new_version}")
     File.write(pubspec, content)
-    log("✅", "pubspec.yaml güncellendi")
+    log("✅", "pubspec.yaml updated")
 
     marketing_version = new_version.split('+')[0]
     build_number = new_version.split('+')[1] || '1'
@@ -216,7 +216,7 @@ class Deployer
     if File.exist?(info_plist)
       system("/usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString #{marketing_version}\" #{info_plist}")
       system("/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion #{build_number}\" #{info_plist}")
-      log("✅", "Info.plist güncellendi")
+      log("✅", "Info.plist updated")
     end
 
     begin
@@ -231,10 +231,10 @@ class Deployer
           end
         end
         project.save
-        log("✅", "Xcode project güncellendi")
+        log("✅", "Xcode project updated")
       end
     rescue LoadError
-      log("⚠️", "xcodeproj gem bulunamadı")
+      log("⚠️", "xcodeproj gem not found")
     end
 
     current_project = get_current_project
@@ -247,31 +247,31 @@ class Deployer
 
   # ============ NATIVE SPLASH ============
 
-  # Proje için splash konfigürasyonunu oku (splash.json dosyasından)
+  # Read the splash configuration for the project (from splash.json)
   def self.get_splash_config(project)
     return nil unless project
 
     project_path = File.join(flutter_root, PROJECTS_PATH, project)
     splash_config_file = File.join(project_path, 'splash.json')
 
-    # Varsayılan değerler
+    # Default values
     default_config = {
       "color" => "#FFFFFF",
       "image" => nil
     }
 
-    # splash.json varsa oku
+    # Read splash.json if present
     if File.exist?(splash_config_file)
       begin
         content = File.read(splash_config_file)
         config = JSON.parse(content)
         default_config.merge(config)
       rescue
-        log("⚠️", "splash.json okunamadı, varsayılan değerler kullanılacak")
+        log("⚠️", "Failed to read splash.json, using default values")
         default_config
       end
     else
-      # splash.json yoksa, Launch klasöründe görsel ara
+      # No splash.json, look for an image in the Launch folder
       launch_path = File.join(project_path, 'Launch')
       if File.exist?(File.join(launch_path, 'splash.png'))
         default_config["image"] = "lib/conf/sermobplus-projects/#{project}/Launch/splash.png"
@@ -282,7 +282,7 @@ class Deployer
     end
   end
 
-  # Flutter native splash yaml dosyasını oluştur
+  # Generate the Flutter native splash yaml file
   def self.generate_splash_yaml(project)
     config = get_splash_config(project)
     return false unless config && config["image"]
@@ -304,37 +304,37 @@ class Deployer
 
     yaml_path = File.join(flutter_root, 'flutter_native_splash.yaml')
     File.write(yaml_path, yaml_content)
-    log("📝", "flutter_native_splash.yaml oluşturuldu")
+    log("📝", "flutter_native_splash.yaml created")
     true
   end
 
-  # Native splash'ı oluştur
+  # Generate the native splash
   def self.create_native_splash
     current_project = get_current_project
 
     unless current_project
-      # Generic (tek proje) workspace: sermobileboss'un proje-bazlı splash.json'u
-      # yok, bunun yerine workspace kökündeki flutter_native_splash.yaml (varsa)
-      # kullanılır.
+      # Generic (single-project) workspace: there's no per-project splash.json
+      # like in sermobileboss — instead, the workspace root's
+      # flutter_native_splash.yaml (if present) is used.
       yaml_path = File.join(flutter_root, 'flutter_native_splash.yaml')
-      return true unless File.exist?(yaml_path) # Yapılandırma yoksa sessizce atla
+      return true unless File.exist?(yaml_path) # Silently skip if no config
 
-      log("🎨", "Native Splash oluşturuluyor (flutter_native_splash.yaml)")
-      return run_command("dart run flutter_native_splash:create", "Native Splash oluştur")
+      log("🎨", "Generating Native Splash (flutter_native_splash.yaml)")
+      return run_command("dart run flutter_native_splash:create", "Generate Native Splash")
     end
 
-    log("🎨", "Native Splash oluşturuluyor: #{current_project}")
+    log("🎨", "Generating Native Splash: #{current_project}")
 
-    # Yaml dosyasını oluştur
+    # Generate the yaml file
     unless generate_splash_yaml(current_project)
-      log("⚠️", "Splash konfigürasyonu bulunamadı, atlanıyor")
-      return true # Hata olarak sayma, devam et
+      log("⚠️", "Splash configuration not found, skipping")
+      return true # Don't treat as an error, continue
     end
 
-    # Flutter native splash komutunu çalıştır
-    success = run_command("dart run flutter_native_splash:create", "Native Splash oluştur")
+    # Run the flutter native splash command
+    success = run_command("dart run flutter_native_splash:create", "Generate Native Splash")
 
-    # Geçici yaml dosyasını temizle (opsiyonel)
+    # Clean up the temporary yaml file (optional)
     # yaml_path = File.join(flutter_root, 'flutter_native_splash.yaml')
     # File.delete(yaml_path) if File.exist?(yaml_path)
 
@@ -342,47 +342,47 @@ class Deployer
   end
 
   def self.auto_increment_version
-    # Önce aktif projeyi bul
+    # First, find the active project
     current_project = get_current_project
 
     if current_project
-      # Projenin kendi version.json'undan versiyonu oku
+      # Read the version from the project's own version.json
       project_version = get_project_version(current_project)
 
-      # Eğer proje versiyonu yoksa veya MIN_VERSION'dan küçükse, MIN_VERSION kullan
+      # If there's no project version or it's below MIN_VERSION, start from MIN_VERSION
       if project_version.nil? || version_less_than?(project_version, MIN_VERSION)
-        log("⚠️", "Proje versiyonu (#{project_version || 'yok'}) #{MIN_VERSION}'dan küçük, #{MIN_VERSION}'dan başlatılıyor")
+        log("⚠️", "Project version (#{project_version || 'none'}) is below #{MIN_VERSION}, starting from #{MIN_VERSION}")
         current = "#{MIN_VERSION}+#{19 * 10000000}"  # 19.0.0+190000000
       else
         current = project_version
-        log("📌", "Proje versiyonu: #{current}")
+        log("📌", "Project version: #{current}")
       end
     else
-      # Generic (tek proje) workspace: kaynak her zaman pubspec.yaml'dır.
+      # Generic (single-project) workspace: the source of truth is always pubspec.yaml.
       current = get_current_version || "#{MIN_VERSION}+#{19 * 10000000}"
-      log("📌", "Mevcut versiyon (pubspec.yaml): #{current}")
+      log("📌", "Current version (pubspec.yaml): #{current}")
     end
 
-    # Version parçala: 19.0.0+190000000
+    # Split the version: 19.0.0+190000000
     parts = current.split('+')
     version_part = parts[0]  # 19.0.0
 
-    # Versiyon numarasını parçala: major.minor.patch
+    # Split the version number: major.minor.patch
     version_nums = version_part.split('.')
     major = version_nums[0].to_i  # 19
     minor = version_nums[1].to_i  # 0
     patch = version_nums[2].to_i  # 0
 
-    # Patch versiyonu artır
+    # Bump the patch version
     patch += 1
 
-    # Otomatik taşma: patch > 9 ise minor artır
+    # Auto-carry: if patch > 9, bump minor
     if patch > 9
       patch = 0
       minor += 1
     end
 
-    # Otomatik taşma: minor > 9 ise major artır
+    # Auto-carry: if minor > 9, bump major
     if minor > 9
       minor = 0
       major += 1
@@ -390,102 +390,102 @@ class Deployer
 
     new_version_part = "#{major}.#{minor}.#{patch}"
 
-    # Build numarasını hesapla (9 hane): major * 10000000 + minor * 100000 + patch * 1000
+    # Compute the build number (9 digits): major * 10000000 + minor * 100000 + patch * 1000
     new_build = major * 10000000 + minor * 100000 + patch * 1000
     new_version = "#{new_version_part}+#{new_build}"
 
-    log("🔼", "Versiyon otomatik artırılıyor: #{current} → #{new_version}")
+    log("🔼", "Auto-incrementing version: #{current} → #{new_version}")
     update_version(new_version)
     new_version
   end
 
   def self.deploy_ios
-    log("🍎", "iOS Deploy başlatılıyor...")
-    log("📍", "Proje: #{flutter_root}")
+    log("🍎", "Starting iOS Deploy...")
+    log("📍", "Project: #{flutter_root}")
 
     Dir.chdir(flutter_root) do
-      # Otomatik versiyon artır
+      # Auto-increment version
       auto_increment_version
 
-      # Store locale'lerini tespit et ve ENV'e yaz
+      # Detect store locales and write them to ENV
       set_store_locale_envs
 
-      return false unless run_command("flutter clean && flutter pub get", "Flutter hazırlık")
+      return false unless run_command("flutter clean && flutter pub get", "Flutter setup")
 
-      # Native splash oluştur (Android 12+ desteği dahil)
+      # Generate native splash (including Android 12+ support)
       create_native_splash
 
       return false unless run_command("cd #{ios_path} && pod install", "CocoaPods")
       return false unless run_command("cd #{ios_path} && fastlane release", "App Store deploy")
     end
 
-    log("✅", "iOS Deploy başarıyla tamamlandı!")
+    log("✅", "iOS Deploy completed successfully!")
     true
   end
 
   def self.deploy_android
-    log("🤖", "Android Deploy başlatılıyor...")
-    log("📍", "Proje: #{flutter_root}")
+    log("🤖", "Starting Android Deploy...")
+    log("📍", "Project: #{flutter_root}")
 
     Dir.chdir(flutter_root) do
-      # Otomatik versiyon artır
+      # Auto-increment version
       auto_increment_version
 
-      # Store locale'lerini tespit et ve ENV'e yaz
+      # Detect store locales and write them to ENV
       set_store_locale_envs
 
-      return false unless run_command("flutter clean && flutter pub get", "Flutter hazırlık")
+      return false unless run_command("flutter clean && flutter pub get", "Flutter setup")
 
-      # Native splash oluştur (Android 12+ desteği dahil)
+      # Generate native splash (including Android 12+ support)
       create_native_splash
 
-      return false unless run_command("flutter build appbundle", "App Bundle oluştur")
+      return false unless run_command("flutter build appbundle", "Build App Bundle")
       return false unless run_command("cd #{android_path} && fastlane release", "Google Play deploy")
     end
 
-    log("✅", "Android Deploy başarıyla tamamlandı!")
+    log("✅", "Android Deploy completed successfully!")
     true
   end
 
   def self.deploy_huawei
-    log("📱", "Huawei Deploy başlatılıyor...")
-    log("⚠️", "Huawei AppGallery desteği yakında eklenecek")
-    # TODO: Huawei AppGallery entegrasyonu
+    log("📱", "Starting Huawei Deploy...")
+    log("⚠️", "Huawei AppGallery support coming soon")
+    # TODO: Huawei AppGallery integration
     true
   end
 
   def self.deploy_all
-    log("🚀", "Tüm platformlara deploy başlatılıyor...")
-    log("📍", "Proje: #{flutter_root}")
+    log("🚀", "Starting deploy to all platforms...")
+    log("📍", "Project: #{flutter_root}")
 
     Dir.chdir(flutter_root) do
-      # Otomatik versiyon artır (bir kez)
+      # Auto-increment version (once)
       auto_increment_version
 
-      # Store locale'lerini tespit et ve ENV'e yaz
+      # Detect store locales and write them to ENV
       set_store_locale_envs
 
-      return false unless run_command("flutter clean && flutter pub get", "Flutter hazırlık")
+      return false unless run_command("flutter clean && flutter pub get", "Flutter setup")
 
-      # Native splash oluştur (Android 12+ desteği dahil)
+      # Generate native splash (including Android 12+ support)
       create_native_splash
 
       return false unless run_command("cd #{ios_path} && pod install", "CocoaPods")
-      return false unless run_command("flutter build appbundle", "App Bundle oluştur")
+      return false unless run_command("flutter build appbundle", "Build App Bundle")
 
       # Android deploy
-      log("🤖", "Google Play'e yükleniyor...")
+      log("🤖", "Uploading to Google Play...")
       android_success = system("cd #{android_path} && fastlane release")
 
       # iOS deploy
-      log("🍎", "App Store'a yükleniyor...")
+      log("🍎", "Uploading to App Store...")
       ios_success = system("cd #{ios_path} && fastlane release")
 
       if android_success && ios_success
-        log("✅", "Tüm platformlara deploy başarıyla tamamlandı!")
+        log("✅", "Deploy to all platforms completed successfully!")
         return true
       else
-        log_error("Bazı platformlarda hata oluştu")
+        log_error("An error occurred on some platforms")
         return false
       end
     end
@@ -493,15 +493,15 @@ class Deployer
 
   def self.print_usage
     puts <<~USAGE
-      Kullanım: ruby deploy.rb <platform> [path]
+      Usage: ruby deploy.rb <platform> [path]
 
-      Platformlar:
-        ios       App Store'a deploy
-        android   Google Play'e deploy
-        huawei    Huawei AppGallery'e deploy
-        all       Tüm platformlara deploy
+      Platforms:
+        ios       Deploy to App Store
+        android   Deploy to Google Play
+        huawei    Deploy to Huawei AppGallery
+        all       Deploy to all platforms
 
-      Örnekler:
+      Examples:
         ruby deploy.rb ios /path/to/project
         ruby deploy.rb android /path/to/project
         ruby deploy.rb all /path/to/project
@@ -512,9 +512,9 @@ end
 # CLI Entry Point
 if __FILE__ == $0
   platform = ARGV[0]
-  project_path = ARGV[1] # Opsiyonel - proje yolu
+  project_path = ARGV[1] # Optional - project path
 
-  # Proje yolu verilmişse kullan, yoksa mevcut dizini kullan
+  # Use the given project path, otherwise fall back to the current directory
   if project_path && !project_path.empty?
     Deployer.project_root = File.expand_path(project_path)
   else
@@ -543,7 +543,7 @@ if __FILE__ == $0
     exit 0
 
   else
-    Deployer.log_error("Bilinmeyen platform: #{platform}")
+    Deployer.log_error("Unknown platform: #{platform}")
     Deployer.print_usage
     exit 1
   end

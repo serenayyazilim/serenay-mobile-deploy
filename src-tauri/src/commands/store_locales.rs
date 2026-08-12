@@ -2,8 +2,8 @@ use crate::deploy::locales::run_fastlane_fetch_locales;
 use serde_json::{json, Value};
 use std::path::Path;
 
-/// `POST /api/store-locales` karşılığı — deploy akışından bağımsız, UI-tetiklemeli
-/// mağaza dili sorgusu.
+/// Equivalent of `POST /api/store-locales` — a UI-triggered store locale lookup,
+/// independent of the deploy flow.
 #[tauri::command]
 pub async fn store_locales_fetch(workspace_path: String) -> Value {
     let root = Path::new(&workspace_path);

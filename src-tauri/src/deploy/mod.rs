@@ -25,8 +25,8 @@ pub fn is_two_factor_prompt(line: &str) -> bool {
     TWO_FACTOR_REGEXES.iter().any(|re| re.is_match(line))
 }
 
-/// `scripts/deploy.rb` ve `scripts/sync_versions.rb`'nin Tauri bundle'ında bulunacağı yol.
-/// Dev modunda proje kökündeki `scripts/`, paketlenmiş üründe resource dizini kullanılır.
+/// Path where `scripts/deploy.rb` and `scripts/sync_versions.rb` live in the Tauri bundle.
+/// Uses the project root's `scripts/` in dev mode, and the resource directory in the packaged app.
 pub fn find_script_path(app: &tauri::AppHandle, script_name: &str) -> Option<std::path::PathBuf> {
     use tauri::Manager;
 

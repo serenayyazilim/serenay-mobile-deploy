@@ -202,7 +202,7 @@ async fn upload_asset_parts(bytes: &[u8], upload_operations: &[Value]) -> Result
         let res = req.body(chunk).send().await.map_err(|e| AscApiError::new(e.to_string(), 500))?;
         if !res.status().is_success() {
             let status = res.status().as_u16();
-            return Err(AscApiError::new(format!("Parça yüklenemedi (offset {offset})"), status));
+            return Err(AscApiError::new(format!("Failed to upload chunk (offset {offset})"), status));
         }
     }
     Ok(())
@@ -236,7 +236,7 @@ async fn poll_screenshot(config: &AscConfig, id: &str) -> Result<Value, AscApiEr
             return Ok(entry);
         }
         if start.elapsed() >= timeout {
-            return Err(AscApiError::new("Görsel işleme zaman aşımına uğradı", 408));
+            return Err(AscApiError::new("Image processing timed out", 408));
         }
         tokio::time::sleep(Duration::from_secs(2)).await;
     }

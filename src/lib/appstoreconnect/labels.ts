@@ -1,36 +1,36 @@
 export const BADGE_OPTIONS = [
-  { value: "LIVE_EVENT", label: "Canlı Etkinlik" },
-  { value: "PREMIERE", label: "Prömiyer" },
-  { value: "CHALLENGE", label: "Meydan Okuma" },
-  { value: "COMPETITION", label: "Yarışma" },
-  { value: "NEW_SEASON", label: "Yeni Sezon" },
-  { value: "MAJOR_UPDATE", label: "Büyük Güncelleme" },
-  { value: "SPECIAL_EVENT", label: "Özel Etkinlik" },
+  { value: "LIVE_EVENT", label: "Live Event" },
+  { value: "PREMIERE", label: "Premiere" },
+  { value: "CHALLENGE", label: "Challenge" },
+  { value: "COMPETITION", label: "Competition" },
+  { value: "NEW_SEASON", label: "New Season" },
+  { value: "MAJOR_UPDATE", label: "Major Update" },
+  { value: "SPECIAL_EVENT", label: "Special Event" },
 ];
 
 export const PURPOSE_OPTIONS = [
-  { value: "APPROPRIATE_FOR_ALL_USERS", label: "Tüm kullanıcılar için uygun" },
-  { value: "ATTRACT_NEW_USERS", label: "Yeni kullanıcı kazanma" },
-  { value: "KEEP_ACTIVE_USERS_INFORMED", label: "Aktif kullanıcıları bilgilendirme" },
-  { value: "BRING_BACK_LAPSED_USERS", label: "Ayrılan kullanıcıları geri kazanma" },
+  { value: "APPROPRIATE_FOR_ALL_USERS", label: "Appropriate for all users" },
+  { value: "ATTRACT_NEW_USERS", label: "Attract new users" },
+  { value: "KEEP_ACTIVE_USERS_INFORMED", label: "Keep active users informed" },
+  { value: "BRING_BACK_LAPSED_USERS", label: "Bring back lapsed users" },
 ];
 
 export const PRIORITY_OPTIONS = [
   { value: "NORMAL", label: "Normal" },
-  { value: "HIGH", label: "Yüksek" },
+  { value: "HIGH", label: "High" },
 ];
 
 export const EVENT_STATE_LABELS: Record<string, { label: string; className: string }> = {
-  DRAFT: { label: "Taslak", className: "bg-secondary text-muted-foreground" },
-  READY_FOR_REVIEW: { label: "İncelemeye Hazır", className: "bg-blue-500/10 text-blue-600" },
-  WAITING_FOR_REVIEW: { label: "İnceleme Bekliyor", className: "bg-blue-500/10 text-blue-600" },
-  IN_REVIEW: { label: "İnceleniyor", className: "bg-amber-500/10 text-amber-600" },
-  REJECTED: { label: "Reddedildi", className: "bg-red-500/10 text-red-600" },
-  ACCEPTED: { label: "Kabul Edildi", className: "bg-green-500/10 text-green-600" },
-  APPROVED: { label: "Onaylandı", className: "bg-green-500/10 text-green-600" },
-  PUBLISHED: { label: "Yayında", className: "bg-green-500/10 text-green-600" },
-  PAST: { label: "Geçmiş", className: "bg-secondary text-muted-foreground" },
-  ARCHIVED: { label: "Arşivlendi", className: "bg-secondary text-muted-foreground" },
+  DRAFT: { label: "Draft", className: "bg-secondary text-muted-foreground" },
+  READY_FOR_REVIEW: { label: "Ready for Review", className: "bg-blue-500/10 text-blue-600" },
+  WAITING_FOR_REVIEW: { label: "Waiting for Review", className: "bg-blue-500/10 text-blue-600" },
+  IN_REVIEW: { label: "In Review", className: "bg-amber-500/10 text-amber-600" },
+  REJECTED: { label: "Rejected", className: "bg-red-500/10 text-red-600" },
+  ACCEPTED: { label: "Accepted", className: "bg-green-500/10 text-green-600" },
+  APPROVED: { label: "Approved", className: "bg-green-500/10 text-green-600" },
+  PUBLISHED: { label: "Published", className: "bg-green-500/10 text-green-600" },
+  PAST: { label: "Past", className: "bg-secondary text-muted-foreground" },
+  ARCHIVED: { label: "Archived", className: "bg-secondary text-muted-foreground" },
 };
 
 export const LOCALE_SUGGESTIONS = [

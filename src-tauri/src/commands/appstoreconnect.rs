@@ -4,7 +4,7 @@ use reqwest::Method;
 use serde::Serialize;
 use serde_json::{json, Value};
 
-const NOT_CONFIGURED: &str = "App Store Connect API bilgileri girilmemiş";
+const NOT_CONFIGURED: &str = "App Store Connect API credentials not set";
 
 fn to_err(e: AscApiError) -> String {
     e.message
@@ -41,7 +41,7 @@ pub async fn asc_config_save(workspace: String, issuer_id: String, key_id: Strin
 
     client::asc_fetch(&config, Method::GET, "/v1/apps?limit=1", None)
         .await
-        .map_err(|e| format!("API anahtarı doğrulanamadı: {}", e.message))?;
+        .map_err(|e| format!("Failed to verify API key: {}", e.message))?;
 
     write_asc_config(&workspace, &config).map_err(|e| e.to_string())
 }
@@ -57,7 +57,7 @@ pub async fn asc_events_list(workspace: String, bundle_id: String) -> Result<Val
     let app = client::find_app_by_bundle_id(&config, &bundle_id)
         .await
         .map_err(to_err)?
-        .ok_or_else(|| format!("App Store Connect'te bu bundle ID bulunamadı: {bundle_id}"))?;
+        .ok_or_else(|| format!("This bundle ID was not found in App Store Connect: {bundle_id}"))?;
     let app_id = app.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
 
     let events = client::list_app_events(&config, &app_id).await.map_err(to_err)?;
@@ -79,7 +79,7 @@ pub async fn asc_event_create(
     let app = client::find_app_by_bundle_id(&config, &bundle_id)
         .await
         .map_err(to_err)?
-        .ok_or_else(|| format!("App Store Connect'te bu bundle ID bulunamadı: {bundle_id}"))?;
+        .ok_or_else(|| format!("This bundle ID was not found in App Store Connect: {bundle_id}"))?;
     let app_id = app.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
 
     let event = client::create_app_event(&config, &app_id, attributes).await.map_err(to_err)?;

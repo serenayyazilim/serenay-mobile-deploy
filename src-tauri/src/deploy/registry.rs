@@ -3,9 +3,9 @@ use std::sync::{Arc, Mutex};
 use tokio::process::ChildStdin;
 use tokio::sync::Mutex as AsyncMutex;
 
-/// 2FA kod girişi için çalışan process'lerin stdin handle'larını tutar.
-/// Next.js'teki modül-seviyeli global `Map` hack'inin yerine geçer — burada
-/// Tauri managed state olarak uygulama process'i boyunca yaşar.
+/// Holds stdin handles of running processes waiting for 2FA code input.
+/// Replaces the module-level global `Map` hack from the Next.js version —
+/// here it lives as Tauri managed state for the lifetime of the app process.
 #[derive(Default)]
 pub struct DeployRegistry(pub Mutex<HashMap<String, Arc<AsyncMutex<ChildStdin>>>>);
 
