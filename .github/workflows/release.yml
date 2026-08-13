@@ -33,15 +33,15 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      # No APPLE_* signing secrets are configured yet, so this produces an unsigned,
+      # ad-hoc-signed build (Gatekeeper will warn on first launch). Once a paid Apple
+      # Developer "Developer ID Application" certificate is available, add
+      # APPLE_CERTIFICATE / APPLE_CERTIFICATE_PASSWORD / APPLE_SIGNING_IDENTITY /
+      # APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID as repo secrets and re-add them here
+      # under `env:` — tauri-action picks them up automatically and notarizes the build.
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Serenay Mobile Deploy ${{ github.ref_name }}"
