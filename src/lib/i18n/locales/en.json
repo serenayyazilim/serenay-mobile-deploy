@@ -141,6 +141,7 @@
   "eventEditor.submitForReview": "Submit for Review",
 
   "common.remove": "Remove",
+  "common.edit": "Edit",
 
   "ascSettings.verifiedAndSaved": "Connection verified and saved",
   "ascSettings.description": "Enter your App Store Connect API key to manage In-App Events. You can create one under Users and Access > Integrations > App Store Connect API.",
@@ -196,10 +197,17 @@
   "workspaceSelector.folderRequirement.and": "and",
   "workspaceSelector.folderRequirement.after": "files.",
 
-  "settings.description": "Customize the app's appearance and language.",
+  "settings.description": "Customize the app's appearance and connected accounts.",
   "settings.appearance": "Appearance",
   "settings.light": "Light",
   "settings.dark": "Dark",
   "settings.system": "System",
-  "settings.language": "Language"
+  "settings.language": "Language",
+  "settings.general": "General",
+  "settings.firebaseTab": "Firebase",
+  "settings.appStoreConnectTab": "App Store Connect",
+
+  "firebase.description": "Sign in with the Firebase CLI to deploy and manage your projects.",
+  "ascSettings.connected": "Connected",
+  "ascSettings.notConnected": "Not connected"
 }

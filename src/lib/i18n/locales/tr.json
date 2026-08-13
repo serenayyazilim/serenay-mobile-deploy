@@ -141,6 +141,7 @@
   "eventEditor.submitForReview": "İncelemeye Gönder",
 
   "common.remove": "Kaldır",
+  "common.edit": "Düzenle",
 
   "ascSettings.verifiedAndSaved": "Bağlantı doğrulandı ve kaydedildi",
   "ascSettings.description": "In-App Events (uygulama içi etkinlik) yönetimi için App Store Connect API anahtarınızı girin. Users and Access > Integrations > App Store Connect API üzerinden oluşturabilirsiniz.",
@@ -196,10 +197,17 @@
   "workspaceSelector.folderRequirement.and": "ve",
   "workspaceSelector.folderRequirement.after": "dosyalarını içermelidir.",
 
-  "settings.description": "Uygulamanın görünümünü ve dilini özelleştirin.",
+  "settings.description": "Uygulamanın görünümünü ve bağlı hesaplarını özelleştirin.",
   "settings.appearance": "Görünüm",
   "settings.light": "Açık",
   "settings.dark": "Koyu",
   "settings.system": "Sistem",
-  "settings.language": "Dil"
+  "settings.language": "Dil",
+  "settings.general": "Genel",
+  "settings.firebaseTab": "Firebase",
+  "settings.appStoreConnectTab": "App Store Connect",
+
+  "firebase.description": "Projelerinizi deploy edip yönetmek için Firebase CLI ile giriş yapın.",
+  "ascSettings.connected": "Bağlı",
+  "ascSettings.notConnected": "Bağlı değil"
 }

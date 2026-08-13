@@ -1,14 +1,13 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
-  import { CalendarClock, LoaderCircle, Check, CircleAlert, KeyRound } from "@lucide/svelte";
-  import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "$lib/components/ui/dialog";
+  import { LoaderCircle, Check, CircleAlert, KeyRound, Pencil, CalendarClock } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { t } from "$lib/i18n/index.svelte";
 
   let { workspacePath }: { workspacePath: string } = $props();
 
   let configured = $state<boolean | null>(null);
-  let showDialog = $state(false);
+  let editing = $state(false);
   let issuerId = $state("");
   let keyId = $state("");
   let privateKey = $state("");
@@ -24,15 +23,30 @@
       if (data.configured) {
         issuerId = data.issuerId || "";
         keyId = data.keyId || "";
+      } else {
+        editing = true;
       }
     } catch {
       configured = false;
+      editing = true;
     }
   }
 
   $effect(() => {
     if (workspacePath) checkConfig();
   });
+
+  function startEditing() {
+    result = null;
+    privateKey = "";
+    editing = true;
+  }
+
+  function cancelEditing() {
+    result = null;
+    privateKey = "";
+    editing = false;
+  }
 
   async function handleSave() {
     saving = true;
@@ -42,7 +56,7 @@
       result = { success: true, message: t("ascSettings.verifiedAndSaved") };
       configured = true;
       privateKey = "";
-      setTimeout(() => (showDialog = false), 900);
+      editing = false;
     } catch (error) {
       result = { success: false, message: String(error) };
     } finally {
@@ -59,44 +73,50 @@
       keyId = "";
       privateKey = "";
       result = null;
+      editing = true;
     } finally {
       saving = false;
     }
   }
 </script>
 
-<button
-  onclick={() => {
-    result = null;
-    showDialog = true;
-  }}
-  title="App Store Connect API"
-  class={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium ring-1 transition-all ${
-    configured
-      ? "bg-green-500/10 text-green-700 dark:text-green-400 ring-green-500/20 hover:bg-green-500/20"
-      : "bg-orange-500/10 text-orange-600 ring-orange-500/20 hover:bg-orange-500/20"
-  }`}
->
-  <CalendarClock class="w-4 h-4 shrink-0" />
-  <span class="truncate">App Store Connect</span>
-  {#if configured === false}
-    <span class="w-1.5 h-1.5 rounded-full bg-orange-500 ml-auto"></span>
-  {/if}
-</button>
+<div class="space-y-4">
+  <div class="flex items-center justify-between">
+    <div>
+      <h3 class="text-sm font-semibold">{t("settings.appStoreConnectTab")}</h3>
+      <p class="text-xs text-muted-foreground mt-0.5">{t("ascSettings.description")}</p>
+    </div>
+    {#if configured !== null}
+      <span
+        class={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ring-1 ${
+          configured
+            ? "bg-green-500/10 text-green-700 dark:text-green-400 ring-green-500/20"
+            : "bg-orange-500/10 text-orange-600 ring-orange-500/20"
+        }`}
+      >
+        <span class={`w-1.5 h-1.5 rounded-full ${configured ? "bg-green-500" : "bg-orange-500"}`}></span>
+        {configured ? t("ascSettings.connected") : t("ascSettings.notConnected")}
+      </span>
+    {/if}
+  </div>
 
-<Dialog bind:open={showDialog}>
-  <DialogContent class="sm:max-w-md">
-    <DialogHeader>
-      <DialogTitle class="flex items-center gap-2">
-        <KeyRound class="w-5 h-5" />
-        App Store Connect API
-      </DialogTitle>
-      <DialogDescription>
-        {t("ascSettings.description")}
-      </DialogDescription>
-    </DialogHeader>
-
-    <div class="space-y-3 py-2">
+  {#if configured && !editing}
+    <div class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium ring-1 ring-green-500/20 bg-green-500/10">
+      <CalendarClock class="w-4 h-4 shrink-0 text-green-600" />
+      <div class="flex-1 min-w-0">
+        <p class="text-green-700 dark:text-green-400 font-mono text-xs truncate">Issuer: {issuerId}</p>
+        <p class="text-green-700 dark:text-green-400 font-mono text-xs truncate">Key ID: {keyId}</p>
+      </div>
+      <button
+        title={t("common.edit")}
+        onclick={startEditing}
+        class="shrink-0 p-1.5 rounded-md text-green-700/70 dark:text-green-400/70 hover:text-green-700 dark:hover:text-green-400 hover:bg-green-500/20 transition-colors"
+      >
+        <Pencil class="w-4 h-4" />
+      </button>
+    </div>
+  {:else}
+    <div class="space-y-3">
       <div class="space-y-1">
         <label class="text-xs text-muted-foreground" for="asc-issuer-id">Issuer ID</label>
         <input
@@ -138,19 +158,21 @@
           {result.message}
         </div>
       {/if}
-    </div>
 
-    <div class="flex gap-3">
-      {#if configured}
-        <Button variant="outline" class="text-red-600 hover:text-red-700" onclick={handleRemove} disabled={saving}>
-          {t("common.remove")}
+      <div class="flex gap-3">
+        {#if configured}
+          <Button variant="outline" class="text-red-600 hover:text-red-700" onclick={handleRemove} disabled={saving}>
+            {t("common.remove")}
+          </Button>
+          <Button variant="outline" onclick={cancelEditing} disabled={saving}>
+            {t("common.cancel")}
+          </Button>
+        {/if}
+        <Button class="flex-1 gap-2" onclick={handleSave} disabled={saving || !issuerId || !keyId || (!privateKey && !configured)}>
+          {#if saving}<LoaderCircle class="w-4 h-4 animate-spin" />{:else}<KeyRound class="w-4 h-4" />{/if}
+          {t("ascSettings.saveAndVerify")}
         </Button>
-      {/if}
-      <Button variant="outline" class="flex-1" onclick={() => (showDialog = false)}>{t("common.close")}</Button>
-      <Button class="flex-1 gap-2" onclick={handleSave} disabled={saving || !issuerId || !keyId || (!privateKey && !configured)}>
-        {#if saving}<LoaderCircle class="w-4 h-4 animate-spin" />{/if}
-        {t("ascSettings.saveAndVerify")}
-      </Button>
+      </div>
     </div>
-  </DialogContent>
-</Dialog>
+  {/if}
+</div>

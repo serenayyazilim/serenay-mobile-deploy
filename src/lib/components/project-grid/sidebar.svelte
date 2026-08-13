@@ -1,9 +1,6 @@
 <script lang="ts">
   import { Plus, RefreshCw, FolderOpen, LogOut, Settings } from "@lucide/svelte";
   import { workspaceState } from "$lib/stores/workspace.svelte";
-  import AppStoreConnectSettings from "$lib/components/appstoreconnect-settings.svelte";
-  import FirebaseAccountSelector from "$lib/components/firebase-account-selector.svelte";
-  import SermobilebossWorkspaceSettings from "$lib/components/sermobileboss-workspace-settings.svelte";
   import SettingsDialog from "$lib/components/settings-dialog.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
@@ -41,14 +38,7 @@
         <RefreshCw class="w-4 h-4 text-muted-foreground" />
         {t("sidebar.syncVersions")}
       </button>
-
-      <SermobilebossWorkspaceSettings workspacePath={workspaceState.path ?? ""} />
-
-      <div class="h-px bg-border/50 w-full my-2"></div>
     {/if}
-
-    <FirebaseAccountSelector />
-    <AppStoreConnectSettings workspacePath={workspaceState.path ?? ""} />
   </nav>
 
   <div class="pt-3 border-t border-border/50 space-y-1">
@@ -73,4 +63,4 @@
   </div>
 </aside>
 
-<SettingsDialog bind:open={showSettings} />
+<SettingsDialog bind:open={showSettings} workspacePath={workspaceState.path ?? ""} showWorkspaceTab={supportsMultipleProjects} />
