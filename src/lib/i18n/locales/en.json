@@ -194,5 +194,12 @@
   "workspaceSelector.recentlyUsed": "Recently Used",
   "workspaceSelector.folderRequirement.before": "Your project folder must contain",
   "workspaceSelector.folderRequirement.and": "and",
-  "workspaceSelector.folderRequirement.after": "files."
+  "workspaceSelector.folderRequirement.after": "files.",
+
+  "settings.description": "Customize the app's appearance and language.",
+  "settings.appearance": "Appearance",
+  "settings.light": "Light",
+  "settings.dark": "Dark",
+  "settings.system": "System",
+  "settings.language": "Language"
 }

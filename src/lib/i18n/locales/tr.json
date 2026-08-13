@@ -194,5 +194,12 @@
   "workspaceSelector.recentlyUsed": "Son Kullanılanlar",
   "workspaceSelector.folderRequirement.before": "Proje klasörünüz",
   "workspaceSelector.folderRequirement.and": "ve",
-  "workspaceSelector.folderRequirement.after": "dosyalarını içermelidir."
+  "workspaceSelector.folderRequirement.after": "dosyalarını içermelidir.",
+
+  "settings.description": "Uygulamanın görünümünü ve dilini özelleştirin.",
+  "settings.appearance": "Görünüm",
+  "settings.light": "Açık",
+  "settings.dark": "Koyu",
+  "settings.system": "Sistem",
+  "settings.language": "Dil"
 }

@@ -71,16 +71,16 @@
     showDialog = true;
   }}
   title="App Store Connect API"
-  class={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium ring-1 transition-all ${
+  class={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium ring-1 transition-all ${
     configured
       ? "bg-green-500/10 text-green-700 dark:text-green-400 ring-green-500/20 hover:bg-green-500/20"
       : "bg-orange-500/10 text-orange-600 ring-orange-500/20 hover:bg-orange-500/20"
   }`}
 >
-  <CalendarClock class="w-4 h-4" />
-  <span class="hidden sm:inline">App Store Connect</span>
+  <CalendarClock class="w-4 h-4 shrink-0" />
+  <span class="truncate">App Store Connect</span>
   {#if configured === false}
-    <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+    <span class="w-1.5 h-1.5 rounded-full bg-orange-500 ml-auto"></span>
   {/if}
 </button>
 

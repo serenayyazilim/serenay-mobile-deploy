@@ -4,6 +4,7 @@
   import { RefreshCw } from "@lucide/svelte";
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
+  import TwoFactorDialog from "./two-factor-dialog.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
   interface SyncResult {
@@ -13,8 +14,9 @@
   }
 
   interface SyncEvent {
-    type: "log" | "error" | "result" | "done";
+    type: "log" | "error" | "result" | "input_required" | "done";
     message?: string;
+    prompt?: string;
     result?: SyncResult;
     success?: boolean;
   }
@@ -25,6 +27,22 @@
   let logs = $state<{ type: string; message: string }[]>([]);
   let result = $state<SyncResult | null>(null);
 
+  let twoFactorOpen = $state(false);
+  let twoFactorPrompt = $state("");
+  let twoFactorResolve: ((code: string | null) => void) | null = null;
+
+  function submitTwoFactor(code: string) {
+    twoFactorOpen = false;
+    twoFactorResolve?.(code);
+    twoFactorResolve = null;
+  }
+
+  function cancelTwoFactor() {
+    twoFactorOpen = false;
+    twoFactorResolve?.(null);
+    twoFactorResolve = null;
+  }
+
   async function handleStart() {
     running = true;
     logs = [];
@@ -34,10 +52,23 @@
     try {
       const jobId = await invoke<string>("sync_versions_start", { workspacePath });
       await new Promise<void>((resolve) => {
-        listen<SyncEvent>(`sync-versions-event-${jobId}`, (event) => {
+        listen<SyncEvent>(`sync-versions-event-${jobId}`, async (event) => {
           const data = event.payload;
           if (data.type === "result" && data.result) {
             result = data.result;
+          } else if (data.type === "input_required") {
+            twoFactorPrompt = data.prompt || "";
+            twoFactorOpen = true;
+            logs = [...logs, { type: "log", message: t("deploy.waitingForAppleAuth") }];
+
+            const code = await new Promise<string | null>((r) => {
+              twoFactorResolve = r;
+            });
+
+            if (code) {
+              await invoke("sync_versions_submit_two_factor_code", { jobId, code }).catch(() => {});
+              logs = [...logs, { type: "log", message: t("deploy.codeSubmitted") }];
+            }
           } else if (data.type === "done") {
             resolve();
           } else {
@@ -127,3 +158,10 @@
     </div>
   </DialogContent>
 </Dialog>
+
+<TwoFactorDialog
+  bind:open={twoFactorOpen}
+  prompt={twoFactorPrompt}
+  onSubmit={submitTwoFactor}
+  onCancel={cancelTwoFactor}
+/>

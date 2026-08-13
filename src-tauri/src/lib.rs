@@ -21,7 +21,7 @@ use commands::projects::{project_icon, projects_list, projects_rename, projects_
 use commands::sentry::{sentry_check, sentry_create_project};
 use commands::slack::slack_notify;
 use commands::store_locales::store_locales_fetch;
-use commands::sync_versions::sync_versions_start;
+use commands::sync_versions::{sync_versions_start, sync_versions_submit_two_factor_code};
 use commands::workspace::{
     workspace_browse, workspace_config_get, workspace_config_save, workspace_recent_add, workspace_recent_get,
     workspace_validate,
@@ -72,6 +72,7 @@ pub fn run() {
             deploy_start,
             deploy_submit_two_factor_code,
             sync_versions_start,
+            sync_versions_submit_two_factor_code,
             flutter_devices,
             flutter_build_start,
             store_locales_fetch,

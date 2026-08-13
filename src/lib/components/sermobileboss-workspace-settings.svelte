@@ -65,13 +65,13 @@
 <button
   onclick={() => { result = null; showDialog = true; }}
   title={t("workspaceSettings.title")}
-  class={`flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium ring-1 transition-all ${
+  class={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium ring-1 transition-all ${
     configured ? "bg-secondary/50 text-foreground ring-border/50 hover:bg-secondary" : "bg-orange-500/10 text-orange-600 ring-orange-500/20 hover:bg-orange-500/20"
   }`}
 >
-  <Settings2 class="w-4 h-4" />
-  <span class="hidden sm:inline">{t("workspaceSettings.title")}</span>
-  {#if configured === false}<span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>{/if}
+  <Settings2 class="w-4 h-4 shrink-0" />
+  <span class="truncate">{t("workspaceSettings.title")}</span>
+  {#if configured === false}<span class="w-1.5 h-1.5 rounded-full bg-orange-500 ml-auto"></span>{/if}
 </button>
 
 <Dialog bind:open={showDialog}>

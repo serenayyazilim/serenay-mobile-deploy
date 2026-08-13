@@ -5,6 +5,7 @@
 
 require 'json'
 require 'fileutils'
+require 'open3'
 
 STDOUT.sync = true
 STDERR.sync = true
@@ -131,14 +132,41 @@ ios_dir = File.join(workspace, 'ios')
 
 if Dir.exist?(ios_dir)
   begin
-    output = `cd #{ios_dir} && bundle exec fastlane fetch_all_versions 2>&1`
-    match  = output.match(/IOS_VERSIONS=(\{.+\})/)
+    # Runs fastlane as a real subprocess (not backticks) so its output streams to our
+    # STDOUT line-by-line as it happens, and our own STDIN (piped from the Rust side) is
+    # forwarded live into fastlane's STDIN. This lets the 2-step verification code the
+    # user submits from the UI reach fastlane's Apple sign-in prompt while it's waiting.
+    fastlane_lines = []
+
+    Open3.popen2e({ 'LANG' => 'en_US.UTF-8' }, 'bundle', 'exec', 'fastlane', 'fetch_all_versions', chdir: ios_dir) do |stdin, stdout_err, wait_thr|
+      forwarder = Thread.new do
+        loop { stdin.write(STDIN.readpartial(4096)) }
+      rescue IOError, Errno::EPIPE, EOFError
+        # child stdin closed or nothing left to read — stop forwarding
+      end
+
+      stdout_err.each_line do |line|
+        line = line.chomp
+        next if line.empty?
+        fastlane_lines << line
+        puts line
+      end
+
+      forwarder.kill
+      begin; stdin.close; rescue; end
+
+      unless wait_thr.value.success?
+        raise "fastlane fetch_all_versions exited with status #{wait_thr.value.exitstatus}"
+      end
+    end
+
+    match = fastlane_lines.join("\n").match(/IOS_VERSIONS=(\{.+\})/)
     if match
       ios_versions = JSON.parse(match[1])
       log("  ✅", "#{ios_versions.size} apps found")
     else
       # Summarize the error output
-      error_line = output.lines.select { |l| l.include?('Error') || l.include?('error') || l.include?('[!]') }.first
+      error_line = fastlane_lines.select { |l| l.include?('Error') || l.include?('error') || l.include?('[!]') }.first
       log("  ⚠️", "Failed to fetch iOS versions: #{error_line&.strip || 'could not parse output'}")
     end
   rescue => e

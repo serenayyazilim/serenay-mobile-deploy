@@ -4,10 +4,12 @@
   import ProjectGrid from "$lib/components/project-grid/project-grid.svelte";
   import { workspaceState } from "$lib/stores/workspace.svelte";
   import { i18n, t } from "$lib/i18n/index.svelte";
+  import { themeState } from "$lib/stores/theme.svelte";
 
   onMount(() => {
     workspaceState.init();
     i18n.init();
+    themeState.init();
   });
 </script>
 

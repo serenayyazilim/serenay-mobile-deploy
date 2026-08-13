@@ -1,8 +1,9 @@
+use crate::deploy::is_two_factor_prompt;
 use regex::Regex;
 use std::path::Path;
 use std::process::Stdio;
 use std::time::Duration;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 const FLAG_TO_LOCALES: &[(&str, &str, &str)] = &[
@@ -26,9 +27,14 @@ pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path) -> Result<Vec<Strin
         return Err(format!("Folder not found: {}", fastlane_dir.display()));
     }
 
+    // No dialog is reachable from this background prefetch (it can run before the deploy
+    // event channel exists), so stdin is explicitly closed: if Apple asks for a 2-step
+    // verification code here, fastlane can't get one and would otherwise hang until the
+    // timeout below burns through a code that already reached the user's device for nothing.
     let mut child = match Command::new("fastlane")
         .arg("fetch_locales")
         .current_dir(fastlane_dir)
+        .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -37,23 +43,51 @@ pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path) -> Result<Vec<Strin
         Err(e) => return Err(e.to_string()),
     };
 
-    let mut stdout = child.stdout.take().unwrap();
-    let mut stderr = child.stderr.take().unwrap();
+    let stdout = child.stdout.take().unwrap();
+    let stderr = child.stderr.take().unwrap();
 
     let read_fut = async {
-        let mut out = String::new();
-        let mut err = String::new();
-        let _ = stdout.read_to_string(&mut out).await;
-        let _ = stderr.read_to_string(&mut err).await;
-        (out, err)
+        let mut out_lines: Vec<String> = Vec::new();
+        let mut err_lines: Vec<String> = Vec::new();
+        let mut two_factor = false;
+
+        let mut out_reader = BufReader::new(stdout).lines();
+        let mut err_reader = BufReader::new(stderr).lines();
+        let mut out_done = false;
+        let mut err_done = false;
+
+        while !two_factor && !(out_done && err_done) {
+            tokio::select! {
+                line = out_reader.next_line(), if !out_done => match line {
+                    Ok(Some(l)) => {
+                        if is_two_factor_prompt(&l) { two_factor = true; }
+                        out_lines.push(l);
+                    }
+                    _ => out_done = true,
+                },
+                line = err_reader.next_line(), if !err_done => match line {
+                    Ok(Some(l)) => {
+                        if is_two_factor_prompt(&l) { two_factor = true; }
+                        err_lines.push(l);
+                    }
+                    _ => err_done = true,
+                },
+            }
+        }
+
+        (out_lines.join("\n"), err_lines.join("\n"), two_factor)
     };
 
     let result = tokio::time::timeout(Duration::from_secs(90), read_fut).await;
     let _ = child.kill().await;
 
-    let Ok((stdout_text, _stderr_text)) = result else {
+    let Ok((stdout_text, _stderr_text, two_factor)) = result else {
         return Err("Timed out (90s)".to_string());
     };
+
+    if two_factor {
+        return Err("Apple 2-step verification required — skipped during automatic locale detection (no code entry available here)".to_string());
+    }
 
     let re = Regex::new(r"FASTLANE_LOCALES=(.+)").unwrap();
     if let Some(c) = re.captures(&stdout_text) {

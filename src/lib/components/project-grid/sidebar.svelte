@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { Plus, RefreshCw, FolderOpen, LogOut } from "@lucide/svelte";
+  import { Plus, RefreshCw, FolderOpen, LogOut, Settings } from "@lucide/svelte";
   import { workspaceState } from "$lib/stores/workspace.svelte";
   import AppStoreConnectSettings from "$lib/components/appstoreconnect-settings.svelte";
   import FirebaseAccountSelector from "$lib/components/firebase-account-selector.svelte";
   import SermobilebossWorkspaceSettings from "$lib/components/sermobileboss-workspace-settings.svelte";
-  import LanguageSwitcher from "$lib/components/language-switcher.svelte";
+  import SettingsDialog from "$lib/components/settings-dialog.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
   let { projectCount, supportsMultipleProjects, onCreateProject, onSyncVersions }: {
@@ -15,6 +15,8 @@
   } = $props();
 
   const workspaceName = $derived(workspaceState.path?.split("/").filter(Boolean).pop() ?? "");
+
+  let showSettings = $state(false);
 </script>
 
 <aside class="w-64 shrink-0 h-screen sticky top-0 flex flex-col bg-secondary/20 border-r border-border/50 p-4">
@@ -54,7 +56,13 @@
       <FolderOpen class="w-4 h-4 shrink-0" />
       <span class="truncate">{workspaceName}</span>
     </div>
-    <LanguageSwitcher />
+    <button
+      onclick={() => (showSettings = true)}
+      class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+    >
+      <Settings class="w-4 h-4" />
+      {t("common.settings")}
+    </button>
     <button
       onclick={() => workspaceState.clear()}
       class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
@@ -64,3 +72,5 @@
     </button>
   </div>
 </aside>
+
+<SettingsDialog bind:open={showSettings} />
