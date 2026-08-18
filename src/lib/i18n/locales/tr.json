@@ -49,6 +49,8 @@
   "whatsNew.androidOnly": "Sadece Android",
   "whatsNew.both": "İkisi de",
   "whatsNew.startDeploy": "Deploy Başlat",
+  "whatsNew.bumpVersion": "Versiyonu artır (+1)",
+  "whatsNew.bumpVersionOffHint": "kapalı — {version} ile deploy edilecek",
 
   "language.english": "İngilizce",
   "language.russian": "Rusça",

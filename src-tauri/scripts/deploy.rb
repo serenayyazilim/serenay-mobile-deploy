@@ -399,13 +399,23 @@ class Deployer
     new_version
   end
 
+  # Bumps the version unless the app explicitly opted out (BUMP_VERSION=false),
+  # e.g. when the user unchecked "increment version" in the deploy dialog.
+  def self.maybe_bump_version
+    if ENV['BUMP_VERSION'] == 'false'
+      log("📌", "Version bump skipped, deploying with the current version")
+    else
+      auto_increment_version
+    end
+  end
+
   def self.deploy_ios
     log("🍎", "Starting iOS Deploy...")
     log("📍", "Project: #{flutter_root}")
 
     Dir.chdir(flutter_root) do
-      # Auto-increment version
-      auto_increment_version
+      # Bump version unless the user opted out
+      maybe_bump_version
 
       # Detect store locales and write them to ENV
       set_store_locale_envs
@@ -428,8 +438,8 @@ class Deployer
     log("📍", "Project: #{flutter_root}")
 
     Dir.chdir(flutter_root) do
-      # Auto-increment version
-      auto_increment_version
+      # Bump version unless the user opted out
+      maybe_bump_version
 
       # Detect store locales and write them to ENV
       set_store_locale_envs
@@ -459,8 +469,8 @@ class Deployer
     log("📍", "Project: #{flutter_root}")
 
     Dir.chdir(flutter_root) do
-      # Auto-increment version (once)
-      auto_increment_version
+      # Bump version (once) unless the user opted out
+      maybe_bump_version
 
       # Detect store locales and write them to ENV
       set_store_locale_envs

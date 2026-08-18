@@ -49,6 +49,8 @@
   "whatsNew.androidOnly": "Android Only",
   "whatsNew.both": "Both",
   "whatsNew.startDeploy": "Start Deploy",
+  "whatsNew.bumpVersion": "Increment version (+1)",
+  "whatsNew.bumpVersionOffHint": "off — will deploy with {version}",
 
   "language.english": "English",
   "language.russian": "Russian",

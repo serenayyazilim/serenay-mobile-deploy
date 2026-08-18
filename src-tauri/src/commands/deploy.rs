@@ -30,6 +30,7 @@ pub async fn deploy_start(
     platform: String,
     workspace_path: String,
     whats_new: Option<String>,
+    bump_version: Option<bool>,
 ) -> Result<String, String> {
     if !["ios", "android", "huawei", "all"].contains(&platform.as_str()) {
         return Err("Invalid platform. Must be ios, android, huawei or all".to_string());
@@ -57,6 +58,7 @@ pub async fn deploy_start(
         .env("WHATS_NEW_TRANSLATIONS", serde_json::to_string(&translations).unwrap_or_default())
         .env("STORE_LOCALES_IOS", ios_locales.join(","))
         .env("STORE_LOCALES_ANDROID", android_locales.join(","))
+        .env("BUMP_VERSION", if bump_version.unwrap_or(true) { "true" } else { "false" })
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

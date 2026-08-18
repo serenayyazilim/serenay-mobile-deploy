@@ -97,14 +97,15 @@
     bind:open={deployState.whatsNewDialogOpen}
     project={deployState.pendingProject}
     workspacePath={workspaceState.path ?? ""}
-    onConfirm={(whatsNew, platform) =>
+    onConfirm={(whatsNew, platform, bumpVersion) =>
       workspaceState.path &&
       deployState.confirmDeploy(
         workspaceState.path,
         projectsState.versions,
         () => projectsState.fetchVersions(workspaceState.path!),
         whatsNew,
-        platform
+        platform,
+        bumpVersion
       )}
     onCancel={() => deployState.cancelDeploy()}
   />

@@ -12,7 +12,7 @@
     open: boolean;
     project: WorkspaceProject | null;
     workspacePath: string;
-    onConfirm: (whatsNew: string, platform: DeployPlatform) => void;
+    onConfirm: (whatsNew: string, platform: DeployPlatform, bumpVersion: boolean) => void;
     onCancel: () => void;
   } = $props();
 
@@ -29,6 +29,8 @@
   let text = $state("");
   let platform = $state<DeployPlatform>("all");
   let languages = $state<{ flag: string; labelKey: string }[]>([]);
+  let bumpVersion = $state(true);
+  let currentVersion = $state("");
 
   $effect(() => {
     if (!open || !project || !workspacePath) return;
@@ -42,17 +44,34 @@
         languages = result;
       })
       .catch(() => {});
+
+    currentVersion = "";
+    invoke<{ versions: Record<string, string> }>("projects_versions", { workspace: workspacePath })
+      .then((data) => (currentVersion = data.versions?.[project.id] ?? ""))
+      .catch(() => {});
   });
 
+  function nextVersion(current: string): string {
+    const [semver] = current.split("+");
+    let [major, minor, patch] = semver.split(".").map((n) => parseInt(n, 10) || 0);
+    patch += 1;
+    if (patch > 9) { patch = 0; minor += 1; }
+    if (minor > 9) { minor = 0; major += 1; }
+    const build = major * 10_000_000 + minor * 100_000 + patch * 1_000;
+    return `${major}.${minor}.${patch}+${build}`;
+  }
+
   function handleConfirm() {
-    onConfirm(text.trim() || t("whatsNew.defaultText"), platform);
+    onConfirm(text.trim() || t("whatsNew.defaultText"), platform, bumpVersion);
     text = "";
     platform = "all";
+    bumpVersion = true;
   }
 
   function handleCancel() {
     text = "";
     platform = "all";
+    bumpVersion = true;
     onCancel();
   }
 
@@ -111,6 +130,18 @@
           {/each}
         </div>
       </div>
+
+      <label class="flex items-center gap-2.5 rounded-md border border-input px-3 py-2.5 cursor-pointer">
+        <input type="checkbox" bind:checked={bumpVersion} class="w-4 h-4 accent-primary shrink-0" />
+        <span class="flex-1 text-xs">
+          <span class="font-medium text-foreground">{t("whatsNew.bumpVersion")}</span>
+          {#if currentVersion}
+            <span class="text-muted-foreground">
+              {" — "}{bumpVersion ? `${currentVersion} → ${nextVersion(currentVersion)}` : t("whatsNew.bumpVersionOffHint", { version: currentVersion })}
+            </span>
+          {/if}
+        </span>
+      </label>
     </div>
 
     <div class="flex justify-end gap-2 pt-2">

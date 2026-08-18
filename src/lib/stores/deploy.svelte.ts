@@ -80,7 +80,8 @@ class DeployState {
     projectVersions: Record<string, string>,
     onVersionRefresh: () => Promise<void>,
     whatsNew: string,
-    platform: DeployPlatform = "all"
+    platform: DeployPlatform = "all",
+    bumpVersion: boolean = true
   ) {
     const project = this.pendingProject;
     if (!project || !workspacePath) return;
@@ -107,7 +108,7 @@ class DeployState {
       this.deployMessage = t("deploy.starting");
       this.deployProgress = 30;
 
-      const processId = await invoke<string>("deploy_start", { platform, workspacePath, whatsNew });
+      const processId = await invoke<string>("deploy_start", { platform, workspacePath, whatsNew, bumpVersion });
 
       await new Promise<void>((resolve, reject) => {
         listen<DeployEvent>(`deploy-event-${processId}`, async (event) => {
