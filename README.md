@@ -35,6 +35,34 @@ A desktop app for deploying Flutter-based mobile apps to the App Store, Google P
 | Windows  | x86_64                 | 🚧 Planned                                                                 |
 | Linux    | x86_64                 | 🚧 Planned                                                                 |
 
+## Installation
+
+### Homebrew (macOS, Apple Silicon)
+
+```bash
+brew tap serenayyazilim/serenay-mobile-deploy
+brew install --cask serenay-mobile-deploy
+```
+
+To update to the latest version later:
+
+```bash
+brew upgrade --cask serenay-mobile-deploy
+```
+
+### First launch
+
+This build isn't signed with a paid Apple Developer ID, so macOS Gatekeeper blocks it as coming from an "unidentified developer" the first time you open it. Either:
+
+- Right-click (or Control-click) the app in Finder/Launchpad and choose **Open**, then confirm in the dialog that appears, **or**
+- Remove the quarantine flag from the terminal:
+
+  ```bash
+  xattr -dr com.apple.quarantine /Applications/serenay-mobile-deploy.app
+  ```
+
+You only need to do this once per install.
+
 ## Tech stack
 
 | Layer      | Technology                          |
