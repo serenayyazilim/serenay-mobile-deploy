@@ -5,21 +5,24 @@
   import { SERCONF_CATEGORIES, getFieldsByCategory } from "$lib/serconf-schema";
   import CategoryPill from "./category-pill.svelte";
   import ColorsTab from "./colors-tab.svelte";
+  import AssetsTab from "./assets-tab.svelte";
+  import VersionTab from "./version-tab.svelte";
   import SettingsContent from "./settings-content.svelte";
   import EventsTab from "$lib/components/events-tab/index.svelte";
   import type { WorkspaceProject } from "$lib/stores/projects.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
-  let { open = $bindable(false), project, workspacePath, workspaceMode, onProjectRenamed }: {
+  let { open = $bindable(false), project, workspacePath, workspaceMode, onProjectRenamed, onVersionSaved }: {
     open: boolean;
     project: WorkspaceProject | null;
     workspacePath: string;
     workspaceMode: string | null;
     onProjectRenamed?: () => void;
+    onVersionSaved?: () => void;
   } = $props();
 
   const supportsTenantConfig = $derived(workspaceMode !== "generic");
-  let activeCategory = $state("colors");
+  let activeCategory = $state("assets");
 
   let editingName = $state(false);
   let nameValue = $state("");
@@ -71,7 +74,7 @@
 
   $effect(() => {
     if (open && project) {
-      activeCategory = "colors";
+      activeCategory = "assets";
       nameValue = project.appName;
       editingName = false;
       configResult = null;
@@ -137,7 +140,9 @@
   }
 
   const allCategories = $derived([
+    { id: "assets", label: t("projectSettings.assets") },
     ...(supportsTenantConfig ? [{ id: "colors", label: t("projectSettings.colors") }] : []),
+    { id: "version", label: t("projectSettings.version") },
     { id: "events", label: "In-App Events" },
     ...(supportsTenantConfig ? SERCONF_CATEGORIES : []),
   ]);
@@ -182,7 +187,7 @@
     </div>
 
     <div class="px-6 pb-4">
-      <div class="flex gap-2 overflow-x-auto pb-1">
+      <div class="flex gap-2 overflow-x-auto pb-3">
         {#each allCategories as cat (cat.id)}
           <CategoryPill label={cat.label} active={activeCategory === cat.id} onClick={() => (activeCategory = cat.id)} />
         {/each}
@@ -190,12 +195,16 @@
     </div>
 
     <div class="flex-1 overflow-y-auto px-6 pb-4 min-h-[300px]">
-      {#if activeCategory === "colors"}
+      {#if activeCategory === "assets" && project}
+        <AssetsTab {project} {workspacePath} generic={!supportsTenantConfig} />
+      {:else if activeCategory === "colors"}
         {#if colorsLoading}
           <div class="flex items-center justify-center py-20"><LoaderCircle class="w-6 h-6 animate-spin text-muted-foreground" /></div>
         {:else}
           <ColorsTab {colors} onUpdateColor={updateColor} />
         {/if}
+      {:else if activeCategory === "version" && project}
+        <VersionTab {project} {workspacePath} {onVersionSaved} />
       {:else if activeCategory === "events" && project}
         <EventsTab {workspacePath} bundleId={project.bundleId} />
       {:else if configLoading}
@@ -205,7 +214,7 @@
       {/if}
     </div>
 
-    {#if activeCategory === "events"}
+    {#if activeCategory === "events" || activeCategory === "assets" || activeCategory === "version"}
       <div class="px-6 py-4 bg-secondary/30 border-t border-border/50 flex justify-end">
         <button onclick={() => (open = false)} class="px-5 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
           {t("common.close")}

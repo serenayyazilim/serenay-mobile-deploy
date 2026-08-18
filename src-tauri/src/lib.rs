@@ -17,7 +17,9 @@ use commands::deploy::{deploy_start, deploy_submit_two_factor_code};
 use commands::firebase::{firebase_accounts, firebase_create_project, firebase_logout};
 use commands::flutter::{flutter_build_start, flutter_devices, flutter_run_hot_reload, flutter_run_stop};
 use commands::project::{project_activate, project_create};
-use commands::projects::{project_icon, projects_list, projects_rename, projects_version_set, projects_versions};
+use commands::projects::{
+    project_asset_upload, project_icon, projects_list, projects_rename, projects_version_set, projects_versions,
+};
 use commands::sentry::{sentry_check, sentry_create_project};
 use commands::slack::slack_notify;
 use commands::store_locales::store_locales_fetch;
@@ -47,6 +49,7 @@ pub fn run() {
             projects_rename,
             projects_versions,
             project_icon,
+            project_asset_upload,
             asc_config_get,
             asc_config_save,
             asc_config_delete,

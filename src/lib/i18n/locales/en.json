@@ -97,7 +97,27 @@
   "projectSettings.saved": "Saved",
   "projectSettings.colorsSaved": "Colors saved",
   "projectSettings.colors": "Colors",
+  "projectSettings.assets": "Assets",
+  "projectSettings.version": "Version",
   "projectSettings.title": "Project Settings",
+
+  "assetsTab.uploaded": "Uploaded",
+  "assetsTab.logo": "App Logo",
+  "assetsTab.logoDescription": "Logo shown inside the app (PNG)",
+  "assetsTab.splash": "Splash Screen",
+  "assetsTab.splashDescription": "Image shown on app launch (1152x1152 PNG)",
+  "assetsTab.appIcon": "App Icon",
+  "assetsTab.appIconHint": "Run flutter_launcher_icons after changing this",
+  "assetsTab.firebaseConfig": "Firebase Configuration",
+  "assetsTab.firebaseConfigHint": "Required for push notifications and analytics",
+
+  "versionTab.currentVersion": "Saved version",
+  "versionTab.editVersion": "Edit version",
+  "versionTab.versionNumber": "Version number",
+  "versionTab.buildNumber": "Build number",
+  "versionTab.preview": "Preview",
+  "versionTab.saved": "Version saved",
+  "versionTab.hint": "This version is written to pubspec.yaml on run. Deploy bumps it automatically.",
 
   "common.add": "Add",
 

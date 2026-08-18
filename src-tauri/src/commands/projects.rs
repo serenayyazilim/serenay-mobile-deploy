@@ -196,3 +196,44 @@ pub fn project_icon(workspace: String, project_id: String, icon_type: Option<Str
 
     read_icon_as_data_url(&image_path?)
 }
+
+/// Target path for `project_asset_upload`. Mirrors the read-side locations used by
+/// `project_icon` and the firebase-config copy paths written by `firebase.rs`/`project.rs`.
+fn asset_target_path(workspace: &str, project_id: &str, asset_type: &str) -> Result<PathBuf, String> {
+    let root = Path::new(workspace);
+
+    if detect_workspace_mode(workspace) == WorkspaceMode::Generic {
+        return match asset_type {
+            "icon" => Ok(root.join("assets/icon/icon.png")),
+            "splash" => Ok(root.join("assets/splash/splash.png")),
+            "firebaseAndroid" => Ok(root.join("android/app/google-services.json")),
+            "firebaseIos" => Ok(root.join("ios/Runner/GoogleService-Info.plist")),
+            other => Err(format!("Unsupported asset type for this workspace: {other}")),
+        };
+    }
+
+    let safe_id = sanitize_project_id(project_id);
+    let project_folder = root.join("lib/conf/sermobplus-projects").join(&safe_id);
+
+    match asset_type {
+        "logo" => Ok(root.join("assets/images").join(format!("logo-{safe_id}.png"))),
+        "splash" => Ok(project_folder.join("Launch/splash.png")),
+        "icon512" => Ok(project_folder.join("Graphic/512x512 icon.png")),
+        "icon1024" => Ok(project_folder.join("Graphic/1024x1024 icon.png")),
+        "firebaseAndroid" => Ok(project_folder.join("google-services.json")),
+        "firebaseIos" => Ok(project_folder.join("GoogleService-Info.plist")),
+        other => Err(format!("Unsupported asset type: {other}")),
+    }
+}
+
+/// Saves an uploaded asset (icon/logo/splash/Firebase config) to its canonical location.
+/// Re-run `flutter_launcher_icons` / `flutter_native_splash` (or re-activate the project)
+/// afterwards to regenerate native icons from an updated source image.
+#[tauri::command]
+pub fn project_asset_upload(workspace: String, project_id: String, asset_type: String, data: Vec<u8>) -> Result<(), String> {
+    let path = asset_target_path(&workspace, &project_id, &asset_type)?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&path, data).map_err(|e| e.to_string())
+}

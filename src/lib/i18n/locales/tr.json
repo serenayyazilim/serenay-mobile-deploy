@@ -97,7 +97,27 @@
   "projectSettings.saved": "Kaydedildi",
   "projectSettings.colorsSaved": "Renkler kaydedildi",
   "projectSettings.colors": "Renkler",
+  "projectSettings.assets": "Görseller",
+  "projectSettings.version": "Versiyon",
   "projectSettings.title": "Proje Ayarları",
+
+  "assetsTab.uploaded": "Yüklendi",
+  "assetsTab.logo": "Uygulama Logosu",
+  "assetsTab.logoDescription": "Uygulama içinde görünen logo (PNG)",
+  "assetsTab.splash": "Splash Screen",
+  "assetsTab.splashDescription": "Uygulama açılışında görünen görsel (1152x1152 PNG)",
+  "assetsTab.appIcon": "Uygulama İkonu",
+  "assetsTab.appIconHint": "Değiştirdikten sonra flutter_launcher_icons çalıştırın",
+  "assetsTab.firebaseConfig": "Firebase Yapılandırması",
+  "assetsTab.firebaseConfigHint": "Push bildirim ve analytics için gerekli",
+
+  "versionTab.currentVersion": "Kayıtlı versiyon",
+  "versionTab.editVersion": "Versiyon düzenle",
+  "versionTab.versionNumber": "Sürüm numarası",
+  "versionTab.buildNumber": "Build numarası",
+  "versionTab.preview": "Önizleme",
+  "versionTab.saved": "Versiyon kaydedildi",
+  "versionTab.hint": "Run yapıldığında pubspec.yaml bu versiyon ile güncellenir. Deploy versiyonu otomatik artırır.",
 
   "common.add": "Ekle",
 

@@ -76,6 +76,7 @@
     workspacePath={workspaceState.path ?? ""}
     workspaceMode={workspaceState.mode}
     onProjectRenamed={() => workspaceState.path && projectsState.fetchProjects(workspaceState.path)}
+    onVersionSaved={() => workspaceState.path && projectsState.fetchVersions(workspaceState.path)}
   />
 
   <CreateProjectDialog
