@@ -234,8 +234,19 @@
   "settings.general": "General",
   "settings.firebaseTab": "Firebase",
   "settings.appStoreConnectTab": "App Store Connect",
+  "settings.slackTab": "Slack",
 
   "firebase.description": "Sign in with the Firebase CLI to deploy and manage your projects.",
   "ascSettings.connected": "Connected",
-  "ascSettings.notConnected": "Not connected"
+  "ascSettings.notConnected": "Not connected",
+
+  "slackSettings.description": "Send deploy success/failure notifications to a Slack channel via an incoming webhook.",
+  "slackSettings.connected": "Connected",
+  "slackSettings.notConnected": "Not connected",
+  "slackSettings.webhookConfigured": "Webhook configured",
+  "slackSettings.webhookUrl": "Webhook URL",
+  "slackSettings.webhookHint": "Create one at Slack > your workspace > Apps > Incoming Webhooks.",
+  "slackSettings.saved": "Webhook saved",
+  "slackSettings.sendTest": "Send test message",
+  "slackSettings.testSent": "Test message sent"
 }

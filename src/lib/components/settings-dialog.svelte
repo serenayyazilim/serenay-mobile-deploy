@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { Sun, Moon, MonitorCog, Check, Palette, Flame, CalendarClock, Settings2 } from "@lucide/svelte";
+  import { Sun, Moon, MonitorCog, Check, Palette, Flame, CalendarClock, Settings2, MessageSquare } from "@lucide/svelte";
   import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "$lib/components/ui/dialog";
   import { i18n, locales, type Locale } from "$lib/i18n/index.svelte";
   import { themeState, type ThemeMode } from "$lib/stores/theme.svelte";
   import FirebaseSettings from "$lib/components/firebase-account-selector.svelte";
   import AppStoreConnectSettings from "$lib/components/appstoreconnect-settings.svelte";
+  import SlackSettings from "$lib/components/slack-settings.svelte";
   import SermobilebossWorkspaceSettings from "$lib/components/sermobileboss-workspace-settings.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
@@ -14,7 +15,7 @@
     showWorkspaceTab?: boolean;
   } = $props();
 
-  type Tab = "general" | "firebase" | "appstoreconnect" | "workspace";
+  type Tab = "general" | "firebase" | "appstoreconnect" | "slack" | "workspace";
   let activeTab = $state<Tab>("general");
 
   const tabs = $derived(
@@ -22,6 +23,7 @@
       { id: "general" as const, labelKey: "settings.general", icon: Palette },
       { id: "firebase" as const, labelKey: "settings.firebaseTab", icon: Flame },
       { id: "appstoreconnect" as const, labelKey: "settings.appStoreConnectTab", icon: CalendarClock },
+      { id: "slack" as const, labelKey: "settings.slackTab", icon: MessageSquare },
       ...(showWorkspaceTab ? [{ id: "workspace" as const, labelKey: "workspaceSettings.title", icon: Settings2 }] : []),
     ]
   );
@@ -107,6 +109,8 @@
             <FirebaseSettings />
           {:else if activeTab === "appstoreconnect"}
             <AppStoreConnectSettings {workspacePath} />
+          {:else if activeTab === "slack"}
+            <SlackSettings {workspacePath} />
           {:else if activeTab === "workspace"}
             <SermobilebossWorkspaceSettings {workspacePath} />
           {/if}

@@ -155,7 +155,7 @@ class DeployState {
       this.deployMessage = t("deploy.completed");
       this.deployProgress = 100;
       await onVersionRefresh();
-      sendSlackNotification(project, true, projectVersions[project.id] || "19.0.x", undefined, duration);
+      sendSlackNotification(workspacePath, project, true, projectVersions[project.id] || "19.0.x", undefined, duration);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.stopElapsedTimer();
@@ -171,7 +171,7 @@ class DeployState {
         this.errorDialogOpen = true;
       }
 
-      sendSlackNotification(project, false, projectVersions[project.id] || "19.0.x", errorMsg, duration);
+      sendSlackNotification(workspacePath, project, false, projectVersions[project.id] || "19.0.x", errorMsg, duration);
     } finally {
       (unlisten as UnlistenFn | null)?.();
     }

@@ -3,6 +3,7 @@ mod commands;
 mod config;
 mod deploy;
 mod firebase;
+mod slack;
 mod workspace;
 mod xcode_gradle;
 
@@ -21,7 +22,7 @@ use commands::projects::{
     project_asset_upload, project_icon, projects_list, projects_rename, projects_version_set, projects_versions,
 };
 use commands::sentry::{sentry_check, sentry_create_project};
-use commands::slack::slack_notify;
+use commands::slack::{slack_config_delete, slack_config_get, slack_config_save, slack_notify, slack_test};
 use commands::store_locales::store_locales_fetch;
 use commands::sync_versions::{sync_versions_start, sync_versions_submit_two_factor_code};
 use commands::workspace::{
@@ -90,6 +91,10 @@ pub fn run() {
             sentry_check,
             sentry_create_project,
             slack_notify,
+            slack_config_get,
+            slack_config_save,
+            slack_config_delete,
+            slack_test,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -87,15 +87,15 @@ To run/build/deploy a Flutter project *through* this app:
 
 ## Configuration
 
-The following integrations are optional and enabled via environment variables:
+App Store Connect credentials (Issuer ID, Key ID, `.p8` private key) and the Slack webhook URL are entered in-app, via **Settings**, per workspace — stored only in that workspace's directory, never sent to the repo or anywhere else. Slack: **Settings > Slack**, paste an [incoming webhook URL](https://api.slack.com/messaging/webhooks), save, and optionally send a test message.
+
+The following integrations are optional and enabled via environment variables instead:
 
 | Variable              | Description                                      |
 |------------------------|--------------------------------------------------|
-| `SLACK_WEBHOOK_URL`   | Slack webhook URL where deploy notifications are sent |
+| `SLACK_WEBHOOK_URL`   | Slack webhook URL, used as a fallback when nothing is set in Settings |
 | `SENTRY_AUTH_TOKEN`   | Sentry API token (falls back to reading `~/.sentryclirc`) |
 | `SENTRY_ORG`          | Sentry organization slug                          |
-
-App Store Connect credentials (Issuer ID, Key ID, `.p8` private key) are entered in-app, per workspace, and stored only in that workspace's directory — never sent to the repo or anywhere else.
 
 ## Project structure
 

@@ -234,8 +234,19 @@
   "settings.general": "Genel",
   "settings.firebaseTab": "Firebase",
   "settings.appStoreConnectTab": "App Store Connect",
+  "settings.slackTab": "Slack",
 
   "firebase.description": "Projelerinizi deploy edip yönetmek için Firebase CLI ile giriş yapın.",
   "ascSettings.connected": "Bağlı",
-  "ascSettings.notConnected": "Bağlı değil"
+  "ascSettings.notConnected": "Bağlı değil",
+
+  "slackSettings.description": "Deploy başarı/hata bildirimlerini bir incoming webhook üzerinden Slack kanalına gönder.",
+  "slackSettings.connected": "Bağlı",
+  "slackSettings.notConnected": "Bağlı değil",
+  "slackSettings.webhookConfigured": "Webhook tanımlı",
+  "slackSettings.webhookUrl": "Webhook URL",
+  "slackSettings.webhookHint": "Slack > workspace'in > Apps > Incoming Webhooks üzerinden oluşturabilirsin.",
+  "slackSettings.saved": "Webhook kaydedildi",
+  "slackSettings.sendTest": "Test mesajı gönder",
+  "slackSettings.testSent": "Test mesajı gönderildi"
 }

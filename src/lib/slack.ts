@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { WorkspaceProject } from "$lib/stores/projects.svelte";
 
 export async function sendSlackNotification(
+  workspacePath: string,
   project: WorkspaceProject,
   success: boolean,
   version: string,
@@ -10,6 +11,7 @@ export async function sendSlackNotification(
 ): Promise<void> {
   try {
     await invoke("slack_notify", {
+      workspace: workspacePath,
       projectName: project.appName,
       projectId: project.id,
       platform: "all",
