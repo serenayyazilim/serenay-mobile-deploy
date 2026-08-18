@@ -1,6 +1,17 @@
+<p align="center">
+  <img src=".github/banner.png" alt="Serenay Mobile Deploy" width="100%" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/serenayyazilim/serenay-mobile-deploy/releases/latest"><img src="https://img.shields.io/github/v/release/serenayyazilim/serenay-mobile-deploy?label=release" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/serenayyazilim/serenay-mobile-deploy" alt="License"></a>
+  <img src="https://img.shields.io/badge/platform-macOS-000000?logo=apple&logoColor=white" alt="Platform">
+  <a href="https://github.com/serenayyazilim/homebrew-serenay-mobile-deploy"><img src="https://img.shields.io/badge/homebrew-available-fbb040?logo=homebrew&logoColor=white" alt="Homebrew"></a>
+</p>
+
 # Serenay Mobile Deploy
 
-A desktop app for deploying Flutter-based mobile apps to the App Store, Google Play, and AppGallery. Built with [Tauri](https://tauri.app) + [SvelteKit](https://kit.svelte.dev).
+A desktop app for deploying Flutter-based mobile apps to the App Store, Google Play, and AppGallery.
 
 ## Features
 
@@ -14,6 +25,15 @@ A desktop app for deploying Flutter-based mobile apps to the App Store, Google P
 - **Slack notifications** — reports deploy success/failure to a Slack channel via webhook.
 - **Store localizations** — fetches locale-specific store descriptions from fastlane metadata directories.
 - **Multi-language UI** — English and Turkish, switchable in-app.
+
+## Platform support
+
+| Platform | Architecture           | Status                                                                     |
+|----------|------------------------|-----------------------------------------------------------------------------|
+| macOS    | Apple Silicon (arm64)  | ✅ [Homebrew](https://github.com/serenayyazilim/homebrew-serenay-mobile-deploy) / [direct download](https://github.com/serenayyazilim/serenay-mobile-deploy/releases/latest) |
+| macOS    | Intel (x86_64)         | 🚧 Planned                                                                 |
+| Windows  | x86_64                 | 🚧 Planned                                                                 |
+| Linux    | x86_64                 | 🚧 Planned                                                                 |
 
 ## Tech stack
 
