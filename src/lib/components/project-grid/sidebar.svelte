@@ -1,8 +1,12 @@
 <script lang="ts">
+  import { getVersion } from "@tauri-apps/api/app";
   import { Plus, RefreshCw, FolderOpen, LogOut, Settings } from "@lucide/svelte";
   import { workspaceState } from "$lib/stores/workspace.svelte";
   import SettingsDialog from "$lib/components/settings-dialog.svelte";
   import { t } from "$lib/i18n/index.svelte";
+
+  let appVersion = $state("");
+  getVersion().then((v) => (appVersion = v));
 
   let { projectCount, supportsMultipleProjects, onCreateProject, onSyncVersions }: {
     projectCount: number;
@@ -60,6 +64,9 @@
       <LogOut class="w-4 h-4" />
       {t("sidebar.switchWorkspace")}
     </button>
+    {#if appVersion}
+      <p class="px-3 pt-1 text-[10px] text-muted-foreground/60">v{appVersion}</p>
+    {/if}
   </div>
 </aside>
 
