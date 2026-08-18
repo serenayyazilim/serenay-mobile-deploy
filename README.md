@@ -25,10 +25,17 @@ A desktop app for deploying Flutter-based mobile apps to the App Store, Google P
 
 ## Requirements
 
+To build/develop this app:
+
 - [Node.js](https://nodejs.org) 18+
 - [Rust](https://www.rust-lang.org/tools/install) (stable) + Tauri system dependencies — see [Tauri Prerequisites](https://tauri.app/start/prerequisites/)
 - [Ruby](https://www.ruby-lang.org) (for the deploy scripts)
 - [Fastlane](https://fastlane.tools) installed and configured in the project being deployed
+
+To run/build/deploy a Flutter project *through* this app:
+
+- [Flutter SDK](https://flutter.dev/docs/get-started/install), with `flutter`/`dart` available on your `PATH`. The app shells out to these directly — it does not bundle or install the SDK itself.
+- Dependencies (`flutter pub get`) and FlutterFire configuration are handled automatically on each run, so a freshly cloned project works without any manual setup step.
 
 ## Setup
 

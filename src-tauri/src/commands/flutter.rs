@@ -23,6 +23,17 @@ pub struct FlutterDevice {
     pub device_type: String,
 }
 
+const FLUTTER_NOT_FOUND_MESSAGE: &str =
+    "Flutter SDK not found. Install it from https://flutter.dev/docs/get-started/install and make sure `flutter` is on your PATH, then restart this app.";
+
+fn flutter_not_found_message(e: &std::io::Error) -> String {
+    if e.kind() == std::io::ErrorKind::NotFound {
+        FLUTTER_NOT_FOUND_MESSAGE.to_string()
+    } else {
+        e.to_string()
+    }
+}
+
 struct DeviceCache {
     devices: Vec<FlutterDevice>,
     cached_at: Instant,
@@ -47,7 +58,7 @@ pub async fn flutter_devices(refresh: bool) -> Result<Vec<FlutterDevice>, String
     )
     .await
     .map_err(|_| "Failed to get devices".to_string())?
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| flutter_not_found_message(&e))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let raw: Vec<serde_json::Value> = serde_json::from_str(&stdout).map_err(|e| e.to_string())?;
@@ -213,16 +224,19 @@ pub async fn flutter_build_start(
         }
         let run_args_ref: Vec<&str> = run_args.iter().map(|s| s.as_str()).collect();
 
-        let Ok(mut child) = Command::new("flutter")
+        let mut child = match Command::new("flutter")
             .args(&run_args_ref)
             .current_dir(&workspace_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-        else {
-            let _ = app.emit(&event_name, json!({ "type": "done", "success": false, "message": "Failed to start flutter run" }));
-            return;
+        {
+            Ok(child) => child,
+            Err(e) => {
+                let _ = app.emit(&event_name, json!({ "type": "done", "success": false, "message": flutter_not_found_message(&e) }));
+                return;
+            }
         };
 
         if let Some(stdin) = child.stdin.take() {
