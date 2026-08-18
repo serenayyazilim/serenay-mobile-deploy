@@ -11,8 +11,8 @@
 
   "projectCard.buildAndRun": "Build & Run",
   "projectCard.deploy": "Deploy",
-  "projectCard.deployStopsOnClose": "Closing this page will stop the deploy",
-  "projectCard.buildStopsOnClose": "Closing this page will stop the build",
+  "projectCard.deployStopsOnClose": "Closing the app will stop the deploy",
+  "projectCard.buildStopsOnClose": "Closing the app will stop the build",
   "projectCard.buildRunning": "Build & Run in progress...",
   "projectCard.appRunning": "App is running",
   "projectCard.buildError": "Build failed",

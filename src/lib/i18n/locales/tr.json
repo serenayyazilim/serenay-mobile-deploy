@@ -11,8 +11,8 @@
 
   "projectCard.buildAndRun": "Build & Run",
   "projectCard.deploy": "Deploy",
-  "projectCard.deployStopsOnClose": "Sayfayı kapatırsanız deploy durdurulur",
-  "projectCard.buildStopsOnClose": "Sayfayı kapatırsanız build durdurulur",
+  "projectCard.deployStopsOnClose": "Uygulamayı kapatırsanız deploy durdurulur",
+  "projectCard.buildStopsOnClose": "Uygulamayı kapatırsanız build durdurulur",
   "projectCard.buildRunning": "Build & Run devam ediyor...",
   "projectCard.appRunning": "Uygulama çalışıyor",
   "projectCard.buildError": "Build hatası",
