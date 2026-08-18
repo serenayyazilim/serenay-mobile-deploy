@@ -85,28 +85,6 @@ To run/build/deploy a Flutter project *through* this app:
 - [Flutter SDK](https://flutter.dev/docs/get-started/install), with `flutter`/`dart` available on your `PATH`. The app shells out to these directly — it does not bundle or install the SDK itself.
 - Dependencies (`flutter pub get`) and FlutterFire configuration are handled automatically on each run, so a freshly cloned project works without any manual setup step.
 
-## Setup
-
-```bash
-git clone https://github.com/serenayyazilim/serenay-mobile-deploy.git
-cd serenay-mobile-deploy
-npm install
-```
-
-### Run in development mode
-
-```bash
-npm run tauri dev
-```
-
-### Production build
-
-```bash
-npm run tauri build
-```
-
-The built app is produced under `src-tauri/target/release/bundle/`.
-
 ## Configuration
 
 The following integrations are optional and enabled via environment variables:
