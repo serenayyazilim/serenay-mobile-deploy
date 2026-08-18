@@ -15,7 +15,7 @@ use commands::appstoreconnect::{
 use commands::config::{config_colors_get, config_colors_save, config_serconf_get, config_serconf_save};
 use commands::deploy::{deploy_start, deploy_submit_two_factor_code};
 use commands::firebase::{firebase_accounts, firebase_create_project, firebase_logout};
-use commands::flutter::{flutter_build_start, flutter_devices};
+use commands::flutter::{flutter_build_start, flutter_devices, flutter_run_hot_reload, flutter_run_stop};
 use commands::project::{project_activate, project_create};
 use commands::projects::{project_icon, projects_list, projects_rename, projects_version_set, projects_versions};
 use commands::sentry::{sentry_check, sentry_create_project};
@@ -30,6 +30,9 @@ use deploy::registry::DeployRegistry;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    let _ = fix_path_env::fix();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -75,6 +78,8 @@ pub fn run() {
             sync_versions_submit_two_factor_code,
             flutter_devices,
             flutter_build_start,
+            flutter_run_hot_reload,
+            flutter_run_stop,
             store_locales_fetch,
             firebase_accounts,
             firebase_logout,

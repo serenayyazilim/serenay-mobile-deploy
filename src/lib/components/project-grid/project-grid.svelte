@@ -14,6 +14,7 @@
   import WhatsNewDialog from "./dialogs/whats-new-dialog.svelte";
   import TwoFactorDialog from "./dialogs/two-factor-dialog.svelte";
   import ErrorDialog from "./dialogs/error-dialog.svelte";
+  import BuildLogsDialog from "./dialogs/build-logs-dialog.svelte";
   import SyncVersionsDialog from "./dialogs/sync-versions-dialog.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
@@ -116,4 +117,10 @@
 
   <ErrorDialog bind:open={deployState.errorDialogOpen} title={deployState.errorTitle} logs={deployState.errorLogs} />
   <ErrorDialog bind:open={buildState.errorDialogOpen} title={buildState.errorTitle} logs={buildState.errorLogs} />
+  <BuildLogsDialog
+    bind:open={buildState.logsDialogOpen}
+    title={t("projectCard.buildLogsTitle", { name: buildState.selectedProject?.appName ?? "" })}
+    logs={buildState.buildLogs}
+    status={buildState.buildStatus}
+  />
 {/if}

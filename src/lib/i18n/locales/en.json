@@ -16,6 +16,8 @@
   "projectCard.buildRunning": "Build & Run in progress...",
   "projectCard.appRunning": "App is running",
   "projectCard.buildError": "Build failed",
+  "projectCard.viewAllLogs": "View all logs",
+  "projectCard.buildLogsTitle": "Logs - {name}",
 
   "projectGrid.noResults": "No results found",
   "projectGrid.noProjects": "No projects found",
@@ -174,6 +176,12 @@
   "build.activatingProject": "Activating project...",
   "build.projectActivated": "Project activated",
   "build.buildError": "Build Error - {name}",
+  "build.hotReload": "Hot Reload",
+  "build.hotRestart": "Hot Restart",
+  "build.hotReloadTriggered": "Hot reload triggered",
+  "build.hotRestartTriggered": "Hot restart triggered",
+  "build.stop": "Stop",
+  "build.stopTriggered": "Stopping app...",
 
   "deploy.activatingProject": "Activating project...",
   "deploy.starting": "Starting deploy...",

@@ -1,3 +1,4 @@
+use crate::deploy::registry::DeployRegistry;
 use crate::workspace::detect::detect_workspace_mode;
 use crate::workspace::sermobileboss_config::{read_sermobileboss_config, MISSING_CONFIG_MESSAGE};
 use crate::workspace::types::WorkspaceMode;
@@ -9,8 +10,8 @@ use std::path::Path;
 use std::process::Stdio;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter};
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tauri::{AppHandle, Emitter, Manager, State};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -176,6 +177,7 @@ pub async fn flutter_build_start(
 ) -> Result<String, String> {
     let job_id = uuid::Uuid::new_v4().to_string();
     let event_name = format!("flutter-build-event-{job_id}");
+    let return_job_id = job_id.clone();
 
     tokio::spawn(async move {
         let emit_log = |app: &AppHandle, msg: &str| {
@@ -214,6 +216,7 @@ pub async fn flutter_build_start(
         let Ok(mut child) = Command::new("flutter")
             .args(&run_args_ref)
             .current_dir(&workspace_path)
+            .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -221,6 +224,10 @@ pub async fn flutter_build_start(
             let _ = app.emit(&event_name, json!({ "type": "done", "success": false, "message": "Failed to start flutter run" }));
             return;
         };
+
+        if let Some(stdin) = child.stdin.take() {
+            app.state::<DeployRegistry>().insert(job_id.clone(), stdin);
+        }
 
         if let Some(stdout) = child.stdout.take() {
             let app = app.clone();
@@ -248,10 +255,31 @@ pub async fn flutter_build_start(
         }
 
         let status = child.wait().await;
+        app.state::<DeployRegistry>().remove(&job_id);
         let success = status.map(|s| s.success()).unwrap_or(false);
         let message = if success { "App started successfully" } else { "Flutter run failed" };
         let _ = app.emit(&event_name, json!({ "type": "done", "success": success, "message": message }));
     });
 
-    Ok(job_id)
+    Ok(return_job_id)
+}
+
+/// Sends `r` (hot reload) or `R` (hot restart) to a running `flutter run` process's stdin.
+#[tauri::command]
+pub async fn flutter_run_hot_reload(registry: State<'_, DeployRegistry>, job_id: String, restart: bool) -> Result<(), String> {
+    let stdin_arc = registry.get(&job_id).ok_or("App is not running")?;
+    let mut stdin = stdin_arc.lock().await;
+    stdin.write_all(if restart { b"R" } else { b"r" }).await.map_err(|e| e.to_string())?;
+    stdin.flush().await.map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Sends `q` (quit) to a running `flutter run` process's stdin to stop it gracefully.
+#[tauri::command]
+pub async fn flutter_run_stop(registry: State<'_, DeployRegistry>, job_id: String) -> Result<(), String> {
+    let stdin_arc = registry.get(&job_id).ok_or("App is not running")?;
+    let mut stdin = stdin_arc.lock().await;
+    stdin.write_all(b"q").await.map_err(|e| e.to_string())?;
+    stdin.flush().await.map_err(|e| e.to_string())?;
+    Ok(())
 }

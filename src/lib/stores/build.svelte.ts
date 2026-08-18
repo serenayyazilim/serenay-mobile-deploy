@@ -29,6 +29,12 @@ class BuildState {
   errorTitle = $state("");
   errorLogs = $state<string[]>([]);
 
+  logsDialogOpen = $state(false);
+  jobId = $state<string | null>(null);
+  isReloading = $state(false);
+  isRestarting = $state(false);
+  isStopping = $state(false);
+
   handleBuildClick(project: WorkspaceProject) {
     this.selectedProject = project;
     this.deviceDialogOpen = true;
@@ -54,6 +60,7 @@ class BuildState {
         deviceId: device?.id || null,
         projectId: project.id,
       });
+      this.jobId = jobId;
 
       await new Promise<void>((resolve) => {
         listen<BuildEvent>(`flutter-build-event-${jobId}`, (event) => {
@@ -96,6 +103,54 @@ class BuildState {
     this.buildStatus = "idle";
     this.buildLogs = [];
     this.selectedProject = null;
+    this.logsDialogOpen = false;
+    this.jobId = null;
+  }
+
+  openLogsDialog() {
+    this.logsDialogOpen = true;
+  }
+
+  async hotReload() {
+    if (!this.jobId || this.buildStatus !== "running" || this.isReloading) return;
+    this.isReloading = true;
+    this.buildLogs = [...this.buildLogs, `🔄 ${t("build.hotReloadTriggered")}`];
+    try {
+      await invoke("flutter_run_hot_reload", { jobId: this.jobId, restart: false });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.buildLogs = [...this.buildLogs, `❌ ${errorMsg}`];
+    } finally {
+      this.isReloading = false;
+    }
+  }
+
+  async hotRestart() {
+    if (!this.jobId || this.buildStatus !== "running" || this.isRestarting) return;
+    this.isRestarting = true;
+    this.buildLogs = [...this.buildLogs, `🔁 ${t("build.hotRestartTriggered")}`];
+    try {
+      await invoke("flutter_run_hot_reload", { jobId: this.jobId, restart: true });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.buildLogs = [...this.buildLogs, `❌ ${errorMsg}`];
+    } finally {
+      this.isRestarting = false;
+    }
+  }
+
+  async stopBuild() {
+    if (!this.jobId || this.buildStatus !== "running" || this.isStopping) return;
+    this.isStopping = true;
+    this.buildLogs = [...this.buildLogs, `⏹️ ${t("build.stopTriggered")}`];
+    try {
+      await invoke("flutter_run_stop", { jobId: this.jobId });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.buildLogs = [...this.buildLogs, `❌ ${errorMsg}`];
+    } finally {
+      this.isStopping = false;
+    }
   }
 
   closeErrorDialog() {

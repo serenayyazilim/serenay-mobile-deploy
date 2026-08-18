@@ -16,6 +16,8 @@
   "projectCard.buildRunning": "Build & Run devam ediyor...",
   "projectCard.appRunning": "Uygulama çalışıyor",
   "projectCard.buildError": "Build hatası",
+  "projectCard.viewAllLogs": "Tüm logları gör",
+  "projectCard.buildLogsTitle": "Loglar - {name}",
 
   "projectGrid.noResults": "Sonuç bulunamadı",
   "projectGrid.noProjects": "Proje bulunamadı",
@@ -174,6 +176,12 @@
   "build.activatingProject": "Proje aktif ediliyor...",
   "build.projectActivated": "Proje aktif edildi",
   "build.buildError": "Build Hatası - {name}",
+  "build.hotReload": "Hot Reload",
+  "build.hotRestart": "Hot Restart",
+  "build.hotReloadTriggered": "Hot reload tetiklendi",
+  "build.hotRestartTriggered": "Hot restart tetiklendi",
+  "build.stop": "Durdur",
+  "build.stopTriggered": "Uygulama durduruluyor...",
 
   "deploy.activatingProject": "Proje aktif ediliyor...",
   "deploy.starting": "Deploy başlatılıyor...",
