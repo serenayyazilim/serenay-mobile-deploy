@@ -16,8 +16,8 @@ jobs:
         include:
           - platform: macos-latest # Apple Silicon (arm64)
             target: aarch64-apple-darwin
-          - platform: macos-13 # Intel (x86_64)
-            target: x86_64-apple-darwin
+          - platform: macos-latest # Intel (x86_64) — cross-compiled on the arm64 runner;
+            target: x86_64-apple-darwin # GitHub retired free-tier Intel-hosted macOS runners
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
