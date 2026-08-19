@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "serenay-mobile-deploy",
+  "productName": "Mobile Deploy",
   "version": "0.2.1",
   "identifier": "com.serenaymobiledeploy.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "serenay-mobile-deploy",
+        "title": "Mobile Deploy",
         "width": 1280,
         "height": 860,
         "minWidth": 900,
