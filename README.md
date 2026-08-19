@@ -58,7 +58,7 @@ This build isn't signed with a paid Apple Developer ID, so macOS Gatekeeper bloc
 - Remove the quarantine flag from the terminal:
 
   ```bash
-  xattr -dr com.apple.quarantine /Applications/serenay-mobile-deploy.app
+  xattr -dr com.apple.quarantine "/Applications/Serenay Mobile Deploy.app"
   ```
 
 You only need to do this once per install.
