@@ -36,7 +36,7 @@
             type="color"
             value={value}
             oninput={(e) => onUpdateColor(row.key, (e.currentTarget as HTMLInputElement).value.toUpperCase())}
-            class="w-10 h-10 rounded-xl border-0 cursor-pointer bg-transparent"
+            class="w-10 h-10 rounded-xl ring-1 ring-border/50 cursor-pointer bg-secondary/30"
           />
           <input
             type="text"

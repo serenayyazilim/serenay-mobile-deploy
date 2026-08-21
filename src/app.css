@@ -77,4 +77,22 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  input[type="color"] {
+    appearance: none;
+    -webkit-appearance: none;
+    padding: 0;
+    border: 1px solid var(--border);
+  }
+  input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 2px;
+  }
+  input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: calc(var(--radius-xl) - 2px);
+  }
+  input[type="color"]::-moz-color-swatch {
+    border: none;
+    border-radius: calc(var(--radius-xl) - 2px);
+  }
 }

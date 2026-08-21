@@ -9,7 +9,7 @@
   import ProjectCard from "./project-card.svelte";
   import Sidebar from "./sidebar.svelte";
   import ProjectSettingsDialog from "$lib/components/project-settings-dialog/index.svelte";
-  import CreateProjectDialog from "$lib/components/create-project-dialog.svelte";
+  import CreateProjectDialog from "$lib/components/create-project-dialog";
   import DeviceSelectorDialog from "$lib/components/device-selector-dialog.svelte";
   import WhatsNewDialog from "./dialogs/whats-new-dialog.svelte";
   import TwoFactorDialog from "./dialogs/two-factor-dialog.svelte";
