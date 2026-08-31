@@ -117,8 +117,8 @@
     onCancel={() => deployState.cancelTwoFactor()}
   />
 
-  <ErrorDialog bind:open={deployState.errorDialogOpen} title={deployState.errorTitle} logs={deployState.errorLogs} />
-  <ErrorDialog bind:open={buildState.errorDialogOpen} title={buildState.errorTitle} logs={buildState.errorLogs} />
+  <ErrorDialog bind:open={deployState.errorDialogOpen} title={deployState.errorTitle} logs={deployState.errorLogs} onClose={() => deployState.resetDeploy()} />
+  <ErrorDialog bind:open={buildState.errorDialogOpen} title={buildState.errorTitle} logs={buildState.errorLogs} onClose={() => buildState.resetBuild()} />
   <BuildLogsDialog
     bind:open={buildState.logsDialogOpen}
     title={t("projectCard.buildLogsTitle", { name: buildState.selectedProject?.appName ?? "" })}

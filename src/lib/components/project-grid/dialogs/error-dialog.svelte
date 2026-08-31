@@ -4,7 +4,7 @@
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from "$lib/components/ui/dialog";
   import { t } from "$lib/i18n/index.svelte";
 
-  let { open = $bindable(false), title, logs }: { open: boolean; title: string; logs: string[] } = $props();
+  let { open = $bindable(false), title, logs, onClose }: { open: boolean; title: string; logs: string[]; onClose?: () => void } = $props();
 
   function copyLogs() {
     navigator.clipboard.writeText(logs.join("\n"));
@@ -15,9 +15,14 @@
     if (/warning|⚠/i.test(log)) return "text-yellow-400";
     return "text-zinc-300";
   }
+
+  function handleOpenChange(value: boolean) {
+    open = value;
+    if (!value) onClose?.();
+  }
 </script>
 
-<Dialog bind:open>
+<Dialog bind:open onOpenChange={handleOpenChange}>
   <DialogContent class="max-w-4xl max-h-[80vh] flex flex-col">
     <DialogHeader>
       <DialogTitle class="text-red-600 flex items-center gap-2">
@@ -34,7 +39,7 @@
 
     <div class="flex justify-end gap-2 pt-4">
       <Button variant="outline" onclick={copyLogs}>{t("common.copy")}</Button>
-      <Button onclick={() => (open = false)}>{t("common.close")}</Button>
+      <Button onclick={() => handleOpenChange(false)}>{t("common.close")}</Button>
     </div>
   </DialogContent>
 </Dialog>

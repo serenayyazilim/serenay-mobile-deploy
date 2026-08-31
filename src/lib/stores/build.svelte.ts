@@ -35,6 +35,14 @@ class BuildState {
   isRestarting = $state(false);
   isStopping = $state(false);
 
+  private autoCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly autoCloseDelayMs = 4000;
+
+  private scheduleAutoClose() {
+    if (this.autoCloseTimer) clearTimeout(this.autoCloseTimer);
+    this.autoCloseTimer = setTimeout(() => this.resetBuild(), this.autoCloseDelayMs);
+  }
+
   handleBuildClick(project: WorkspaceProject) {
     this.selectedProject = project;
     this.deviceDialogOpen = true;
@@ -44,6 +52,10 @@ class BuildState {
     const project = this.selectedProject;
     if (!project || !workspacePath) return;
 
+    if (this.autoCloseTimer) {
+      clearTimeout(this.autoCloseTimer);
+      this.autoCloseTimer = null;
+    }
     this.buildingProjectId = project.id;
     this.buildStatus = "running";
     this.buildLogs = [];
@@ -73,6 +85,7 @@ class BuildState {
             if (data.success) {
               this.buildStatus = "success";
               this.buildLogs = [...this.buildLogs, `✅ ${data.message}`];
+              this.scheduleAutoClose();
             } else {
               this.buildStatus = "error";
               const newLogs = [...this.buildLogs, `❌ ${data.message}`];
@@ -99,6 +112,10 @@ class BuildState {
   }
 
   resetBuild() {
+    if (this.autoCloseTimer) {
+      clearTimeout(this.autoCloseTimer);
+      this.autoCloseTimer = null;
+    }
     this.buildingProjectId = null;
     this.buildStatus = "idle";
     this.buildLogs = [];

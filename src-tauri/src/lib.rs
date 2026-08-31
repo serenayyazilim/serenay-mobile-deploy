@@ -19,7 +19,8 @@ use commands::firebase::{firebase_accounts, firebase_create_project, firebase_lo
 use commands::flutter::{flutter_build_start, flutter_devices, flutter_run_hot_reload, flutter_run_stop};
 use commands::project::{project_activate, project_create};
 use commands::projects::{
-    project_asset_upload, project_icon, projects_list, projects_rename, projects_version_set, projects_versions,
+    project_asset_upload, project_icon, project_splash_color_get, project_splash_color_save, projects_list,
+    projects_rename, projects_version_set, projects_versions,
 };
 use commands::sentry::{sentry_check, sentry_create_project};
 use commands::slack::{slack_config_delete, slack_config_get, slack_config_save, slack_notify, slack_test};
@@ -51,6 +52,8 @@ pub fn run() {
             projects_versions,
             project_icon,
             project_asset_upload,
+            project_splash_color_get,
+            project_splash_color_save,
             asc_config_get,
             asc_config_save,
             asc_config_delete,

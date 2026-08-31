@@ -117,6 +117,8 @@
   "colorsTab.accentColorDescription": "İkincil vurgu rengi (fallbackAccent)",
   "colorsTab.darkColor": "Dark Renk",
   "colorsTab.darkColorDescription": "Koyu tema rengi (fallbackDark)",
+  "colorsTab.splashColor": "Splash Arka Plan Rengi",
+  "colorsTab.splashColorDescription": "Splash görselinin arkasındaki renk; proje bir sonraki aktivasyonda uygulanır",
   "colorsTab.description": "Flutter uygulamasındaki renk sabitlerini düzenleyin (colors.dart)",
   "colorsTab.preview": "Önizleme",
 

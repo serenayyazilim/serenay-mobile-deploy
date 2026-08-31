@@ -40,6 +40,9 @@
   let colorsSaving = $state(false);
   let colorsResult = $state<{ success: boolean; message: string } | null>(null);
 
+  let splashColor = $state<string | undefined>(undefined);
+  let originalSplashColor = $state<string | undefined>(undefined);
+
   async function loadAll() {
     if (!project) return;
     configLoading = true;
@@ -67,9 +70,23 @@
     } catch {
       colors = {};
       originalColors = {};
-    } finally {
-      colorsLoading = false;
     }
+
+    if (supportsTenantConfig) {
+      try {
+        const color = await invoke<string | null>("project_splash_color_get", { workspace: workspacePath, projectId: project.id });
+        splashColor = color ?? "#FFFFFF";
+        originalSplashColor = splashColor;
+      } catch {
+        splashColor = undefined;
+        originalSplashColor = undefined;
+      }
+    } else {
+      splashColor = undefined;
+      originalSplashColor = undefined;
+    }
+
+    colorsLoading = false;
   }
 
   $effect(() => {
@@ -91,8 +108,14 @@
     colors = { ...colors, [key]: value };
   }
 
+  function updateSplashColor(value: string) {
+    splashColor = value;
+  }
+
   const configHasChanges = $derived(JSON.stringify(config) !== JSON.stringify(originalConfig));
-  const colorsHasChanges = $derived(JSON.stringify(colors) !== JSON.stringify(originalColors));
+  const colorsHasChanges = $derived(
+    JSON.stringify(colors) !== JSON.stringify(originalColors) || splashColor !== originalSplashColor,
+  );
 
   async function handleSaveConfig() {
     if (!project) return;
@@ -116,6 +139,10 @@
     try {
       await invoke("config_colors_save", { workspace: workspacePath, projectId: project.id, colors });
       originalColors = { ...colors };
+      if (splashColor !== undefined) {
+        await invoke("project_splash_color_save", { workspace: workspacePath, projectId: project.id, color: splashColor });
+        originalSplashColor = splashColor;
+      }
       colorsResult = { success: true, message: t("projectSettings.colorsSaved") };
     } catch (e) {
       colorsResult = { success: false, message: String(e) };
@@ -201,7 +228,7 @@
         {#if colorsLoading}
           <div class="flex items-center justify-center py-20"><LoaderCircle class="w-6 h-6 animate-spin text-muted-foreground" /></div>
         {:else}
-          <ColorsTab {colors} onUpdateColor={updateColor} />
+          <ColorsTab {colors} onUpdateColor={updateColor} {splashColor} onUpdateSplashColor={updateSplashColor} />
         {/if}
       {:else if activeCategory === "version" && project}
         <VersionTab {project} {workspacePath} {onVersionSaved} />

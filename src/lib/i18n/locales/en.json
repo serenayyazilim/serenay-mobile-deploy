@@ -117,6 +117,8 @@
   "colorsTab.accentColorDescription": "Secondary accent color (fallbackAccent)",
   "colorsTab.darkColor": "Dark Color",
   "colorsTab.darkColorDescription": "Dark theme color (fallbackDark)",
+  "colorsTab.splashColor": "Splash Background Color",
+  "colorsTab.splashColorDescription": "Background color behind the splash image, applied the next time the project is activated",
   "colorsTab.description": "Edit the color constants used in the Flutter app (colors.dart)",
   "colorsTab.preview": "Preview",
 

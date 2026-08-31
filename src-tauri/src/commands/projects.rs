@@ -237,3 +237,34 @@ pub fn project_asset_upload(workspace: String, project_id: String, asset_type: S
     }
     std::fs::write(&path, data).map_err(|e| e.to_string())
 }
+
+/// Path to the project's `splash.json`, which stores the `flutter_native_splash` background
+/// color used when the project is (re-)activated (see `project_activate`).
+fn splash_json_path(workspace: &str, project_id: &str) -> PathBuf {
+    let safe_id = sanitize_project_id(&project_id);
+    Path::new(workspace).join("lib/conf/sermobplus-projects").join(safe_id).join("splash.json")
+}
+
+#[tauri::command]
+pub fn project_splash_color_get(workspace: String, project_id: String) -> Option<String> {
+    let content = std::fs::read_to_string(splash_json_path(&workspace, &project_id)).ok()?;
+    let value: Value = serde_json::from_str(&content).ok()?;
+    value.get("color").and_then(|c| c.as_str()).map(String::from)
+}
+
+/// Updates the splash background color in `splash.json`. Takes effect the next time the
+/// project is activated (`project_activate` regenerates the native splash from this file).
+#[tauri::command]
+pub fn project_splash_color_save(workspace: String, project_id: String, color: String) -> Result<(), String> {
+    let path = splash_json_path(&workspace, &project_id);
+    let mut json: serde_json::Map<String, Value> = std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|c| serde_json::from_str(&c).ok())
+        .unwrap_or_default();
+    json.insert("color".to_string(), Value::String(color));
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&path, serde_json::to_string_pretty(&json).unwrap()).map_err(|e| e.to_string())
+}
