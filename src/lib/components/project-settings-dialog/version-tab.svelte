@@ -1,13 +1,23 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
-  import { LoaderCircle, Tag, Check, CircleAlert } from "@lucide/svelte";
+  import { LoaderCircle, Tag } from "@lucide/svelte";
   import { t } from "$lib/i18n/index.svelte";
   import type { WorkspaceProject } from "$lib/stores/projects.svelte";
 
-  let { project, workspacePath, onVersionSaved }: {
+  let {
+    project,
+    workspacePath,
+    onVersionSaved,
+    hasChanges = $bindable(false),
+    saving = $bindable(false),
+    result = $bindable(null),
+  }: {
     project: WorkspaceProject;
     workspacePath: string;
     onVersionSaved?: () => void;
+    hasChanges?: boolean;
+    saving?: boolean;
+    result?: { success: boolean; message: string } | null;
   } = $props();
 
   function parseParts(v: string) {
@@ -29,8 +39,6 @@
   }
 
   let loading = $state(true);
-  let saving = $state(false);
-  let saveResult = $state<{ success: boolean; message: string } | null>(null);
   let original = $state("");
   let major = $state("1");
   let minor = $state("0");
@@ -39,7 +47,7 @@
 
   async function load() {
     loading = true;
-    saveResult = null;
+    result = null;
     try {
       const data = await invoke<{ versions: Record<string, string> }>("projects_versions", { workspace: workspacePath });
       const v = data.versions?.[project.id] || "1.0.0+1";
@@ -67,18 +75,21 @@
   }
 
   const current = $derived(compose(major, minor, patch, build));
-  const hasChanges = $derived(current !== original);
 
-  async function handleSave() {
+  $effect(() => {
+    hasChanges = current !== original;
+  });
+
+  export async function save() {
     saving = true;
-    saveResult = null;
+    result = null;
     try {
       await invoke("projects_version_set", { workspace: workspacePath, projectId: project.id, version: current });
       original = current;
-      saveResult = { success: true, message: `${t("versionTab.saved")}: ${current}` };
+      result = { success: true, message: `${t("versionTab.saved")}: ${current}` };
       onVersionSaved?.();
     } catch (e) {
-      saveResult = { success: false, message: String(e) };
+      result = { success: false, message: String(e) };
     } finally {
       saving = false;
     }
@@ -110,7 +121,7 @@
               type="number"
               min="0"
               value={major}
-              oninput={(e) => { major = e.currentTarget.value; updateVersion(major, minor, patch); saveResult = null; }}
+              oninput={(e) => { major = e.currentTarget.value; updateVersion(major, minor, patch); result = null; }}
               class="w-full h-9 px-3 text-sm font-mono rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none"
             />
           </div>
@@ -122,7 +133,7 @@
               type="number"
               min="0"
               value={minor}
-              oninput={(e) => { minor = e.currentTarget.value; updateVersion(major, minor, patch); saveResult = null; }}
+              oninput={(e) => { minor = e.currentTarget.value; updateVersion(major, minor, patch); result = null; }}
               class="w-full h-9 px-3 text-sm font-mono rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none"
             />
           </div>
@@ -134,7 +145,7 @@
               type="number"
               min="0"
               value={patch}
-              oninput={(e) => { patch = e.currentTarget.value; updateVersion(major, minor, patch); saveResult = null; }}
+              oninput={(e) => { patch = e.currentTarget.value; updateVersion(major, minor, patch); result = null; }}
               class="w-full h-9 px-3 text-sm font-mono rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none"
             />
           </div>
@@ -147,34 +158,17 @@
           id="version-build"
           type="text"
           value={build}
-          oninput={(e) => { build = e.currentTarget.value; saveResult = null; }}
+          oninput={(e) => { build = e.currentTarget.value; result = null; }}
           placeholder="1000"
           class="w-full h-9 px-3 text-sm font-mono rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none"
         />
       </div>
 
-      <div class="flex items-center justify-between pt-1">
-        <div class="text-xs text-muted-foreground">
-          {t("versionTab.preview")}:
-          <span class={`font-mono font-semibold ${hasChanges ? "text-amber-600" : "text-foreground"}`}>{current}</span>
-        </div>
-        <button
-          onclick={handleSave}
-          disabled={saving || !hasChanges}
-          class={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all ${hasChanges ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-secondary text-muted-foreground cursor-not-allowed"}`}
-        >
-          {#if saving}<LoaderCircle class="w-3 h-3 animate-spin" />{/if}
-          {t("common.save")}
-        </button>
+      <div class="pt-1 text-xs text-muted-foreground">
+        {t("versionTab.preview")}:
+        <span class={`font-mono font-semibold ${hasChanges ? "text-amber-600" : "text-foreground"}`}>{current}</span>
       </div>
     </div>
-
-    {#if saveResult}
-      <div class={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm ${saveResult.success ? "bg-green-500/10 text-green-600 ring-1 ring-green-500/20" : "bg-red-500/10 text-red-600 ring-1 ring-red-500/20"}`}>
-        {#if saveResult.success}<Check class="w-4 h-4 shrink-0" />{:else}<CircleAlert class="w-4 h-4 shrink-0" />{/if}
-        {saveResult.message}
-      </div>
-    {/if}
 
     <p class="text-xs text-muted-foreground px-1">{t("versionTab.hint")}</p>
   </div>

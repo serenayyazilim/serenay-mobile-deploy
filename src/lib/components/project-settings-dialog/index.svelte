@@ -43,6 +43,16 @@
   let splashColor = $state<string | undefined>(undefined);
   let originalSplashColor = $state<string | undefined>(undefined);
 
+  let assetsTabRef = $state<{ save: () => Promise<void> } | null>(null);
+  let assetsHasChanges = $state(false);
+  let assetsSaving = $state(false);
+  let assetsResult = $state<{ success: boolean; message: string } | null>(null);
+
+  let versionTabRef = $state<{ save: () => Promise<void> } | null>(null);
+  let versionHasChanges = $state(false);
+  let versionSaving = $state(false);
+  let versionResult = $state<{ success: boolean; message: string } | null>(null);
+
   async function loadAll() {
     if (!project) return;
     configLoading = true;
@@ -96,6 +106,8 @@
       editingName = false;
       configResult = null;
       colorsResult = null;
+      assetsResult = null;
+      versionResult = null;
       loadAll();
     }
   });
@@ -223,7 +235,15 @@
 
     <div class="flex-1 overflow-y-auto px-6 pb-4 min-h-[300px]">
       {#if activeCategory === "assets" && project}
-        <AssetsTab {project} {workspacePath} generic={!supportsTenantConfig} />
+        <AssetsTab
+          bind:this={assetsTabRef}
+          {project}
+          {workspacePath}
+          generic={!supportsTenantConfig}
+          bind:hasChanges={assetsHasChanges}
+          bind:saving={assetsSaving}
+          bind:result={assetsResult}
+        />
       {:else if activeCategory === "colors"}
         {#if colorsLoading}
           <div class="flex items-center justify-center py-20"><LoaderCircle class="w-6 h-6 animate-spin text-muted-foreground" /></div>
@@ -231,7 +251,15 @@
           <ColorsTab {colors} onUpdateColor={updateColor} {splashColor} onUpdateSplashColor={updateSplashColor} />
         {/if}
       {:else if activeCategory === "version" && project}
-        <VersionTab {project} {workspacePath} {onVersionSaved} />
+        <VersionTab
+          bind:this={versionTabRef}
+          {project}
+          {workspacePath}
+          {onVersionSaved}
+          bind:hasChanges={versionHasChanges}
+          bind:saving={versionSaving}
+          bind:result={versionResult}
+        />
       {:else if activeCategory === "events" && project}
         <EventsTab {workspacePath} bundleId={project.bundleId} />
       {:else if configLoading}
@@ -241,7 +269,7 @@
       {/if}
     </div>
 
-    {#if activeCategory === "events" || activeCategory === "assets" || activeCategory === "version"}
+    {#if activeCategory === "events"}
       <div class="px-6 py-4 bg-secondary/30 border-t border-border/50 flex justify-end">
         <button onclick={() => (open = false)} class="px-5 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
           {t("common.close")}
@@ -249,9 +277,11 @@
       </div>
     {:else}
       {@const isColors = activeCategory === "colors"}
-      {@const hasChanges = isColors ? colorsHasChanges : configHasChanges}
-      {@const saving = isColors ? colorsSaving : configSaving}
-      {@const result = isColors ? colorsResult : configResult}
+      {@const isAssets = activeCategory === "assets"}
+      {@const isVersion = activeCategory === "version"}
+      {@const hasChanges = isColors ? colorsHasChanges : isAssets ? assetsHasChanges : isVersion ? versionHasChanges : configHasChanges}
+      {@const saving = isColors ? colorsSaving : isAssets ? assetsSaving : isVersion ? versionSaving : configSaving}
+      {@const result = isColors ? colorsResult : isAssets ? assetsResult : isVersion ? versionResult : configResult}
       <div class="px-6 py-4 bg-secondary/30 border-t border-border/50 flex items-center justify-between gap-3">
         <div class="text-sm">
           {#if result}
@@ -260,10 +290,15 @@
         </div>
         <div class="flex gap-2">
           <button onclick={() => (open = false)} class="px-5 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-            Kapat
+            {t("common.close")}
           </button>
           <button
-            onclick={isColors ? handleSaveColors : handleSaveConfig}
+            onclick={() => {
+              if (isColors) return handleSaveColors();
+              if (isAssets) return assetsTabRef?.save();
+              if (isVersion) return versionTabRef?.save();
+              return handleSaveConfig();
+            }}
             disabled={!hasChanges || saving}
             class={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${hasChanges ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-secondary text-muted-foreground cursor-not-allowed"}`}
           >

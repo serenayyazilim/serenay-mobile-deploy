@@ -1,20 +1,30 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
-  import { ImageIcon, Palette, CircleCheck, CircleAlert, Flame, FileJson, FileText } from "@lucide/svelte";
+  import { ImageIcon, Palette, Flame, FileJson, FileText } from "@lucide/svelte";
   import { t } from "$lib/i18n/index.svelte";
   import AssetUploadCard from "./asset-upload-card.svelte";
   import type { WorkspaceProject } from "$lib/stores/projects.svelte";
 
-  let { project, workspacePath, generic }: {
+  let {
+    project,
+    workspacePath,
+    generic,
+    hasChanges = $bindable(false),
+    saving = $bindable(false),
+    result = $bindable(null),
+  }: {
     project: WorkspaceProject;
     workspacePath: string;
     generic: boolean;
+    hasChanges?: boolean;
+    saving?: boolean;
+    result?: { success: boolean; message: string } | null;
   } = $props();
 
-  let uploadingAsset = $state<string | null>(null);
-  let assetResult = $state<{ success: boolean; message: string } | null>(null);
   let refreshKey = $state(0);
   let previews = $state<Record<string, string | null>>({});
+  let pending = $state<Record<string, File>>({});
+  let localPreviews = $state<Record<string, string>>({});
 
   async function loadPreview(iconType: string) {
     try {
@@ -32,18 +42,43 @@
     for (const type of previewTypes) loadPreview(type);
   });
 
-  async function handleUpload(assetType: string, file: File) {
-    uploadingAsset = assetType;
-    assetResult = null;
+  $effect(() => {
+    project.id;
+    for (const url of Object.values(localPreviews)) URL.revokeObjectURL(url);
+    pending = {};
+    localPreviews = {};
+    result = null;
+  });
+
+  $effect(() => {
+    hasChanges = Object.keys(pending).length > 0;
+  });
+
+  function handleStage(assetType: string, file: File) {
+    if (localPreviews[assetType]) URL.revokeObjectURL(localPreviews[assetType]);
+    pending = { ...pending, [assetType]: file };
+    localPreviews = { ...localPreviews, [assetType]: URL.createObjectURL(file) };
+    result = null;
+  }
+
+  export async function save() {
+    if (!project || Object.keys(pending).length === 0) return;
+    saving = true;
+    result = null;
     try {
-      const buffer = new Uint8Array(await file.arrayBuffer());
-      await invoke("project_asset_upload", { workspace: workspacePath, projectId: project.id, assetType, data: Array.from(buffer) });
-      assetResult = { success: true, message: t("assetsTab.uploaded") };
+      for (const [assetType, file] of Object.entries(pending)) {
+        const buffer = new Uint8Array(await file.arrayBuffer());
+        await invoke("project_asset_upload", { workspace: workspacePath, projectId: project.id, assetType, data: Array.from(buffer) });
+      }
+      for (const url of Object.values(localPreviews)) URL.revokeObjectURL(url);
+      pending = {};
+      localPreviews = {};
       refreshKey++;
+      result = { success: true, message: t("assetsTab.uploaded") };
     } catch (e) {
-      assetResult = { success: false, message: String(e) };
+      result = { success: false, message: String(e) };
     } finally {
-      uploadingAsset = null;
+      saving = false;
     }
   }
 </script>
@@ -54,9 +89,10 @@
       label={t("assetsTab.logo")}
       description={t("assetsTab.logoDescription")}
       icon={ImageIcon}
-      preview={previews.logo}
-      uploading={uploadingAsset === "logo"}
-      onUpload={(f) => handleUpload("logo", f)}
+      preview={localPreviews.logo ?? previews.logo}
+      uploading={saving && "logo" in pending}
+      pending={"logo" in pending}
+      onUpload={(f) => handleStage("logo", f)}
     />
   {/if}
 
@@ -64,9 +100,10 @@
     label={t("assetsTab.splash")}
     description={t("assetsTab.splashDescription")}
     icon={Palette}
-    preview={previews.splash}
-    uploading={uploadingAsset === "splash"}
-    onUpload={(f) => handleUpload("splash", f)}
+    preview={localPreviews.splash ?? previews.splash}
+    uploading={saving && "splash" in pending}
+    pending={"splash" in pending}
+    onUpload={(f) => handleStage("splash", f)}
   />
 
   <div class="p-4 rounded-2xl bg-secondary/30 ring-1 ring-border/30 space-y-3">
@@ -80,9 +117,10 @@
         label={t("assetsTab.appIcon")}
         description="1024x1024"
         icon={ImageIcon}
-        preview={previews.icon}
-        uploading={uploadingAsset === "icon"}
-        onUpload={(f) => handleUpload("icon", f)}
+        preview={localPreviews.icon ?? previews.icon}
+        uploading={saving && "icon" in pending}
+        pending={"icon" in pending}
+        onUpload={(f) => handleStage("icon", f)}
       />
     {:else}
       <div class="grid grid-cols-2 gap-3">
@@ -90,17 +128,19 @@
           label="Android"
           description="512x512"
           icon={ImageIcon}
-          preview={previews.icon512}
-          uploading={uploadingAsset === "icon512"}
-          onUpload={(f) => handleUpload("icon512", f)}
+          preview={localPreviews.icon512 ?? previews.icon512}
+          uploading={saving && "icon512" in pending}
+          pending={"icon512" in pending}
+          onUpload={(f) => handleStage("icon512", f)}
         />
         <AssetUploadCard
           label="iOS"
           description="1024x1024"
           icon={ImageIcon}
-          preview={previews.icon1024}
-          uploading={uploadingAsset === "icon1024"}
-          onUpload={(f) => handleUpload("icon1024", f)}
+          preview={localPreviews.icon1024 ?? previews.icon1024}
+          uploading={saving && "icon1024" in pending}
+          pending={"icon1024" in pending}
+          onUpload={(f) => handleStage("icon1024", f)}
         />
       </div>
     {/if}
@@ -120,25 +160,20 @@
         label="Android"
         description="google-services.json"
         icon={FileJson}
-        uploading={uploadingAsset === "firebaseAndroid"}
-        onUpload={(f) => handleUpload("firebaseAndroid", f)}
+        uploading={saving && "firebaseAndroid" in pending}
+        pending={"firebaseAndroid" in pending}
+        onUpload={(f) => handleStage("firebaseAndroid", f)}
         accept=".json"
       />
       <AssetUploadCard
         label="iOS"
         description="GoogleService-Info.plist"
         icon={FileText}
-        uploading={uploadingAsset === "firebaseIos"}
-        onUpload={(f) => handleUpload("firebaseIos", f)}
+        uploading={saving && "firebaseIos" in pending}
+        pending={"firebaseIos" in pending}
+        onUpload={(f) => handleStage("firebaseIos", f)}
         accept=".plist"
       />
     </div>
   </div>
-
-  {#if assetResult}
-    <div class={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm ${assetResult.success ? "bg-green-500/10 text-green-600 ring-1 ring-green-500/20" : "bg-red-500/10 text-red-600 ring-1 ring-red-500/20"}`}>
-      {#if assetResult.success}<CircleCheck class="w-4 h-4 shrink-0" />{:else}<CircleAlert class="w-4 h-4 shrink-0" />{/if}
-      {assetResult.message}
-    </div>
-  {/if}
 </div>
