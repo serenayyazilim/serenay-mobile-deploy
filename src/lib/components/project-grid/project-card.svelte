@@ -38,7 +38,7 @@
 
 <div
   class={`group relative flex flex-col items-center p-5 rounded-3xl transition-all duration-300 ${
-    isDeploying ? "bg-primary/5 ring-2 ring-primary/20" : isBuilding ? "bg-green-500/5 ring-2 ring-green-500/20" : "bg-card hover:bg-secondary/50 hover:shadow-lg hover:shadow-black/5 hover:-translate-y-1"
+    isDeploying ? "bg-primary/5 ring-2 ring-primary/20" : isBuilding ? "bg-green-500/5 ring-2 ring-green-500/20" : "bg-card dark:bg-transparent hover:bg-secondary/50 hover:shadow-lg hover:shadow-black/5 hover:-translate-y-1"
   }`}
 >
   {#if (buildState.buildingProjectId === null || isBuilding) && !isDeploying}
