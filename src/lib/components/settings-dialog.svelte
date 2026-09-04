@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Sun, Moon, MonitorCog, Check, Palette, Flame, CalendarClock, Settings2, MessageSquare } from "@lucide/svelte";
+  import { Sun, Moon, MonitorCog, Check, Palette, Flame, CalendarClock, Settings2, MessageSquare, Info } from "@lucide/svelte";
   import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "$lib/components/ui/dialog";
   import { i18n, locales, type Locale } from "$lib/i18n/index.svelte";
   import { themeState, type ThemeMode } from "$lib/stores/theme.svelte";
@@ -7,6 +7,7 @@
   import AppStoreConnectSettings from "$lib/components/appstoreconnect-settings.svelte";
   import SlackSettings from "$lib/components/slack-settings.svelte";
   import SermobilebossWorkspaceSettings from "$lib/components/sermobileboss-workspace-settings.svelte";
+  import AboutSettings from "$lib/components/about-settings.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
   let { open = $bindable(false), workspacePath = "", showWorkspaceTab = false }: {
@@ -15,7 +16,7 @@
     showWorkspaceTab?: boolean;
   } = $props();
 
-  type Tab = "general" | "firebase" | "appstoreconnect" | "slack" | "workspace";
+  type Tab = "general" | "firebase" | "appstoreconnect" | "slack" | "workspace" | "about";
   let activeTab = $state<Tab>("general");
 
   const tabs = $derived(
@@ -25,6 +26,7 @@
       { id: "appstoreconnect" as const, labelKey: "settings.appStoreConnectTab", icon: CalendarClock },
       { id: "slack" as const, labelKey: "settings.slackTab", icon: MessageSquare },
       ...(showWorkspaceTab ? [{ id: "workspace" as const, labelKey: "workspaceSettings.title", icon: Settings2 }] : []),
+      { id: "about" as const, labelKey: "settings.aboutTab", icon: Info },
     ]
   );
 
@@ -113,6 +115,8 @@
             <SlackSettings {workspacePath} />
           {:else if activeTab === "workspace"}
             <SermobilebossWorkspaceSettings {workspacePath} />
+          {:else if activeTab === "about"}
+            <AboutSettings />
           {/if}
         </div>
       </div>

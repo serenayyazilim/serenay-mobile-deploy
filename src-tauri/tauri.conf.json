@@ -37,6 +37,15 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["scripts/*"]
+    "resources": ["scripts/*"],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI1NzUzRThCRTBFMjA3MzAKUldRd0IrTGdpejUxdGRTdlZrZW5aUjh4UHFvZmVVaWI4czZDZ0VDTEpiQ3FRdXViOTdVZkYzNUkK",
+      "endpoints": [
+        "https://github.com/serenayyazilim/serenay-mobile-deploy/releases/latest/download/latest.json"
+      ]
+    }
   }
 }
