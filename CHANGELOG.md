@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.5] - 2026-09-07
+
+- Added in-app update checking under Settings > About, backed by tauri-plugin-updater and GitHub Releases.
+
 ## [0.2.4] - 2026-09-03
 
 - Unified project settings tabs on a consistent pending-change + save pattern.
