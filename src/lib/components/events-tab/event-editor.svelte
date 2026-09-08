@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
   import { LoaderCircle, CircleAlert, Check, ArrowLeft, Trash2, Plus, ImagePlus, Send } from "@lucide/svelte";
@@ -117,7 +118,8 @@
 
   $effect(() => {
     for (const loc of localizations) {
-      if (!editState[loc.id]) {
+      const exists = untrack(() => !!editState[loc.id]);
+      if (!exists) {
         editState[loc.id] = {
           name: loc.attributes.name || "",
           short: loc.attributes.shortDescription || "",

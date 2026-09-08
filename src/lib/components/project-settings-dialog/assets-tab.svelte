@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { ImageIcon, Palette, Flame, FileJson, FileText } from "@lucide/svelte";
   import { t } from "$lib/i18n/index.svelte";
@@ -44,7 +45,9 @@
 
   $effect(() => {
     project.id;
-    for (const url of Object.values(localPreviews)) URL.revokeObjectURL(url);
+    untrack(() => {
+      for (const url of Object.values(localPreviews)) URL.revokeObjectURL(url);
+    });
     pending = {};
     localPreviews = {};
     result = null;
