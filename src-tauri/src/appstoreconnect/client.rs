@@ -76,6 +76,12 @@ pub async fn find_app_by_bundle_id(config: &AscConfig, bundle_id: &str) -> Resul
     Ok(first)
 }
 
+pub async fn list_apps(config: &AscConfig) -> Result<Vec<Value>, AscApiError> {
+    let path = "/v1/apps?limit=200&fields[apps]=name,bundleId,sku";
+    let data = asc_fetch(config, Method::GET, path, None).await?;
+    Ok(data.and_then(|v| v.get("data").and_then(|d| d.as_array().cloned())).unwrap_or_default())
+}
+
 // ── Territories ──────────────────────────────────────────────
 
 pub async fn list_territories(config: &AscConfig) -> Result<Vec<Value>, AscApiError> {

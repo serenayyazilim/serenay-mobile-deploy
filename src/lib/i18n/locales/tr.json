@@ -5,6 +5,7 @@
   "common.close": "Kapat",
 
   "sidebar.projectCount": "{count} proje",
+  "sidebar.home": "Anasayfa",
   "sidebar.newProject": "Yeni Proje",
   "sidebar.syncVersions": "Versiyonları Senkronize Et",
   "sidebar.switchWorkspace": "Workspace'i Değiştir",
@@ -148,6 +149,18 @@
   "versionTab.hint": "Run yapıldığında pubspec.yaml bu versiyon ile güncellenir. Deploy versiyonu otomatik artırır.",
 
   "common.add": "Ekle",
+
+  "sidebar.inAppEvents": "In-App Events",
+
+  "eventsPage.appCount": "{count} uygulama",
+  "eventsPage.title": "In-App Events",
+  "eventsPage.subtitle": "In-app etkinliklerini yönetmek için bir uygulama seç",
+  "eventsPage.searchPlaceholder": "Uygulama ara...",
+  "eventsPage.noApps": "App Store Connect'te uygulama bulunamadı",
+  "eventsPage.notConfigured": "App Store Connect API bilgileri girilmemiş",
+  "eventsPage.notConfiguredHint": "Ayarlar > App Store Connect üzerinden API anahtarınızı ekleyin",
+  "eventsPage.loadFailed": "App Store Connect'ten uygulamalar yüklenemedi",
+  "eventsPage.back": "Geri",
 
   "events.confirmDelete": "Bu etkinliği silmek istediğinize emin misiniz?",
   "events.notConfigured": "App Store Connect API bilgileri girilmemiş",

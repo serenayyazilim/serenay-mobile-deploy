@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.6] - 2026-09-08
+
+- Added a dedicated In-App Events screen: browse and search all App Store Connect apps from the sidebar, then manage an app's in-app events in a dialog.
+- Moved the project/app count next to the search bar with a larger font on the home and In-App Events screens.
+- Home and In-App Events screens now navigate instantly; each shows its own loading state while data loads instead of blocking the whole app.
+- Only the project/app list scrolls on the home and In-App Events screens; the search bar and header controls stay fixed.
+- Fixed project icon lookup picking up macOS AppleDouble sidecar files.
+- Fixed an infinite effect loop in the project settings Assets tab.
+
 ## [0.2.5] - 2026-09-07
 
 - Added in-app update checking under Settings > About, backed by tauri-plugin-updater and GitHub Releases.

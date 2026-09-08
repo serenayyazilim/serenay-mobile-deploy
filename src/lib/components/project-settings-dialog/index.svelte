@@ -8,7 +8,6 @@
   import AssetsTab from "./assets-tab.svelte";
   import VersionTab from "./version-tab.svelte";
   import SettingsContent from "./settings-content.svelte";
-  import EventsTab from "$lib/components/events-tab/index.svelte";
   import type { WorkspaceProject } from "$lib/stores/projects.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
@@ -129,6 +128,13 @@
     JSON.stringify(colors) !== JSON.stringify(originalColors) || splashColor !== originalSplashColor,
   );
 
+  const isColors = $derived(activeCategory === "colors");
+  const isAssets = $derived(activeCategory === "assets");
+  const isVersion = $derived(activeCategory === "version");
+  const footerHasChanges = $derived(isColors ? colorsHasChanges : isAssets ? assetsHasChanges : isVersion ? versionHasChanges : configHasChanges);
+  const footerSaving = $derived(isColors ? colorsSaving : isAssets ? assetsSaving : isVersion ? versionSaving : configSaving);
+  const footerResult = $derived(isColors ? colorsResult : isAssets ? assetsResult : isVersion ? versionResult : configResult);
+
   async function handleSaveConfig() {
     if (!project) return;
     configSaving = true;
@@ -182,7 +188,6 @@
     { id: "assets", label: t("projectSettings.assets") },
     ...(supportsTenantConfig ? [{ id: "colors", label: t("projectSettings.colors") }] : []),
     { id: "version", label: t("projectSettings.version") },
-    { id: "events", label: "In-App Events" },
     ...(supportsTenantConfig ? SERCONF_CATEGORIES : []),
   ]);
 
@@ -260,8 +265,6 @@
           bind:saving={versionSaving}
           bind:result={versionResult}
         />
-      {:else if activeCategory === "events" && project}
-        <EventsTab {workspacePath} bundleId={project.bundleId} />
       {:else if configLoading}
         <div class="flex items-center justify-center py-20"><LoaderCircle class="w-6 h-6 animate-spin text-muted-foreground" /></div>
       {:else}
@@ -269,44 +272,30 @@
       {/if}
     </div>
 
-    {#if activeCategory === "events"}
-      <div class="px-6 py-4 bg-secondary/30 border-t border-border/50 flex justify-end">
+    <div class="px-6 py-4 bg-secondary/30 border-t border-border/50 flex items-center justify-between gap-3">
+      <div class="text-sm">
+        {#if footerResult}
+          <span class={footerResult.success ? "text-green-600" : "text-red-600"}>{footerResult.message}</span>
+        {/if}
+      </div>
+      <div class="flex gap-2">
         <button onclick={() => (open = false)} class="px-5 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
           {t("common.close")}
         </button>
+        <button
+          onclick={() => {
+            if (isColors) return handleSaveColors();
+            if (isAssets) return assetsTabRef?.save();
+            if (isVersion) return versionTabRef?.save();
+            return handleSaveConfig();
+          }}
+          disabled={!footerHasChanges || footerSaving}
+          class={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${footerHasChanges ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-secondary text-muted-foreground cursor-not-allowed"}`}
+        >
+          {#if footerSaving}<LoaderCircle class="w-4 h-4 animate-spin" />{/if}
+          {t("common.save")}
+        </button>
       </div>
-    {:else}
-      {@const isColors = activeCategory === "colors"}
-      {@const isAssets = activeCategory === "assets"}
-      {@const isVersion = activeCategory === "version"}
-      {@const hasChanges = isColors ? colorsHasChanges : isAssets ? assetsHasChanges : isVersion ? versionHasChanges : configHasChanges}
-      {@const saving = isColors ? colorsSaving : isAssets ? assetsSaving : isVersion ? versionSaving : configSaving}
-      {@const result = isColors ? colorsResult : isAssets ? assetsResult : isVersion ? versionResult : configResult}
-      <div class="px-6 py-4 bg-secondary/30 border-t border-border/50 flex items-center justify-between gap-3">
-        <div class="text-sm">
-          {#if result}
-            <span class={result.success ? "text-green-600" : "text-red-600"}>{result.message}</span>
-          {/if}
-        </div>
-        <div class="flex gap-2">
-          <button onclick={() => (open = false)} class="px-5 py-2.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-            {t("common.close")}
-          </button>
-          <button
-            onclick={() => {
-              if (isColors) return handleSaveColors();
-              if (isAssets) return assetsTabRef?.save();
-              if (isVersion) return versionTabRef?.save();
-              return handleSaveConfig();
-            }}
-            disabled={!hasChanges || saving}
-            class={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${hasChanges ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-secondary text-muted-foreground cursor-not-allowed"}`}
-          >
-            {#if saving}<LoaderCircle class="w-4 h-4 animate-spin" />{/if}
-            {t("common.save")}
-          </button>
-        </div>
-      </div>
-    {/if}
+    </div>
   </DialogContent>
 </Dialog>

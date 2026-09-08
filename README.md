@@ -17,7 +17,7 @@ A desktop app for deploying Flutter-based mobile apps to the App Store, Google P
 
 - **Multi-platform deploy from a single panel** — manage iOS (App Store Connect), Android (Google Play), and Huawei (AppGallery) build/upload flows from one interface.
 - **Fastlane integration** — a Ruby-based deploy script reads and uses the project's `fastlane` metadata (store descriptions, locales).
-- **App Store Connect management** — API key authentication, creating/editing/submitting In-App Events, uploading localizations and screenshots, listing territories.
+- **App Store Connect management** — API key authentication, a dedicated screen to browse/search all your ASC apps, creating/editing/submitting In-App Events, uploading localizations and screenshots, listing territories.
 - **Version sync** — aligns the version/build number across `pubspec.yaml` and the iOS and Android project files with a single command.
 - **Multi-project / workspace support** — automatically detects and manages either multiple Flutter apps in one workspace (`sermobileboss` mode) or a single project (`generic` mode).
 - **Firebase integration** — Firebase account management and project creation.

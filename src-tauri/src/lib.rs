@@ -8,10 +8,10 @@ mod workspace;
 mod xcode_gradle;
 
 use commands::appstoreconnect::{
-    asc_config_delete, asc_config_get, asc_config_save, asc_event_create, asc_event_delete, asc_event_get,
-    asc_event_submit, asc_event_update, asc_events_list, asc_localization_create, asc_localization_delete,
-    asc_localization_screenshots, asc_localization_update, asc_screenshot_delete, asc_screenshot_upload,
-    asc_territories_list,
+    asc_apps_list, asc_config_delete, asc_config_get, asc_config_save, asc_event_create, asc_event_delete,
+    asc_event_get, asc_event_submit, asc_event_update, asc_events_list, asc_localization_create,
+    asc_localization_delete, asc_localization_screenshots, asc_localization_update, asc_screenshot_delete,
+    asc_screenshot_upload, asc_territories_list,
 };
 use commands::config::{config_colors_get, config_colors_save, config_serconf_get, config_serconf_save};
 use commands::deploy::{deploy_start, deploy_submit_two_factor_code};
@@ -59,6 +59,7 @@ pub fn run() {
             asc_config_get,
             asc_config_save,
             asc_config_delete,
+            asc_apps_list,
             asc_events_list,
             asc_event_create,
             asc_event_get,

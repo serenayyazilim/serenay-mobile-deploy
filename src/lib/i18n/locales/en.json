@@ -5,6 +5,7 @@
   "common.close": "Close",
 
   "sidebar.projectCount": "{count} projects",
+  "sidebar.home": "Home",
   "sidebar.newProject": "New Project",
   "sidebar.syncVersions": "Sync Versions",
   "sidebar.switchWorkspace": "Switch Workspace",
@@ -148,6 +149,18 @@
   "versionTab.hint": "This version is written to pubspec.yaml on run. Deploy bumps it automatically.",
 
   "common.add": "Add",
+
+  "sidebar.inAppEvents": "In-App Events",
+
+  "eventsPage.appCount": "{count} apps",
+  "eventsPage.title": "In-App Events",
+  "eventsPage.subtitle": "Pick an app to manage its in-app events",
+  "eventsPage.searchPlaceholder": "Search apps...",
+  "eventsPage.noApps": "No apps found in App Store Connect",
+  "eventsPage.notConfigured": "App Store Connect API credentials not set",
+  "eventsPage.notConfiguredHint": "Add your API key from Settings > App Store Connect",
+  "eventsPage.loadFailed": "Couldn't load apps from App Store Connect",
+  "eventsPage.back": "Back",
 
   "events.confirmDelete": "Are you sure you want to delete this event?",
   "events.notConfigured": "App Store Connect API credentials not set",

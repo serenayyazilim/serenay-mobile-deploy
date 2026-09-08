@@ -52,6 +52,24 @@ pub fn asc_config_delete(workspace: String) {
 }
 
 #[tauri::command]
+pub async fn asc_apps_list(workspace: String) -> Result<Vec<Value>, String> {
+    let config = require_config(&workspace)?;
+    let apps = client::list_apps(&config).await.map_err(to_err)?;
+    Ok(apps
+        .into_iter()
+        .map(|app| {
+            let id = app.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let attrs = app.get("attributes").cloned().unwrap_or(json!({}));
+            json!({
+                "id": id,
+                "name": attrs.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                "bundleId": attrs.get("bundleId").and_then(|v| v.as_str()).unwrap_or(""),
+            })
+        })
+        .collect())
+}
+
+#[tauri::command]
 pub async fn asc_events_list(workspace: String, bundle_id: String) -> Result<Value, String> {
     let config = require_config(&workspace)?;
     let app = client::find_app_by_bundle_id(&config, &bundle_id)
