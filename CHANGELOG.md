@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.7] - 2026-09-08
+
+- Added an animated first-run product tour that spotlights the sidebar and first project card, with a fake cursor and click animation; replayable from Settings > About.
+
 ## [0.2.6] - 2026-09-08
 
 - Added a dedicated In-App Events screen: browse and search all App Store Connect apps from the sidebar, then manage an app's in-app events in a dialog.
