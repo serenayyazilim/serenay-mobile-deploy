@@ -5,6 +5,8 @@
   import { projectsState, type WorkspaceProject } from "$lib/stores/projects.svelte";
   import { deployState } from "$lib/stores/deploy.svelte";
   import { buildState } from "$lib/stores/build.svelte";
+  import { onboardingState } from "$lib/stores/onboarding.svelte";
+  import { ProductTour } from "$lib/components/product-tour";
   import SearchBar from "./search-bar.svelte";
   import ProjectCard from "./project-card.svelte";
   import Sidebar from "./sidebar.svelte";
@@ -32,8 +34,12 @@
     settingsDialogOpen = true;
   }
 
-  onMount(() => {
-    if (workspaceState.path) projectsState.load(workspaceState.path);
+  onMount(async () => {
+    if (workspaceState.path) await projectsState.load(workspaceState.path);
+    await onboardingState.init();
+    if (!onboardingState.completed) {
+      setTimeout(() => onboardingState.start(), 400);
+    }
   });
 </script>
 
@@ -85,12 +91,13 @@
 
       <div class="flex-1 min-h-0 overflow-y-auto px-8 pb-8">
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
-          {#each projectsState.filtered as project (project.id)}
+          {#each projectsState.filtered as project, i (project.id)}
             <ProjectCard
               {project}
               workspacePath={workspaceState.path ?? ""}
               version={projectsState.versions[project.id]}
               onSettings={openSettings}
+              tourTarget={i === 0 && onboardingState.active}
             />
           {/each}
         </div>
@@ -160,3 +167,5 @@
     logs={buildState.buildLogs}
     status={buildState.buildStatus}
   />
+
+  <ProductTour />

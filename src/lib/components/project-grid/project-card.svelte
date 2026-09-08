@@ -8,11 +8,12 @@
   import type { WorkspaceProject } from "$lib/stores/projects.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
-  let { project, workspacePath, version, onSettings }: {
+  let { project, workspacePath, version, onSettings, tourTarget = false }: {
     project: WorkspaceProject;
     workspacePath: string;
     version: string | undefined;
     onSettings: (project: WorkspaceProject) => void;
+    tourTarget?: boolean;
   } = $props();
 
   const initials = $derived(project.appName.slice(0, 2).toUpperCase());
@@ -43,11 +44,12 @@
 >
   {#if (buildState.buildingProjectId === null || isBuilding) && !isDeploying}
     <button
+      data-tour={tourTarget ? "tour-project-build" : undefined}
       onclick={() => buildState.handleBuildClick(project)}
       disabled={buildState.buildingProjectId !== null || deployState.deployingProjectId !== null}
       title={t("projectCard.buildAndRun")}
       class={`absolute top-3 left-3 p-2 rounded-full transition-all duration-200 disabled:opacity-50 ${
-        isBuildRunning || isBuildSuccess ? "bg-green-500 text-white" : isBuildError ? "bg-red-500 text-white" : "opacity-0 group-hover:opacity-100 bg-green-500 text-white hover:scale-110"
+        isBuildRunning || isBuildSuccess ? "bg-green-500 text-white" : isBuildError ? "bg-red-500 text-white" : `bg-green-500 text-white hover:scale-110 ${tourTarget ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`
       }`}
     >
       {#if isBuildRunning}<LoaderCircle class="w-4 h-4 animate-spin" />
@@ -59,11 +61,12 @@
 
   {#if (deployState.deployingProjectId === null || isDeploying) && !isBuilding}
     <button
+      data-tour={tourTarget ? "tour-project-deploy" : undefined}
       onclick={() => deployState.handleDeploy(project)}
       disabled={deployState.deployingProjectId !== null || buildState.buildingProjectId !== null}
       title={t("projectCard.deploy")}
       class={`absolute top-3 right-3 p-2 rounded-full transition-all duration-200 disabled:opacity-50 ${
-        isDeployProcessing ? "bg-primary text-primary-foreground" : isDeploySuccess ? "bg-green-500 text-white" : isDeployError ? "bg-red-500 text-white" : "opacity-0 group-hover:opacity-100 bg-primary text-primary-foreground hover:scale-110"
+        isDeployProcessing ? "bg-primary text-primary-foreground" : isDeploySuccess ? "bg-green-500 text-white" : isDeployError ? "bg-red-500 text-white" : `bg-primary text-primary-foreground hover:scale-110 ${tourTarget ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`
       }`}
     >
       {#if isDeployProcessing}<LoaderCircle class="w-4 h-4 animate-spin" />
@@ -75,8 +78,9 @@
 
   {#if !isDeploying && !isBuilding}
     <button
+      data-tour={tourTarget ? "tour-project-settings" : undefined}
       onclick={(e) => { e.stopPropagation(); onSettings(project); }}
-      class="absolute bottom-3 right-3 p-2 rounded-full opacity-0 group-hover:opacity-100 bg-secondary hover:bg-secondary/80 transition-all duration-200"
+      class={`absolute bottom-3 right-3 p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-all duration-200 ${tourTarget ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
       title={t("common.settings")}
     >
       <Settings class="w-4 h-4 text-muted-foreground" />

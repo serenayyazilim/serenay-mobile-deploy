@@ -2,6 +2,7 @@
   import { getVersion } from "@tauri-apps/api/app";
   import { FolderOpen, LogOut, Settings, CalendarClock, Home } from "@lucide/svelte";
   import { workspaceState } from "$lib/stores/workspace.svelte";
+  import { onboardingState } from "$lib/stores/onboarding.svelte";
   import SettingsDialog from "$lib/components/settings-dialog.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
@@ -31,12 +32,12 @@
   </div>
 
   <nav class="flex-1 flex flex-col items-start gap-2 overflow-y-auto overflow-x-hidden px-0.5 pt-0.5">
-    <button onclick={onHome} class={navButtonClass(currentView === "projects")}>
+    <button data-tour="tour-home" onclick={onHome} class={navButtonClass(currentView === "projects")}>
       <Home class="w-4 h-4" />
       {t("sidebar.home")}
     </button>
 
-    <button onclick={onInAppEvents} class={navButtonClass(currentView === "events")}>
+    <button data-tour="tour-events" onclick={onInAppEvents} class={navButtonClass(currentView === "events")}>
       <CalendarClock class="w-4 h-4" />
       {t("sidebar.inAppEvents")}
     </button>
@@ -48,6 +49,7 @@
       <span class="truncate">{workspaceName}</span>
     </div>
     <button
+      data-tour="tour-settings"
       onclick={() => (showSettings = true)}
       class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
     >
@@ -55,6 +57,7 @@
       {t("common.settings")}
     </button>
     <button
+      data-tour="tour-switch-workspace"
       onclick={() => workspaceState.clear()}
       class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
     >
@@ -67,4 +70,12 @@
   </div>
 </aside>
 
-<SettingsDialog bind:open={showSettings} workspacePath={workspaceState.path ?? ""} showWorkspaceTab={supportsMultipleProjects} />
+<SettingsDialog
+  bind:open={showSettings}
+  workspacePath={workspaceState.path ?? ""}
+  showWorkspaceTab={supportsMultipleProjects}
+  onRestartTour={() => {
+    showSettings = false;
+    onboardingState.restart();
+  }}
+/>

@@ -2,9 +2,11 @@
   import { getVersion } from "@tauri-apps/api/app";
   import { check, type Update } from "@tauri-apps/plugin-updater";
   import { relaunch } from "@tauri-apps/plugin-process";
-  import { LoaderCircle, RefreshCw, CircleAlert, Sparkles, DownloadCloud } from "@lucide/svelte";
+  import { LoaderCircle, RefreshCw, CircleAlert, Sparkles, DownloadCloud, Compass } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { t } from "$lib/i18n/index.svelte";
+
+  let { onRestartTour }: { onRestartTour?: () => void } = $props();
 
   let appVersion = $state("");
   getVersion().then((v) => (appVersion = v));
@@ -82,4 +84,13 @@
       </Button>
     {/if}
   </div>
+
+  {#if onRestartTour}
+    <div class="pt-2 border-t border-border/50">
+      <Button variant="outline" class="gap-2" onclick={onRestartTour}>
+        <Compass class="w-4 h-4" />
+        {t("about.restartTour")}
+      </Button>
+    </div>
+  {/if}
 </div>
