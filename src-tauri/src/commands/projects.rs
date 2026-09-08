@@ -167,12 +167,18 @@ pub fn project_icon(workspace: String, project_id: String, icon_type: Option<Str
                 .find(|p| p.exists())
         }
         Some("icon512") => {
-            let p = project_dir.join("Graphic/512x512 icon.png");
-            p.exists().then_some(p)
+            let graphic_dir = project_dir.join("Graphic");
+            ["512x512 icon.png", "512x512.png"]
+                .into_iter()
+                .map(|name| graphic_dir.join(name))
+                .find(|p| p.exists())
         }
         Some("icon1024") => {
-            let p = project_dir.join("Graphic/1024x1024 icon.png");
-            p.exists().then_some(p)
+            let graphic_dir = project_dir.join("Graphic");
+            ["1024x1024 icon.png", "1024x1024.png"]
+                .into_iter()
+                .map(|name| graphic_dir.join(name))
+                .find(|p| p.exists())
         }
         _ => {
             let graphic_dir = project_dir.join("Graphic");
@@ -187,7 +193,10 @@ pub fn project_icon(workspace: String, project_id: String, icon_type: Option<Str
                             .map(|e| e.path())
                             .find(|p| {
                                 let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("").to_lowercase();
-                                name.ends_with("icon.png") || name.contains("512") || name.ends_with(".png")
+                                // Skip macOS AppleDouble sidecar files (e.g. `._512x512.png`), which
+                                // external/non-APFS drives leave behind and which aren't valid images.
+                                !name.starts_with("._")
+                                    && (name.ends_with("icon.png") || name.contains("512") || name.ends_with(".png"))
                             })
                     })
                 })
