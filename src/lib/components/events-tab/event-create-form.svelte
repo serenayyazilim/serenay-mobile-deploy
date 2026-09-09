@@ -1,8 +1,23 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
-  import { LoaderCircle, CircleAlert } from "@lucide/svelte";
-  import { BADGE_OPTIONS, PURPOSE_OPTIONS, PRIORITY_OPTIONS, LOCALE_SUGGESTIONS, fromDatetimeLocal } from "$lib/appstoreconnect/labels";
+  import { LoaderCircle, CircleAlert, Calendar, Clock, Timer } from "@lucide/svelte";
+  import {
+    BADGE_OPTIONS, PURPOSE_OPTIONS, PRIORITY_OPTIONS, PURCHASE_REQUIREMENT_OPTIONS, LOCALE_SUGGESTIONS, fromDatetimeLocal,
+    combineDateTime, MIN_EVENT_DURATION_MS, MAX_EVENT_DURATION_MS,
+  } from "$lib/appstoreconnect/labels";
   import { t } from "$lib/i18n/index.svelte";
+
+  function formatDuration(ms: number): string {
+    const totalMinutes = Math.round(ms / 60000);
+    const days = Math.floor(totalMinutes / 1440);
+    const hours = Math.floor((totalMinutes % 1440) / 60);
+    const minutes = totalMinutes % 60;
+    const parts: string[] = [];
+    if (days) parts.push(t("eventForm.durationDays", { count: days }));
+    if (hours) parts.push(t("eventForm.durationHours", { count: hours }));
+    if (minutes || parts.length === 0) parts.push(t("eventForm.durationMinutes", { count: minutes }));
+    return parts.join(" ");
+  }
 
   let { workspacePath, bundleId, onCreated, onCancel }: {
     workspacePath: string;
@@ -22,17 +37,42 @@
   let purchaseRequirement = $state("");
   let primaryLocale = $state("tr");
   let territories = $state("USA");
-  let eventStart = $state("");
-  let eventEnd = $state("");
-  let publishStart = $state("");
+  let publishStartDate = $state("");
+  let publishStartTime = $state("");
+  let eventStartDate = $state("");
+  let eventStartTime = $state("");
+  let eventEndDate = $state("");
+  let eventEndTime = $state("");
   let name = $state("");
   let shortDescription = $state("");
   let longDescription = $state("");
   let saving = $state(false);
   let error = $state<string | null>(null);
 
+  const publishStart = $derived(combineDateTime(publishStartDate, publishStartTime));
+  const eventStart = $derived(combineDateTime(eventStartDate, eventStartTime));
+  const eventEnd = $derived(combineDateTime(eventEndDate, eventEndTime));
+
+  const durationMs = $derived.by(() => {
+    if (!eventStart || !eventEnd) return null;
+    const start = new Date(eventStart).getTime();
+    const end = new Date(eventEnd).getTime();
+    if (isNaN(start) || isNaN(end)) return null;
+    return end - start;
+  });
+
+  const durationError = $derived(
+    durationMs === null
+      ? null
+      : durationMs < MIN_EVENT_DURATION_MS
+        ? t("eventForm.durationTooShort")
+        : durationMs > MAX_EVENT_DURATION_MS
+          ? t("eventForm.durationTooLong")
+          : null
+  );
+
   const canSave = $derived(
-    referenceName.trim() && primaryLocale.trim() && territories.trim() && eventStart && eventEnd && publishStart && name.trim()
+    !!(referenceName.trim() && primaryLocale.trim() && territories.trim() && eventStart && eventEnd && publishStart && name.trim() && !durationError)
   );
 
   async function handleSubmit() {
@@ -49,7 +89,7 @@
           purpose,
           priority,
           deepLink: deepLink.trim() || null,
-          purchaseRequirement: purchaseRequirement.trim() || null,
+          purchaseRequirement: purchaseRequirement || null,
           primaryLocale: primaryLocale.trim(),
           territorySchedules: [
             {
@@ -127,22 +167,70 @@
 
   <div class="space-y-1">
     <label class={labelClass} for="purchase-req">{t("eventForm.purchaseRequirement")}</label>
-    <input id="purchase-req" bind:value={purchaseRequirement} class={inputClass} />
+    <select id="purchase-req" bind:value={purchaseRequirement} class={inputClass}>
+      <option value="">{t("eventForm.purchaseRequirementUnset")}</option>
+      {#each PURCHASE_REQUIREMENT_OPTIONS as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+    </select>
+    <p class="text-[10px] text-muted-foreground/70">{t("eventForm.purchaseRequirementHint")}</p>
   </div>
 
-  <div class="grid grid-cols-3 gap-3">
+  <div class="p-4 rounded-xl bg-secondary/30 ring-1 ring-border/30 space-y-3">
+    <p class="text-xs font-medium text-muted-foreground">{t("eventForm.scheduling")}</p>
+
     <div class="space-y-1">
-      <label class={labelClass} for="publish-start">{t("eventForm.publishStart")}</label>
-      <input id="publish-start" type="datetime-local" bind:value={publishStart} class={inputClass} />
+      <label class={labelClass} for="publish-start-date">{t("eventForm.publishStart")}</label>
+      <div class="grid grid-cols-[1fr_120px] gap-2">
+        <div class="relative">
+          <Calendar class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <input id="publish-start-date" type="date" bind:value={publishStartDate} class={`${inputClass} pl-8`} />
+        </div>
+        <div class="relative">
+          <Clock class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <input id="publish-start-time" type="time" bind:value={publishStartTime} class={`${inputClass} pl-8`} aria-label={t("eventForm.publishStart")} />
+        </div>
+      </div>
     </div>
+
     <div class="space-y-1">
-      <label class={labelClass} for="event-start">{t("eventForm.eventStart")}</label>
-      <input id="event-start" type="datetime-local" bind:value={eventStart} class={inputClass} />
+      <label class={labelClass} for="event-start-date">{t("eventForm.eventStart")}</label>
+      <div class="grid grid-cols-[1fr_120px] gap-2">
+        <div class="relative">
+          <Calendar class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <input id="event-start-date" type="date" bind:value={eventStartDate} class={`${inputClass} pl-8`} />
+        </div>
+        <div class="relative">
+          <Clock class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <input id="event-start-time" type="time" bind:value={eventStartTime} class={`${inputClass} pl-8`} aria-label={t("eventForm.eventStart")} />
+        </div>
+      </div>
     </div>
+
     <div class="space-y-1">
-      <label class={labelClass} for="event-end">{t("eventForm.eventEnd")}</label>
-      <input id="event-end" type="datetime-local" bind:value={eventEnd} class={inputClass} />
+      <label class={labelClass} for="event-end-date">{t("eventForm.eventEnd")}</label>
+      <div class="grid grid-cols-[1fr_120px] gap-2">
+        <div class="relative">
+          <Calendar class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <input id="event-end-date" type="date" bind:value={eventEndDate} min={eventStartDate || undefined} class={`${inputClass} pl-8`} />
+        </div>
+        <div class="relative">
+          <Clock class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <input id="event-end-time" type="time" bind:value={eventEndTime} class={`${inputClass} pl-8`} aria-label={t("eventForm.eventEnd")} />
+        </div>
+      </div>
     </div>
+
+    {#if durationMs !== null}
+      <div class={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${durationError ? "bg-red-500/10 text-red-600" : "bg-primary/10 text-primary"}`}>
+        {#if durationError}<CircleAlert class="w-3.5 h-3.5 flex-shrink-0" />{:else}<Timer class="w-3.5 h-3.5 flex-shrink-0" />{/if}
+        <span>
+          {#if durationError}
+            {durationError}
+          {:else}
+            {t("eventForm.durationLabel", { duration: formatDuration(durationMs) })}
+          {/if}
+        </span>
+      </div>
+    {/if}
   </div>
 
   <div class="pt-2 border-t border-border/50 space-y-3">

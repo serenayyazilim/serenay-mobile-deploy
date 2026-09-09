@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
-  import { LoaderCircle, CircleAlert, Plus, CalendarClock, Trash2 } from "@lucide/svelte";
-  import { BADGE_OPTIONS, EVENT_STATE_LABELS } from "$lib/appstoreconnect/labels";
+  import { LoaderCircle, CircleAlert, Plus, CalendarClock, Trash2, ImageOff } from "@lucide/svelte";
+  import { BADGE_OPTIONS, EVENT_STATE_LABELS, assetImageUrl } from "$lib/appstoreconnect/labels";
   import EventCreateForm from "./event-create-form.svelte";
   import EventEditor from "./event-editor.svelte";
   import { i18n, t } from "$lib/i18n/index.svelte";
@@ -18,9 +18,36 @@
   let error = $state<string | null>(null);
   let view = $state<View>("list");
   let deletingId = $state<string | null>(null);
+  let thumbnails = $state<Record<string, string | null>>({});
 
   function badgeLabel(value?: string | null) {
     return BADGE_OPTIONS.find((b) => b.value === value)?.label || value || "";
+  }
+
+  function primaryLocalizationFor(ev: any): any {
+    const localizationIds = (ev.relationships?.localizations?.data || []).map((d: any) => d.id);
+    return (
+      included.find((l) => localizationIds.includes(l.id) && l.attributes.locale === ev.attributes.primaryLocale) ||
+      included.find((l) => localizationIds.includes(l.id))
+    );
+  }
+
+  async function loadThumbnails() {
+    await Promise.all(
+      events.map(async (ev) => {
+        const loc = primaryLocalizationFor(ev);
+        if (!loc) return;
+        try {
+          const shots = await invoke<any[]>("asc_localization_screenshots", { workspace: workspacePath, id: loc.id });
+          const cardShot = shots.find(
+            (s) => s.attributes?.appEventAssetType === "EVENT_CARD" && s.attributes?.assetDeliveryState?.state === "COMPLETE"
+          );
+          thumbnails[ev.id] = assetImageUrl(cardShot, 96) || null;
+        } catch {
+          thumbnails[ev.id] = null;
+        }
+      })
+    );
   }
 
   async function loadEvents() {
@@ -41,6 +68,7 @@
       appId = data.appId;
       events = data.events || [];
       included = data.included || [];
+      loadThumbnails();
     } catch (e) {
       error = String(e);
     } finally {
@@ -129,27 +157,38 @@
             onkeydown={(e) => e.key === "Enter" && (view = { edit: ev.id })}
             role="button"
             tabindex="0"
-            class="p-4 rounded-xl bg-secondary/30 ring-1 ring-border/30 hover:ring-border/60 cursor-pointer transition-all flex items-center justify-between gap-3"
+            class="p-4 rounded-xl bg-secondary/30 ring-1 ring-border/30 hover:ring-border/60 cursor-pointer transition-all flex items-center gap-3"
           >
-            <div class="min-w-0">
-              <div class="flex items-center gap-2">
-                <p class="text-sm font-medium truncate">{primaryLoc?.attributes?.name || ev.attributes.referenceName}</p>
-                <span class={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${stateInfo.className}`}>{stateInfo.label}</span>
-              </div>
-              <p class="text-xs text-muted-foreground mt-0.5 truncate">
-                {badgeLabel(ev.attributes.badge)}
-                {#if ev.attributes.territorySchedules?.[0]}
-                  · {new Date(ev.attributes.territorySchedules[0].eventStart).toLocaleDateString(i18n.locale === "tr" ? "tr-TR" : "en-US")} - {new Date(ev.attributes.territorySchedules[0].eventEnd).toLocaleDateString(i18n.locale === "tr" ? "tr-TR" : "en-US")}
-                {/if}
-              </p>
+            <div class="w-11 h-11 rounded-lg overflow-hidden bg-secondary/60 ring-1 ring-border/30 flex items-center justify-center flex-shrink-0">
+              {#if thumbnails[ev.id]}
+                <img src={thumbnails[ev.id]} alt="" class="w-full h-full object-cover" />
+              {:else if thumbnails[ev.id] === undefined}
+                <LoaderCircle class="w-3.5 h-3.5 animate-spin text-muted-foreground/50" />
+              {:else}
+                <ImageOff class="w-4 h-4 text-muted-foreground/40" />
+              {/if}
             </div>
-            <button
-              onclick={(e) => handleDelete(ev.id, e)}
-              disabled={deletingId === ev.id}
-              class="p-2 rounded-full text-muted-foreground hover:text-red-600 hover:bg-red-500/10 transition-colors flex-shrink-0"
-            >
-              {#if deletingId === ev.id}<LoaderCircle class="w-4 h-4 animate-spin" />{:else}<Trash2 class="w-4 h-4" />{/if}
-            </button>
+            <div class="min-w-0 flex-1 flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <p class="text-sm font-medium truncate">{primaryLoc?.attributes?.name || ev.attributes.referenceName}</p>
+                  <span class={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${stateInfo.className}`}>{stateInfo.label}</span>
+                </div>
+                <p class="text-xs text-muted-foreground mt-0.5 truncate">
+                  {badgeLabel(ev.attributes.badge)}
+                  {#if ev.attributes.territorySchedules?.[0]}
+                    · {new Date(ev.attributes.territorySchedules[0].eventStart).toLocaleDateString(i18n.locale === "tr" ? "tr-TR" : "en-US")} - {new Date(ev.attributes.territorySchedules[0].eventEnd).toLocaleDateString(i18n.locale === "tr" ? "tr-TR" : "en-US")}
+                  {/if}
+                </p>
+              </div>
+              <button
+                onclick={(e) => handleDelete(ev.id, e)}
+                disabled={deletingId === ev.id}
+                class="p-2 rounded-full text-muted-foreground hover:text-red-600 hover:bg-red-500/10 transition-colors flex-shrink-0"
+              >
+                {#if deletingId === ev.id}<LoaderCircle class="w-4 h-4 animate-spin" />{:else}<Trash2 class="w-4 h-4" />{/if}
+              </button>
+            </div>
           </div>
         {/each}
       </div>

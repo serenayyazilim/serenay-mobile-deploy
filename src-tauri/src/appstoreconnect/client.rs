@@ -50,7 +50,31 @@ pub async fn asc_fetch(
             .and_then(|e| e.as_array())
             .map(|errs| {
                 errs.iter()
-                    .filter_map(|e| e.get("detail").or_else(|| e.get("title")).and_then(|v| v.as_str()))
+                    .flat_map(|e| {
+                        let mut messages: Vec<String> = Vec::new();
+                        if let Some(m) = e.get("detail").or_else(|| e.get("title")).and_then(|v| v.as_str()) {
+                            messages.push(m.to_string());
+                        }
+                        // The App Store Connect API often hides the real reason behind a generic
+                        // "cannot be reviewed" message, with the actual per-field errors nested
+                        // under error.meta.associatedErrors (keyed by JSON pointer).
+                        if let Some(associated) =
+                            e.get("meta").and_then(|m| m.get("associatedErrors")).and_then(|v| v.as_object())
+                        {
+                            for sub_errs in associated.values() {
+                                if let Some(arr) = sub_errs.as_array() {
+                                    for sub in arr {
+                                        if let Some(sm) =
+                                            sub.get("detail").or_else(|| sub.get("title")).and_then(|v| v.as_str())
+                                        {
+                                            messages.push(sm.to_string());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        messages
+                    })
                     .collect::<Vec<_>>()
                     .join("; ")
             })
@@ -214,12 +238,12 @@ async fn upload_asset_parts(bytes: &[u8], upload_operations: &[Value]) -> Result
     Ok(())
 }
 
-async fn commit_screenshot(config: &AscConfig, id: &str, checksum: &str) -> Result<Value, AscApiError> {
+async fn commit_screenshot(config: &AscConfig, id: &str) -> Result<Value, AscApiError> {
     let body = json!({
         "data": {
             "type": "appEventScreenshots",
             "id": id,
-            "attributes": { "uploaded": true, "sourceFileChecksum": checksum }
+            "attributes": { "uploaded": true }
         }
     });
     let data = asc_fetch(config, Method::PATCH, &format!("/v1/appEventScreenshots/{id}"), Some(body)).await?;
@@ -264,9 +288,8 @@ pub async fn upload_app_event_screenshot(
         .unwrap_or_default();
     upload_asset_parts(bytes, &upload_operations).await?;
 
-    let checksum = format!("{:x}", md5::compute(bytes));
     let id = reservation.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    commit_screenshot(config, &id, &checksum).await?;
+    commit_screenshot(config, &id).await?;
     poll_screenshot(config, &id).await
 }
 

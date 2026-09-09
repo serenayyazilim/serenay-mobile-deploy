@@ -20,6 +20,12 @@ export const PRIORITY_OPTIONS = [
   { value: "HIGH", label: "High" },
 ];
 
+// Maps to App Store Connect's "Event Access Requires In-App Purchase" field.
+export const PURCHASE_REQUIREMENT_OPTIONS = [
+  { value: "NO_COST_ASSOCIATED", label: "In-App Purchase Not Required" },
+  { value: "IN_APP_PURCHASE", label: "In-App Purchase Required" },
+];
+
 export const EVENT_STATE_LABELS: Record<string, { label: string; className: string }> = {
   DRAFT: { label: "Draft", className: "bg-secondary text-muted-foreground" },
   READY_FOR_REVIEW: { label: "Ready for Review", className: "bg-blue-500/10 text-blue-600" },
@@ -43,4 +49,29 @@ export function fromDatetimeLocal(value: string): string | null {
   const d = new Date(value);
   if (isNaN(d.getTime())) return null;
   return d.toISOString();
+}
+
+export const MIN_EVENT_DURATION_MS = 15 * 60 * 1000;
+export const MAX_EVENT_DURATION_MS = 31 * 24 * 60 * 60 * 1000;
+
+export function combineDateTime(date: string, time: string): string {
+  if (!date) return "";
+  return `${date}T${time || "00:00"}`;
+}
+
+export function assetImageUrl(shot: any, size = 300): string | undefined {
+  const url = shot?.attributes?.imageAsset?.templateUrl;
+  if (!url) return undefined;
+  return url.replace("{w}", String(size)).replace("{h}", String(size)).replace("{f}", "png");
+}
+
+export function splitDatetimeLocal(isoValue: string | undefined | null): { date: string; time: string } {
+  if (!isoValue) return { date: "", time: "" };
+  const d = new Date(isoValue);
+  if (isNaN(d.getTime())) return { date: "", time: "" };
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+  };
 }

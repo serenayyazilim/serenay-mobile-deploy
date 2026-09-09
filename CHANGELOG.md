@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.8] - 2026-09-09
+
+- Redesigned event date/time selection with separate date and time inputs, a live duration summary, and validation that event duration is between 15 minutes and 31 days.
+- Enforced App Store's required image dimensions (16:9 for the Card Image, 9:16 for the Detail Page Image) before an upload is accepted, with the requirement shown directly on each image slot.
+- Added drag-and-drop image upload for event screenshots, alongside the existing file picker.
+- Added a clearer uploading state (overlay with spinner and label) and detection of stuck/failed uploads with options to check status or discard and retry.
+- Fixed event screenshot uploads failing with `'sourceFileChecksum' is not an attribute on the resource 'appEventScreenshots'`.
+- Event schedule (dates, territories), Deep Link, and the In-App Purchase requirement can now be edited after an event is created, not just at creation time.
+- Changed the In-App Purchase requirement field from free text to the two choices App Store Connect actually expects (In-App Purchase Required / Not Required).
+- Submit for Review now shows exactly what's missing (Deep Link, In-App Purchase requirement, dates not in the future) before you submit, and surfaces App Store Connect's detailed per-field errors instead of just "This resource cannot be reviewed".
+- Added event card thumbnails to the In-App Events list.
+- Ignored stray macOS AppleDouble sidecar files (`._*`) repo-wide so they can't be committed by accident.
+
 ## [0.2.7] - 2026-09-08
 
 - Added an animated first-run product tour that spotlights the sidebar and first project card, with a fake cursor and click animation; replayable from Settings > About.
