@@ -33,6 +33,39 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Extract changelog section for this version
+        id: changelog
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NOTES=$(awk -v ver="$VERSION" '
+            /^## \[/ {
+              if (found) exit
+              if ($0 ~ ("\\[" ver "\\]")) { found=1; next }
+              next
+            }
+            found {
+              if ($0 ~ /^[[:space:]]*$/) {
+                if (started) pending = pending "\n"
+                next
+              }
+              if (started) printf "%s", pending
+              printf "%s\n", $0
+              pending = ""
+              started = 1
+            }
+          ' CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            NOTES="See CHANGELOG.md for details."
+          fi
+          {
+            echo "notes<<CHANGELOG_EOF"
+            echo "$NOTES"
+            echo ""
+            echo "**Full changelog:** [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md)"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       # No APPLE_* signing secrets are configured yet, so this produces an unsigned,
       # ad-hoc-signed build (Gatekeeper will warn on first launch). Once a paid Apple
       # Developer "Developer ID Application" certificate is available, add
@@ -47,7 +80,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Serenay Mobile Deploy ${{ github.ref_name }}"
-          releaseBody: "See assets below to download this version."
+          releaseBody: ${{ steps.changelog.outputs.notes }}
           releaseDraft: false
           prerelease: false
           args: "--target ${{ matrix.target }}"
