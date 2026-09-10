@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { LoaderCircle, Plus, RefreshCw } from "@lucide/svelte";
+  import { ArrowDown, ArrowUp, LoaderCircle, Plus, RefreshCw } from "@lucide/svelte";
   import { workspaceState } from "$lib/stores/workspace.svelte";
   import { projectsState, type WorkspaceProject } from "$lib/stores/projects.svelte";
   import { deployState } from "$lib/stores/deploy.svelte";
@@ -18,6 +18,7 @@
   import TwoFactorDialog from "./dialogs/two-factor-dialog.svelte";
   import ErrorDialog from "./dialogs/error-dialog.svelte";
   import BuildLogsDialog from "./dialogs/build-logs-dialog.svelte";
+  import DeployLogsDialog from "./dialogs/deploy-logs-dialog.svelte";
   import SyncVersionsDialog from "./dialogs/sync-versions-dialog.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
@@ -66,6 +67,26 @@
       <div class="shrink-0 flex items-center justify-between gap-3 p-8 pb-6">
         <div class="flex-1 flex items-center gap-4">
           <SearchBar bind:value={projectsState.searchQuery} />
+          <div class="flex items-center gap-1 shrink-0">
+            {#each [{ value: "name" as const, labelKey: "sidebar.sortByName" }, { value: "version" as const, labelKey: "sidebar.sortByVersion" }] as opt (opt.value)}
+              <button
+                type="button"
+                onclick={() => projectsState.setSort(opt.value)}
+                class={`flex items-center gap-1 px-3 h-9 rounded-xl text-sm font-medium transition-colors ${
+                  projectsState.sortBy === opt.value ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary/50"
+                }`}
+              >
+                {t(opt.labelKey)}
+                {#if projectsState.sortBy === opt.value}
+                  {#if projectsState.sortDirection === "asc"}
+                    <ArrowUp class="w-3.5 h-3.5" />
+                  {:else}
+                    <ArrowDown class="w-3.5 h-3.5" />
+                  {/if}
+                {/if}
+              </button>
+            {/each}
+          </div>
           <p class="text-base font-medium text-muted-foreground whitespace-nowrap">
             {t("sidebar.projectCount", { count: projectsState.projects.length })}
           </p>
@@ -139,7 +160,7 @@
     bind:open={deployState.whatsNewDialogOpen}
     project={deployState.pendingProject}
     workspacePath={workspaceState.path ?? ""}
-    onConfirm={(whatsNew, platform, bumpVersion) =>
+    onConfirm={(whatsNew, platform, bumpVersion, track) =>
       workspaceState.path &&
       deployState.confirmDeploy(
         workspaceState.path,
@@ -147,7 +168,8 @@
         () => projectsState.fetchVersions(workspaceState.path!),
         whatsNew,
         platform,
-        bumpVersion
+        bumpVersion,
+        track
       )}
     onCancel={() => deployState.cancelDeploy()}
   />
@@ -166,6 +188,13 @@
     title={t("projectCard.buildLogsTitle", { name: buildState.selectedProject?.appName ?? "" })}
     logs={buildState.buildLogs}
     status={buildState.buildStatus}
+  />
+
+  <DeployLogsDialog
+    bind:open={deployState.logsDialogOpen}
+    title={t("projectCard.deployLogsTitle", { name: deployState.activeProject?.appName ?? "" })}
+    logs={deployState.deployLogs}
+    isRunning={deployState.deployStatus === "activating" || deployState.deployStatus === "deploying"}
   />
 
   <ProductTour />

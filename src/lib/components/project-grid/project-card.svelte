@@ -123,6 +123,16 @@
         {/if}
       </p>
 
+      {#if deployState.deployLogs.length > 0}
+        <button
+          onclick={(e) => { e.stopPropagation(); deployState.openLogsDialog(); }}
+          class="flex w-full items-center justify-center gap-1.5 rounded-md bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground py-1.5 transition-colors"
+        >
+          <ScrollText class="w-3.5 h-3.5" />
+          <span class="text-[10px] font-medium">{t("projectCard.viewAllLogs")}</span>
+        </button>
+      {/if}
+
       {#if isDeployProcessing}
         <p class="text-[10px] text-center text-amber-600 dark:text-amber-500">{t("projectCard.deployStopsOnClose")}</p>
       {/if}

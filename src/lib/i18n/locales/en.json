@@ -5,6 +5,8 @@
   "common.close": "Close",
 
   "sidebar.projectCount": "{count} projects",
+  "sidebar.sortByName": "Name",
+  "sidebar.sortByVersion": "Version",
   "sidebar.home": "Home",
   "sidebar.newProject": "New Project",
   "sidebar.syncVersions": "Sync Versions",
@@ -19,6 +21,7 @@
   "projectCard.buildError": "Build failed",
   "projectCard.viewAllLogs": "View all logs",
   "projectCard.buildLogsTitle": "Logs - {name}",
+  "projectCard.deployLogsTitle": "Deploy Logs - {name}",
 
   "projectGrid.noResults": "No results found",
   "projectGrid.noProjects": "No projects found",
@@ -52,6 +55,9 @@
   "whatsNew.startDeploy": "Start Deploy",
   "whatsNew.bumpVersion": "Increment version (+1)",
   "whatsNew.bumpVersionOffHint": "off — will deploy with {version}",
+  "whatsNew.releaseTrack": "Target:",
+  "whatsNew.trackProduction": "Production (App Store / Play Store)",
+  "whatsNew.trackTest": "Test (TestFlight / Internal Testing)",
 
   "language.english": "English",
   "language.russian": "Russian",

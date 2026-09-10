@@ -409,9 +409,20 @@ class Deployer
     end
   end
 
+  # Whether the user picked the test track (TestFlight / Internal Testing) in the deploy dialog.
+  def self.test_track?
+    ENV['RELEASE_TRACK'] == 'test'
+  end
+
+  # Fastlane lane to run for a store: "beta" (TestFlight / Internal Testing) or "release" (production).
+  def self.fastlane_lane
+    test_track? ? 'beta' : 'release'
+  end
+
   def self.deploy_ios
     log("🍎", "Starting iOS Deploy...")
     log("📍", "Project: #{flutter_root}")
+    log("🎯", "Target: #{test_track? ? 'TestFlight' : 'App Store'}")
 
     Dir.chdir(flutter_root) do
       # Bump version unless the user opted out
@@ -426,7 +437,7 @@ class Deployer
       create_native_splash
 
       return false unless run_command("cd #{ios_path} && pod install", "CocoaPods")
-      return false unless run_command("cd #{ios_path} && fastlane release", "App Store deploy")
+      return false unless run_command("cd #{ios_path} && fastlane #{fastlane_lane}", test_track? ? "TestFlight deploy" : "App Store deploy")
     end
 
     log("✅", "iOS Deploy completed successfully!")
@@ -436,6 +447,7 @@ class Deployer
   def self.deploy_android
     log("🤖", "Starting Android Deploy...")
     log("📍", "Project: #{flutter_root}")
+    log("🎯", "Target: #{test_track? ? 'Internal Testing' : 'Google Play'}")
 
     Dir.chdir(flutter_root) do
       # Bump version unless the user opted out
@@ -450,7 +462,7 @@ class Deployer
       create_native_splash
 
       return false unless run_command("flutter build appbundle", "Build App Bundle")
-      return false unless run_command("cd #{android_path} && fastlane release", "Google Play deploy")
+      return false unless run_command("cd #{android_path} && fastlane #{fastlane_lane}", test_track? ? "Internal Testing deploy" : "Google Play deploy")
     end
 
     log("✅", "Android Deploy completed successfully!")
@@ -467,6 +479,7 @@ class Deployer
   def self.deploy_all
     log("🚀", "Starting deploy to all platforms...")
     log("📍", "Project: #{flutter_root}")
+    log("🎯", "Target: #{test_track? ? 'TestFlight / Internal Testing' : 'App Store / Google Play'}")
 
     Dir.chdir(flutter_root) do
       # Bump version (once) unless the user opted out
@@ -484,12 +497,12 @@ class Deployer
       return false unless run_command("flutter build appbundle", "Build App Bundle")
 
       # Android deploy
-      log("🤖", "Uploading to Google Play...")
-      android_success = system("cd #{android_path} && fastlane release")
+      log("🤖", "Uploading to #{test_track? ? 'Internal Testing' : 'Google Play'}...")
+      android_success = system("cd #{android_path} && fastlane #{fastlane_lane}")
 
       # iOS deploy
-      log("🍎", "Uploading to App Store...")
-      ios_success = system("cd #{ios_path} && fastlane release")
+      log("🍎", "Uploading to #{test_track? ? 'TestFlight' : 'App Store'}...")
+      ios_success = system("cd #{ios_path} && fastlane #{fastlane_lane}")
 
       if android_success && ios_success
         log("✅", "Deploy to all platforms completed successfully!")

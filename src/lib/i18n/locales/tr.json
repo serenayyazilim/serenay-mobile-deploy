@@ -5,6 +5,8 @@
   "common.close": "Kapat",
 
   "sidebar.projectCount": "{count} proje",
+  "sidebar.sortByName": "Ad",
+  "sidebar.sortByVersion": "Versiyon",
   "sidebar.home": "Anasayfa",
   "sidebar.newProject": "Yeni Proje",
   "sidebar.syncVersions": "Versiyonları Senkronize Et",
@@ -19,6 +21,7 @@
   "projectCard.buildError": "Build hatası",
   "projectCard.viewAllLogs": "Tüm logları gör",
   "projectCard.buildLogsTitle": "Loglar - {name}",
+  "projectCard.deployLogsTitle": "Deploy Logları - {name}",
 
   "projectGrid.noResults": "Sonuç bulunamadı",
   "projectGrid.noProjects": "Proje bulunamadı",
@@ -52,6 +55,9 @@
   "whatsNew.startDeploy": "Deploy Başlat",
   "whatsNew.bumpVersion": "Versiyonu artır (+1)",
   "whatsNew.bumpVersionOffHint": "kapalı — {version} ile deploy edilecek",
+  "whatsNew.releaseTrack": "Hedef:",
+  "whatsNew.trackProduction": "Yayın (App Store / Play Store)",
+  "whatsNew.trackTest": "Test (TestFlight / Dahili Test)",
 
   "language.english": "İngilizce",
   "language.russian": "Rusça",

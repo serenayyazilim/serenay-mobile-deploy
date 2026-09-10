@@ -7,12 +7,13 @@
   import { t } from "$lib/i18n/index.svelte";
 
   type DeployPlatform = "ios" | "android" | "all";
+  type ReleaseTrack = "production" | "test";
 
   let { open = $bindable(false), project, workspacePath, onConfirm, onCancel }: {
     open: boolean;
     project: WorkspaceProject | null;
     workspacePath: string;
-    onConfirm: (whatsNew: string, platform: DeployPlatform, bumpVersion: boolean) => void;
+    onConfirm: (whatsNew: string, platform: DeployPlatform, bumpVersion: boolean, track: ReleaseTrack) => void;
     onCancel: () => void;
   } = $props();
 
@@ -28,6 +29,7 @@
 
   let text = $state("");
   let platform = $state<DeployPlatform>("all");
+  let track = $state<ReleaseTrack>("production");
   let languages = $state<{ flag: string; labelKey: string }[]>([]);
   let bumpVersion = $state(true);
   let currentVersion = $state("");
@@ -62,15 +64,17 @@
   }
 
   function handleConfirm() {
-    onConfirm(text.trim() || t("whatsNew.defaultText"), platform, bumpVersion);
+    onConfirm(text.trim() || t("whatsNew.defaultText"), platform, bumpVersion, track);
     text = "";
     platform = "all";
+    track = "production";
     bumpVersion = true;
   }
 
   function handleCancel() {
     text = "";
     platform = "all";
+    track = "production";
     bumpVersion = true;
     onCancel();
   }
@@ -79,6 +83,11 @@
     { value: "ios", labelKey: "whatsNew.iosOnly" },
     { value: "android", labelKey: "whatsNew.androidOnly" },
     { value: "all", labelKey: "whatsNew.both" },
+  ];
+
+  const trackOptions: { value: ReleaseTrack; labelKey: string }[] = [
+    { value: "production", labelKey: "whatsNew.trackProduction" },
+    { value: "test", labelKey: "whatsNew.trackTest" },
   ];
 </script>
 
@@ -123,6 +132,23 @@
               onclick={() => (platform = opt.value)}
               class={`flex-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
                 platform === opt.value ? "border-primary bg-primary text-primary-foreground" : "border-input bg-transparent text-foreground hover:bg-muted"
+              }`}
+            >
+              {t(opt.labelKey)}
+            </button>
+          {/each}
+        </div>
+      </div>
+
+      <div class="space-y-1.5">
+        <p class="text-xs text-muted-foreground font-medium">{t("whatsNew.releaseTrack")}</p>
+        <div class="flex gap-2">
+          {#each trackOptions as opt (opt.value)}
+            <button
+              type="button"
+              onclick={() => (track = opt.value)}
+              class={`flex-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+                track === opt.value ? "border-primary bg-primary text-primary-foreground" : "border-input bg-transparent text-foreground hover:bg-muted"
               }`}
             >
               {t(opt.labelKey)}

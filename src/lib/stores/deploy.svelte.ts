@@ -7,6 +7,7 @@ import { t } from "$lib/i18n/index.svelte";
 
 type DeployStatus = "idle" | "activating" | "deploying" | "success" | "error";
 type DeployPlatform = "ios" | "android" | "all";
+type ReleaseTrack = "production" | "test";
 
 interface DeployEvent {
   type: "started" | "input_required" | "log" | "error" | "done";
@@ -23,6 +24,9 @@ class DeployState {
   deployMessage = $state("");
   deployProgress = $state(0);
   deployElapsed = $state(0);
+  deployLogs = $state<string[]>([]);
+  logsDialogOpen = $state(false);
+  activeProject = $state<WorkspaceProject | null>(null);
 
   whatsNewDialogOpen = $state(false);
   pendingProject = $state<WorkspaceProject | null>(null);
@@ -63,6 +67,10 @@ class DeployState {
     this.pendingProject = null;
   }
 
+  openLogsDialog() {
+    this.logsDialogOpen = true;
+  }
+
   submitTwoFactor(code: string) {
     this.twoFactorOpen = false;
     this.twoFactorResolve?.(code);
@@ -81,7 +89,8 @@ class DeployState {
     onVersionRefresh: () => Promise<void>,
     whatsNew: string,
     platform: DeployPlatform = "all",
-    bumpVersion: boolean = true
+    bumpVersion: boolean = true,
+    track: ReleaseTrack = "production"
   ) {
     const project = this.pendingProject;
     if (!project || !workspacePath) return;
@@ -90,11 +99,13 @@ class DeployState {
     this.pendingProject = null;
 
     this.deployingProjectId = project.id;
+    this.activeProject = project;
     this.deployProgress = 0;
+    this.deployLogs = [];
+    this.logsDialogOpen = false;
     this.startElapsedTimer();
 
     let lastError: string | undefined;
-    const allLogs: string[] = [];
     let unlisten: UnlistenFn | null = null;
 
     try {
@@ -108,7 +119,7 @@ class DeployState {
       this.deployMessage = t("deploy.starting");
       this.deployProgress = 30;
 
-      const processId = await invoke<string>("deploy_start", { platform, workspacePath, whatsNew, bumpVersion });
+      const processId = await invoke<string>("deploy_start", { platform, workspacePath, whatsNew, bumpVersion, track });
 
       await new Promise<void>((resolve, reject) => {
         listen<DeployEvent>(`deploy-event-${processId}`, async (event) => {
@@ -130,14 +141,14 @@ class DeployState {
             }
           } else if (data.type === "log") {
             const msg = data.message || "";
-            allLogs.push(msg);
+            this.deployLogs = [...this.deployLogs, msg];
             this.deployStatus = "deploying";
             this.deployMessage = msg;
             const progress = detectProgressFromLog(msg);
             if (progress > 0) this.deployProgress = progress;
           } else if (data.type === "error") {
             const msg = data.message || "";
-            allLogs.push(`❌ ${msg}`);
+            this.deployLogs = [...this.deployLogs, `❌ ${msg}`];
             lastError = msg;
             console.error("[Deploy Error]", msg);
           } else if (data.type === "done") {
@@ -168,7 +179,7 @@ class DeployState {
 
       if (!this.errorDialogOpen) {
         this.errorTitle = t("deploy.errorTitle", { name: project.appName });
-        this.errorLogs = allLogs.length > 0 ? allLogs : [errorMsg];
+        this.errorLogs = this.deployLogs.length > 0 ? this.deployLogs : [errorMsg];
         this.errorDialogOpen = true;
       }
 
@@ -184,6 +195,9 @@ class DeployState {
     this.deployMessage = "";
     this.deployProgress = 0;
     this.deployElapsed = 0;
+    this.deployLogs = [];
+    this.logsDialogOpen = false;
+    this.activeProject = null;
     this.stopElapsedTimer();
   }
 

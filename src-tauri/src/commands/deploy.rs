@@ -31,9 +31,15 @@ pub async fn deploy_start(
     workspace_path: String,
     whats_new: Option<String>,
     bump_version: Option<bool>,
+    track: Option<String>,
 ) -> Result<String, String> {
     if !["ios", "android", "huawei", "all"].contains(&platform.as_str()) {
         return Err("Invalid platform. Must be ios, android, huawei or all".to_string());
+    }
+
+    let track = track.unwrap_or_else(|| "production".to_string());
+    if !["production", "test"].contains(&track.as_str()) {
+        return Err("Invalid track. Must be production or test".to_string());
     }
 
     let script_path = find_script_path(&app, "deploy.rb").ok_or("Deploy script not found")?;
@@ -59,6 +65,7 @@ pub async fn deploy_start(
         .env("STORE_LOCALES_IOS", ios_locales.join(","))
         .env("STORE_LOCALES_ANDROID", android_locales.join(","))
         .env("BUMP_VERSION", if bump_version.unwrap_or(true) { "true" } else { "false" })
+        .env("RELEASE_TRACK", &track)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
