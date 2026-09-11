@@ -1,3 +1,4 @@
+use crate::appstoreconnect::config::read_asc_config;
 use crate::deploy::is_two_factor_prompt;
 use regex::Regex;
 use std::path::Path;
@@ -22,18 +23,28 @@ fn strip_ansi(s: &str) -> String {
 
 /// Runs the `fastlane fetch_locales` lane and parses the `FASTLANE_LOCALES=...` line from stdout.
 /// If not found, returns an error message (fastlane's [!] lines or the last few lines).
-pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path) -> Result<Vec<String>, String> {
+pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path, workspace_path: &str) -> Result<Vec<String>, String> {
     if !fastlane_dir.exists() {
         return Err(format!("Folder not found: {}", fastlane_dir.display()));
+    }
+
+    let mut command = Command::new("fastlane");
+    command.arg("fetch_locales").current_dir(fastlane_dir);
+
+    // Authenticate with the App Store Connect API key when configured, instead of
+    // fastlane's legacy Apple ID/app-specific-password session flow.
+    if let Some(asc) = read_asc_config(workspace_path) {
+        command
+            .env("ASC_KEY_ID", asc.key_id)
+            .env("ASC_ISSUER_ID", asc.issuer_id)
+            .env("ASC_PRIVATE_KEY", asc.private_key);
     }
 
     // No dialog is reachable from this background prefetch (it can run before the deploy
     // event channel exists), so stdin is explicitly closed: if Apple asks for a 2-step
     // verification code here, fastlane can't get one and would otherwise hang until the
     // timeout below burns through a code that already reached the user's device for nothing.
-    let mut child = match Command::new("fastlane")
-        .arg("fetch_locales")
-        .current_dir(fastlane_dir)
+    let mut child = match command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -140,8 +151,10 @@ pub async fn get_store_locales(workspace_path: &str) -> (Vec<String>, Vec<String
 
     let ios_dir = root.join("ios");
     let android_dir = root.join("android");
-    let (ios_result, android_result) =
-        tokio::join!(run_fastlane_fetch_locales(&ios_dir), run_fastlane_fetch_locales(&android_dir));
+    let (ios_result, android_result) = tokio::join!(
+        run_fastlane_fetch_locales(&ios_dir, workspace_path),
+        run_fastlane_fetch_locales(&android_dir, workspace_path)
+    );
 
     let ios_from_store = ios_result.unwrap_or_default();
     let android_from_store = android_result.unwrap_or_default();

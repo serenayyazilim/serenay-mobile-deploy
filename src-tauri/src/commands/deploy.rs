@@ -1,3 +1,4 @@
+use crate::appstoreconnect::config::read_asc_config;
 use crate::deploy::registry::DeployRegistry;
 use crate::deploy::{find_script_path, is_two_factor_prompt, locales::get_store_locales, translate::build_translations};
 use serde_json::json;
@@ -54,7 +55,8 @@ pub async fn deploy_start(
     let process_id = uuid::Uuid::new_v4().to_string();
     let event_name = format!("deploy-event-{process_id}");
 
-    let mut child = Command::new("ruby")
+    let mut command = Command::new("ruby");
+    command
         .arg(&script_path)
         .arg(&platform)
         .arg(&workspace_path)
@@ -65,7 +67,19 @@ pub async fn deploy_start(
         .env("STORE_LOCALES_IOS", ios_locales.join(","))
         .env("STORE_LOCALES_ANDROID", android_locales.join(","))
         .env("BUMP_VERSION", if bump_version.unwrap_or(true) { "true" } else { "false" })
-        .env("RELEASE_TRACK", &track)
+        .env("RELEASE_TRACK", &track);
+
+    // Pass the App Store Connect API key through to fastlane so it authenticates
+    // with a key instead of the legacy Apple ID/app-specific-password session flow,
+    // which is prone to intermittent "Could not receive latest API key" failures.
+    if let Some(asc) = read_asc_config(&workspace_path) {
+        command
+            .env("ASC_KEY_ID", asc.key_id)
+            .env("ASC_ISSUER_ID", asc.issuer_id)
+            .env("ASC_PRIVATE_KEY", asc.private_key);
+    }
+
+    let mut child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
