@@ -136,7 +136,7 @@ class Deployer
   end
 
   # ============ VERSION ============
-  MIN_VERSION = "19.0.0"  # Minimum version - all projects start from this version
+  DEFAULT_VERSION = "1.0.0+1"  # Used only when no version can be found anywhere
 
   def self.get_current_project
     project_file = File.join(flutter_root, CURRENT_PROJECT_FILE)
@@ -165,29 +165,6 @@ class Deployer
     rescue
       nil
     end
-  end
-
-  # Version comparison: returns true if v1 < v2
-  def self.version_less_than?(v1, v2)
-    return true if v1.nil?
-
-    # Strip the build number (19.0.0+190000 -> 19.0.0)
-    v1_part = v1.split('+')[0]
-    v2_part = v2.split('+')[0]
-
-    v1_nums = v1_part.split('.').map(&:to_i)
-    v2_nums = v2_part.split('.').map(&:to_i)
-
-    # Compare major
-    return true if v1_nums[0] < v2_nums[0]
-    return false if v1_nums[0] > v2_nums[0]
-
-    # Compare minor
-    return true if v1_nums[1] < v2_nums[1]
-    return false if v1_nums[1] > v2_nums[1]
-
-    # Compare patch
-    return v1_nums[2] < v2_nums[2]
   end
 
   def self.save_project_version(project, version)
@@ -346,20 +323,13 @@ class Deployer
     current_project = get_current_project
 
     if current_project
-      # Read the version from the project's own version.json
-      project_version = get_project_version(current_project)
-
-      # If there's no project version or it's below MIN_VERSION, start from MIN_VERSION
-      if project_version.nil? || version_less_than?(project_version, MIN_VERSION)
-        log("⚠️", "Project version (#{project_version || 'none'}) is below #{MIN_VERSION}, starting from #{MIN_VERSION}")
-        current = "#{MIN_VERSION}+#{19 * 10000000}"  # 19.0.0+190000000
-      else
-        current = project_version
-        log("📌", "Project version: #{current}")
-      end
+      # Read the version from the project's own version.json, falling back to
+      # pubspec.yaml, then to a hardcoded default if neither exists yet.
+      current = get_project_version(current_project) || get_current_version || DEFAULT_VERSION
+      log("📌", "Project version: #{current}")
     else
       # Generic (single-project) workspace: the source of truth is always pubspec.yaml.
-      current = get_current_version || "#{MIN_VERSION}+#{19 * 10000000}"
+      current = get_current_version || DEFAULT_VERSION
       log("📌", "Current version (pubspec.yaml): #{current}")
     end
 
