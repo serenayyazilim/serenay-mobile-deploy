@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.9] - 2026-09-10
+
+- Added a Production/Test deploy target toggle: Test uploads to TestFlight (iOS) and Internal Testing (Android) via the fastlane `beta` lane instead of `release`.
+- Added sorting to the project grid by name or version, ascending or descending.
+- Added a live log viewer to the deploy flow ("view all logs"), matching the build flow's logs dialog.
+
 ## [0.2.8] - 2026-09-09
 
 - Redesigned event date/time selection with separate date and time inputs, a live duration summary, and validation that event duration is between 15 minutes and 31 days.
