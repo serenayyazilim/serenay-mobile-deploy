@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { detectProgressFromLog } from "$lib/deploy-utils";
 import { sendSlackNotification } from "$lib/slack";
 import type { WorkspaceProject } from "$lib/stores/projects.svelte";
+import { confirmState } from "$lib/stores/confirm.svelte";
 import { t } from "$lib/i18n/index.svelte";
 
 type DeployStatus = "idle" | "activating" | "deploying" | "success" | "error";
@@ -97,6 +98,12 @@ class DeployState {
 
     this.whatsNewDialogOpen = false;
     this.pendingProject = null;
+
+    const hasSplashImage = await invoke<boolean>("deploy_check_splash_image", { workspacePath, projectId: project.id }).catch(() => true);
+    if (!hasSplashImage) {
+      const proceed = await confirmState.ask(t("deploy.splashWarningTitle"), t("deploy.splashWarningDescription", { name: project.appName }));
+      if (!proceed) return;
+    }
 
     this.deployingProjectId = project.id;
     this.activeProject = project;

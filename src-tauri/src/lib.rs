@@ -14,10 +14,10 @@ use commands::appstoreconnect::{
     asc_screenshot_upload, asc_territories_list,
 };
 use commands::config::{config_colors_get, config_colors_save, config_serconf_get, config_serconf_save};
-use commands::deploy::{deploy_start, deploy_submit_two_factor_code};
+use commands::deploy::{deploy_check_splash_image, deploy_start, deploy_submit_two_factor_code};
 use commands::firebase::{firebase_accounts, firebase_create_project, firebase_logout};
 use commands::flutter::{flutter_build_start, flutter_devices, flutter_run_hot_reload, flutter_run_stop};
-use commands::project::{project_activate, project_create};
+use commands::project::{project_activate, project_check_splash_image, project_create};
 use commands::projects::{
     project_asset_upload, project_icon, project_splash_color_get, project_splash_color_save, projects_list,
     projects_rename, projects_version_set, projects_versions,
@@ -81,8 +81,10 @@ pub fn run() {
             workspace_config_save,
             project_create,
             project_activate,
+            project_check_splash_image,
             projects_version_set,
             deploy_start,
+            deploy_check_splash_image,
             deploy_submit_two_factor_code,
             sync_versions_start,
             sync_versions_submit_two_factor_code,

@@ -20,6 +20,7 @@
   import BuildLogsDialog from "./dialogs/build-logs-dialog.svelte";
   import DeployLogsDialog from "./dialogs/deploy-logs-dialog.svelte";
   import SyncVersionsDialog from "./dialogs/sync-versions-dialog.svelte";
+  import ConfirmDialog from "./dialogs/confirm-dialog.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
   const supportsMultipleProjects = $derived(workspaceState.mode === "sermobileboss");
@@ -149,6 +150,8 @@
   />
 
   <SyncVersionsDialog bind:open={syncDialogOpen} workspacePath={workspaceState.path ?? ""} />
+
+  <ConfirmDialog />
 
   <DeviceSelectorDialog
     bind:open={buildState.deviceDialogOpen}

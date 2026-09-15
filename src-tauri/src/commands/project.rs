@@ -9,6 +9,16 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use tokio::process::Command;
 
+/// Mirrors the splash image resolution `project_activate` uses at step 5 (`Launch/splash.png`
+/// then `Launch/2x.png`) so the frontend can warn before activating that only the flat
+/// background color (no logo) will render, without actually running the activation.
+#[tauri::command]
+pub fn project_check_splash_image(workspace_path: String, project_id: String) -> bool {
+    let project_folder = Path::new(&workspace_path).join("lib/conf/sermobplus-projects").join(&project_id);
+    let launch = project_folder.join("Launch");
+    launch.join("splash.png").exists() || launch.join("2x.png").exists()
+}
+
 #[derive(Debug, Deserialize)]
 pub struct CreateProjectParams {
     #[serde(rename = "workspacePath")]

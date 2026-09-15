@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { WorkspaceProject } from "$lib/stores/projects.svelte";
+import { confirmState } from "$lib/stores/confirm.svelte";
 import { t } from "$lib/i18n/index.svelte";
 
 export type BuildStatus = "idle" | "running" | "success" | "error";
@@ -51,6 +52,12 @@ class BuildState {
   async handleDeviceSelect(workspacePath: string, device: FlutterDevice | null) {
     const project = this.selectedProject;
     if (!project || !workspacePath) return;
+
+    const hasSplashImage = await invoke<boolean>("project_check_splash_image", { workspacePath, projectId: project.id }).catch(() => true);
+    if (!hasSplashImage) {
+      const proceed = await confirmState.ask(t("build.splashWarningTitle"), t("build.splashWarningDescription", { name: project.appName }));
+      if (!proceed) return;
+    }
 
     if (this.autoCloseTimer) {
       clearTimeout(this.autoCloseTimer);

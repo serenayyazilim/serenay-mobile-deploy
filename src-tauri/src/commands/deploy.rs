@@ -2,10 +2,36 @@ use crate::appstoreconnect::config::read_asc_config;
 use crate::deploy::registry::DeployRegistry;
 use crate::deploy::{find_script_path, is_two_factor_prompt, locales::get_store_locales, translate::build_translations};
 use serde_json::json;
+use std::path::Path;
 use std::process::Stdio;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
+
+/// Mirrors `deploy.rb`'s `get_splash_config`: resolves whether a usable splash image
+/// exists for the project, without actually generating the native splash assets.
+/// Deploy silently skips splash regeneration when no image resolves, so the frontend
+/// uses this to warn the user before that happens instead of after.
+#[tauri::command]
+pub fn deploy_check_splash_image(workspace_path: String, project_id: String) -> bool {
+    let project_folder = Path::new(&workspace_path).join("lib/conf/sermobplus-projects").join(&project_id);
+
+    let splash_json = project_folder.join("splash.json");
+    if splash_json.exists() {
+        let image = std::fs::read_to_string(&splash_json)
+            .ok()
+            .and_then(|content| serde_json::from_str::<serde_json::Value>(&content).ok())
+            .and_then(|json| json.get("image").and_then(|v| v.as_str()).map(String::from));
+
+        return match image {
+            Some(image) => Path::new(&workspace_path).join(image).exists(),
+            None => false,
+        };
+    }
+
+    let launch = project_folder.join("Launch");
+    launch.join("splash.png").exists() || launch.join("2x.png").exists()
+}
 
 async fn stream_lines<R: tokio::io::AsyncRead + Unpin>(stream: R, app: AppHandle, event_name: String, is_error: bool) {
     let mut lines = BufReader::new(stream).lines();

@@ -239,6 +239,7 @@
 
   "common.remove": "Kaldır",
   "common.edit": "Düzenle",
+  "common.continue": "Devam Et",
 
   "ascSettings.verifiedAndSaved": "Bağlantı doğrulandı ve kaydedildi",
   "ascSettings.description": "In-App Events (uygulama içi etkinlik) yönetimi için App Store Connect API anahtarınızı girin. Users and Access > Integrations > App Store Connect API üzerinden oluşturabilirsiniz.",
@@ -277,6 +278,8 @@
   "build.hotRestartTriggered": "Hot restart tetiklendi",
   "build.stop": "Durdur",
   "build.stopTriggered": "Uygulama durduruluyor...",
+  "build.splashWarningTitle": "Splash görseli bulunamadı",
+  "build.splashWarningDescription": "\"{name}\" projesinde Launch klasöründe splash görseli (splash.png / 2x.png) bulunamadı. Proje sadece düz renkli bir splash ekranıyla çalıştırılacak. Devam etmek istiyor musunuz?",
 
   "deploy.activatingProject": "Proje aktif ediliyor...",
   "deploy.starting": "Deploy başlatılıyor...",
@@ -285,6 +288,8 @@
   "deploy.failed": "Deploy başarısız",
   "deploy.completed": "Tamamlandı",
   "deploy.errorTitle": "Deploy Hatası - {name}",
+  "deploy.splashWarningTitle": "Splash görseli bulunamadı",
+  "deploy.splashWarningDescription": "\"{name}\" projesi için splash.json ya da Launch klasöründe geçerli bir görsel bulunamadı. Deploy sırasında splash ekranı güncellenmeyecek (mevcut haliyle kalacak). Devam etmek istiyor musunuz?",
 
   "workspaceSelector.subtitle": "Flutter projenizi seçerek başlayın",
   "workspaceSelector.projectFolder": "Proje Klasörü",

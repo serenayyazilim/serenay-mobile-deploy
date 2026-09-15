@@ -239,6 +239,7 @@
 
   "common.remove": "Remove",
   "common.edit": "Edit",
+  "common.continue": "Continue",
 
   "ascSettings.verifiedAndSaved": "Connection verified and saved",
   "ascSettings.description": "Enter your App Store Connect API key to manage In-App Events. You can create one under Users and Access > Integrations > App Store Connect API.",
@@ -277,6 +278,8 @@
   "build.hotRestartTriggered": "Hot restart triggered",
   "build.stop": "Stop",
   "build.stopTriggered": "Stopping app...",
+  "build.splashWarningTitle": "Splash image not found",
+  "build.splashWarningDescription": "No splash image (splash.png / 2x.png) was found in the Launch folder for \"{name}\". The project will run with a flat color splash screen only. Do you want to continue?",
 
   "deploy.activatingProject": "Activating project...",
   "deploy.starting": "Starting deploy...",
@@ -285,6 +288,8 @@
   "deploy.failed": "Deploy failed",
   "deploy.completed": "Completed",
   "deploy.errorTitle": "Deploy Error - {name}",
+  "deploy.splashWarningTitle": "Splash image not found",
+  "deploy.splashWarningDescription": "No valid image was found in splash.json or the Launch folder for \"{name}\". The splash screen will not be updated during this deploy (it stays as-is). Do you want to continue?",
 
   "workspaceSelector.subtitle": "Select your Flutter project to get started",
   "workspaceSelector.projectFolder": "Project Folder",
