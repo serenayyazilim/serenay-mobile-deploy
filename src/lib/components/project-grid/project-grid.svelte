@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { ArrowDown, ArrowUp, LoaderCircle, Plus, RefreshCw } from "@lucide/svelte";
+  import { LoaderCircle, Plus, RefreshCw } from "@lucide/svelte";
+  import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "$lib/components/ui/select";
   import { workspaceState } from "$lib/stores/workspace.svelte";
   import { projectsState, type WorkspaceProject } from "$lib/stores/projects.svelte";
   import { deployState } from "$lib/stores/deploy.svelte";
@@ -24,6 +25,19 @@
   import { t } from "$lib/i18n/index.svelte";
 
   const supportsMultipleProjects = $derived(workspaceState.mode === "sermobileboss");
+
+  const sortOptions = $derived([
+    { value: "name-asc", label: `${t("sidebar.sortByName")} · ${t("sidebar.sortAsc")}` },
+    { value: "name-desc", label: `${t("sidebar.sortByName")} · ${t("sidebar.sortDesc")}` },
+    { value: "version-asc", label: `${t("sidebar.sortByVersion")} · ${t("sidebar.sortAsc")}` },
+    { value: "version-desc", label: `${t("sidebar.sortByVersion")} · ${t("sidebar.sortDesc")}` },
+  ]);
+  const sortValue = $derived(`${projectsState.sortBy}-${projectsState.sortDirection}`);
+  function onSortChange(value: string) {
+    const [by, direction] = value.split("-") as ["name" | "version", "asc" | "desc"];
+    projectsState.sortBy = by;
+    projectsState.sortDirection = direction;
+  }
 
   let settingsDialogOpen = $state(false);
   let settingsProject = $state<WorkspaceProject | null>(null);
@@ -66,49 +80,42 @@
   {:else}
     <div class="flex-1 min-w-0 h-screen flex flex-col">
       <div class="shrink-0 flex items-center justify-between gap-3 p-8 pb-6">
-        <div class="flex-1 flex items-center gap-4">
-          <SearchBar bind:value={projectsState.searchQuery} />
-          <div class="flex items-center gap-1 shrink-0">
-            {#each [{ value: "name" as const, labelKey: "sidebar.sortByName" }, { value: "version" as const, labelKey: "sidebar.sortByVersion" }] as opt (opt.value)}
-              <button
-                type="button"
-                onclick={() => projectsState.setSort(opt.value)}
-                class={`flex items-center gap-1 px-3 h-9 rounded-xl text-sm font-medium transition-colors ${
-                  projectsState.sortBy === opt.value ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary/50"
-                }`}
-              >
-                {t(opt.labelKey)}
-                {#if projectsState.sortBy === opt.value}
-                  {#if projectsState.sortDirection === "asc"}
-                    <ArrowUp class="w-3.5 h-3.5" />
-                  {:else}
-                    <ArrowDown class="w-3.5 h-3.5" />
-                  {/if}
-                {/if}
-              </button>
-            {/each}
-          </div>
-          <p class="text-base font-medium text-muted-foreground whitespace-nowrap">
-            {t("sidebar.projectCount", { count: projectsState.projects.length })}
-          </p>
+        <div class="flex-1 min-w-0">
+          <SearchBar bind:value={projectsState.searchQuery} class="max-w-none" />
         </div>
-        {#if supportsMultipleProjects}
-          <div class="flex items-center gap-3 shrink-0">
+        <div class="flex items-center gap-3 shrink-0">
+          {#if supportsMultipleProjects}
             <button
               onclick={() => (syncDialogOpen = true)}
-              class="flex items-center gap-2 px-4 h-12 rounded-2xl text-sm font-medium ring-1 ring-border/50 bg-secondary/30 hover:bg-secondary/50 transition-all shrink-0"
+              class="flex items-center gap-2 px-4 h-9 rounded-xl text-sm font-medium ring-1 ring-border/50 bg-secondary/30 hover:bg-secondary/50 transition-all shrink-0"
             >
               <RefreshCw class="w-4 h-4 text-muted-foreground" />
               {t("sidebar.syncVersions")}
             </button>
             <button
               onclick={() => (createDialogOpen = true)}
-              class="flex items-center gap-2 px-4 h-12 rounded-2xl font-semibold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all shrink-0"
+              class="flex items-center gap-2 px-4 h-9 rounded-xl font-medium text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all shrink-0"
             >
               <Plus class="w-4 h-4" /> {t("sidebar.newProject")}
             </button>
-          </div>
-        {/if}
+          {/if}
+        </div>
+      </div>
+
+      <div class="shrink-0 flex items-center justify-end gap-3 px-8 pb-4">
+        <p class="text-base font-medium text-muted-foreground whitespace-nowrap">
+          {t("sidebar.projectCount", { count: projectsState.projects.length })}
+        </p>
+        <Select type="single" value={sortValue} onValueChange={onSortChange} items={sortOptions}>
+          <SelectTrigger>
+            <SelectValue placeholder={t("sidebar.sortByName")} />
+          </SelectTrigger>
+          <SelectContent>
+            {#each sortOptions as opt (opt.value)}
+              <SelectItem value={opt.value} label={opt.label} />
+            {/each}
+          </SelectContent>
+        </Select>
       </div>
 
       <div class="flex-1 min-h-0 overflow-y-auto px-8 pb-8">

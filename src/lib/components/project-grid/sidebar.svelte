@@ -1,6 +1,11 @@
 <script lang="ts">
   import { getVersion } from "@tauri-apps/api/app";
+  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { fly } from "svelte/transition";
   import { FolderOpen, LogOut, Settings, CalendarClock, Home } from "@lucide/svelte";
+  import FlutterIcon from "$lib/components/icons/flutter-icon.svelte";
+  import GooglePlayIcon from "$lib/components/icons/google-play-icon.svelte";
+  import AppStoreIcon from "$lib/components/icons/app-store-icon.svelte";
   import { workspaceState } from "$lib/stores/workspace.svelte";
   import { onboardingState } from "$lib/stores/onboarding.svelte";
   import SettingsDialog from "$lib/components/settings-dialog.svelte";
@@ -17,13 +22,45 @@
   } = $props();
 
   const navButtonClass = (active: boolean) =>
-    `w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium ring-1 transition-all ${
-      active ? "bg-primary/10 ring-primary/30 text-primary" : "ring-border/50 bg-secondary/50 hover:bg-secondary text-foreground"
+    `w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+      active ? "bg-secondary text-foreground" : "text-foreground hover:bg-secondary/50"
     }`;
 
   const workspaceName = $derived(workspaceState.path?.split("/").filter(Boolean).pop() ?? "");
 
   let showSettings = $state(false);
+
+  const promoLinkClass =
+    "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium text-white shadow-sm hover:brightness-110 transition-all";
+
+  const promoItems = $derived([
+    {
+      icon: FlutterIcon,
+      label: t("sidebar.pubdevPackage"),
+      url: "https://pub.dev/packages/serenay_ecommerce_widgets",
+      gradient: "bg-gradient-to-r from-violet-500 to-blue-500",
+    },
+    {
+      icon: GooglePlayIcon,
+      label: t("sidebar.playStoreApps"),
+      url: "https://play.google.com/store/apps/dev?id=6871065193664876210&hl=tr",
+      gradient: "bg-gradient-to-r from-emerald-500 to-teal-500",
+    },
+    {
+      icon: AppStoreIcon,
+      label: t("sidebar.appStoreApps"),
+      url: "https://apps.apple.com/tr/developer/serenay-yaz%C4%B1l%C4%B1m/id1682847846",
+      gradient: "bg-gradient-to-r from-slate-700 to-slate-900",
+    },
+  ]);
+
+  let promoIndex = $state(0);
+  $effect(() => {
+    const id = setInterval(() => {
+      promoIndex = (promoIndex + 1) % promoItems.length;
+    }, 4000);
+    return () => clearInterval(id);
+  });
 </script>
 
 <aside class="w-64 shrink-0 h-screen sticky top-0 flex flex-col bg-secondary/20 border-r border-border/50 p-4">
@@ -42,6 +79,23 @@
       {t("sidebar.inAppEvents")}
     </button>
   </nav>
+
+  <div class="border-border/50 space-y-2 pb-4">
+    <div class="relative h-9 overflow-hidden">
+      {#key promoIndex}
+        {@const Icon = promoItems[promoIndex].icon}
+        <button
+          class="{promoLinkClass} {promoItems[promoIndex].gradient} absolute inset-0"
+          onclick={() => openUrl(promoItems[promoIndex].url)}
+          in:fly={{ x: 24, duration: 300 }}
+          out:fly={{ x: -24, duration: 300 }}
+        >
+          <Icon class="w-4 h-4 shrink-0" />
+          <span class="truncate min-w-0 flex-1 text-left">{promoItems[promoIndex].label}</span>
+        </button>
+      {/key}
+    </div>
+  </div>
 
   <div class="pt-3 border-t border-border/50 space-y-1">
     <div class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-muted-foreground">

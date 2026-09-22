@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.10] - 2026-09-22
+
+- Redesigned the sidebar: nav buttons now use a classic borderless style, and the pub.dev/Play Store/App Store promo links became an auto-rotating carousel with real brand icons and gradient colors.
+- Moved the Serenay Yazılım logo out of the sidebar into Settings > About, now linking to serenayyazilim.com.
+- Replaced the project grid's name/version sort toggle with a single shadcn-style dropdown covering all four sort combinations (name/version × ascending/descending).
+- Reworked the project grid header: normalized button/input heights to the standard size, widened the search bar, and moved the sort dropdown and project count above the grid, right-aligned.
+
 ## [0.2.9] - 2026-09-10
 
 - Added a Production/Test deploy target toggle: Test uploads to TestFlight (iOS) and Internal Testing (Android) via the fastlane `beta` lane instead of `release`.

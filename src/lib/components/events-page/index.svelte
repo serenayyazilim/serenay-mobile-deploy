@@ -86,12 +86,12 @@
   {:else}
     <div class="shrink-0 flex items-center gap-4 p-8 pb-6">
       <div class="relative max-w-md">
-        <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           type="text"
           bind:value={search}
           placeholder={t("eventsPage.searchPlaceholder")}
-          class="pl-11 h-12 rounded-2xl bg-secondary/30 border-0 focus-visible:ring-1 focus-visible:ring-primary/50"
+          class="pl-9 h-9 rounded-xl bg-secondary/30 border-0 focus-visible:ring-1 focus-visible:ring-primary/50"
         />
       </div>
       <p class="text-base font-medium text-muted-foreground whitespace-nowrap">

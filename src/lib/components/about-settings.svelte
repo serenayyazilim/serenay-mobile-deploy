@@ -2,6 +2,7 @@
   import { getVersion } from "@tauri-apps/api/app";
   import { check, type Update } from "@tauri-apps/plugin-updater";
   import { relaunch } from "@tauri-apps/plugin-process";
+  import { openUrl } from "@tauri-apps/plugin-opener";
   import { LoaderCircle, RefreshCw, CircleAlert, Sparkles, DownloadCloud, Compass } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { t } from "$lib/i18n/index.svelte";
@@ -93,4 +94,13 @@
       </Button>
     </div>
   {/if}
+
+  <div class="pt-2 border-t border-border/50">
+    <button
+      class="flex items-center gap-2 hover:opacity-80 transition-opacity"
+      onclick={() => openUrl("https://www.serenay.net.tr/")}
+    >
+      <img src="/from-serenay.png" alt="Serenay Yazılım" class="h-5 w-auto" />
+    </button>
+  </div>
 </div>
