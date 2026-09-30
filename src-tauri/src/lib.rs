@@ -3,6 +3,7 @@ mod commands;
 mod config;
 mod deploy;
 mod firebase;
+mod setup;
 mod slack;
 mod workspace;
 mod xcode_gradle;
@@ -23,6 +24,10 @@ use commands::projects::{
     projects_rename, projects_version_set, projects_versions,
 };
 use commands::sentry::{sentry_check, sentry_create_project};
+use commands::setup::{
+    setup_apply, setup_build_aab, setup_expo_config, setup_expo_prebuild, setup_readiness, setup_set_play_key,
+    setup_set_team_id, setup_store_check,
+};
 use commands::slack::{slack_config_delete, slack_config_get, slack_config_save, slack_notify, slack_test};
 use commands::store_locales::store_locales_fetch;
 use commands::sync_versions::{sync_versions_start, sync_versions_submit_two_factor_code};
@@ -93,6 +98,14 @@ pub fn run() {
             flutter_run_hot_reload,
             flutter_run_stop,
             store_locales_fetch,
+            setup_expo_config,
+            setup_expo_prebuild,
+            setup_apply,
+            setup_readiness,
+            setup_store_check,
+            setup_set_play_key,
+            setup_set_team_id,
+            setup_build_aab,
             firebase_accounts,
             firebase_logout,
             firebase_create_project,

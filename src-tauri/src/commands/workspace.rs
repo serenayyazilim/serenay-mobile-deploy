@@ -1,7 +1,7 @@
+use crate::setup::{self, detect_kind, ProjectKind};
 use crate::workspace::detect::detect_workspace_mode;
 use crate::workspace::sermobileboss_config::{read_sermobileboss_config, write_sermobileboss_config, SermobilebossConfig};
 use crate::workspace::types::WorkspaceMode;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tauri_plugin_dialog::DialogExt;
@@ -43,7 +43,7 @@ pub async fn workspace_browse(app: tauri::AppHandle) -> Option<String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     app.dialog()
         .file()
-        .set_title("Select Flutter Project Folder")
+        .set_title("Select Mobile Project Folder")
         .pick_folder(move |folder| {
             let _ = tx.send(folder);
         });
@@ -63,6 +63,7 @@ pub struct ValidateResult {
     pub valid: bool,
     pub message: String,
     pub mode: Option<String>,
+    pub kind: Option<ProjectKind>,
     #[serde(rename = "projectName")]
     pub project_name: Option<String>,
     #[serde(rename = "projectCount")]
@@ -79,33 +80,27 @@ pub fn workspace_validate(workspace_path: String) -> ValidateResult {
             valid: false,
             message: "Folder not found".to_string(),
             mode: None,
+            kind: None,
             project_name: None,
             project_count: None,
             path: None,
         };
     }
 
-    let pubspec_path = root.join("pubspec.yaml");
-    if !pubspec_path.exists() {
+    let Some(kind) = detect_kind(root) else {
         return ValidateResult {
             valid: false,
-            message: "This is not a Flutter project (pubspec.yaml not found)".to_string(),
+            message: "No supported mobile project found (Flutter, React Native, Expo, iOS or Android)".to_string(),
             mode: None,
+            kind: None,
             project_name: None,
             project_count: None,
             path: None,
         };
-    }
+    };
 
     let mode = detect_workspace_mode(&workspace_path);
-
-    let mut project_name = "Flutter Project".to_string();
-    if let Ok(content) = std::fs::read_to_string(&pubspec_path) {
-        let re = Regex::new(r"(?m)^name:\s*(.+)$").unwrap();
-        if let Some(c) = re.captures(&content) {
-            project_name = c[1].trim().to_string();
-        }
-    }
+    let project_name = setup::project_name(root, kind);
 
     let mut project_count: u32 = 1;
     if mode == WorkspaceMode::Sermobileboss {
@@ -127,9 +122,10 @@ pub fn workspace_validate(workspace_path: String) -> ValidateResult {
         message: if mode == WorkspaceMode::Sermobileboss {
             "Valid serMobilePro project".to_string()
         } else {
-            "Flutter project detected".to_string()
+            format!("{} project detected", kind.label())
         },
         mode: Some(mode_str.to_string()),
+        kind: Some(kind),
         project_name: Some(project_name),
         project_count: Some(project_count),
         path: Some(workspace_path),

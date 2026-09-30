@@ -1,6 +1,8 @@
 use crate::appstoreconnect::config::read_asc_config;
 use crate::deploy::registry::DeployRegistry;
-use crate::deploy::{find_script_path, is_two_factor_prompt, locales::get_store_locales, translate::build_translations};
+use crate::deploy::locales::{get_store_locales, APP_NOT_FOUND};
+use crate::setup::{self, ProjectKind};
+use crate::deploy::{find_script_path, is_two_factor_prompt, translate::build_translations};
 use serde_json::json;
 use std::path::Path;
 use std::process::Stdio;
@@ -33,7 +35,7 @@ pub fn deploy_check_splash_image(workspace_path: String, project_id: String) -> 
     launch.join("splash.png").exists() || launch.join("2x.png").exists()
 }
 
-async fn stream_lines<R: tokio::io::AsyncRead + Unpin>(stream: R, app: AppHandle, event_name: String, is_error: bool) {
+pub(crate) async fn stream_lines<R: tokio::io::AsyncRead + Unpin>(stream: R, app: AppHandle, event_name: String, is_error: bool) {
     let mut lines = BufReader::new(stream).lines();
     while let Ok(Some(line)) = lines.next_line().await {
         if line.trim().is_empty() {
@@ -80,20 +82,53 @@ pub async fn deploy_start(
     // here instead of guessing.
     let (ios_locales, android_locales) = if track == "production" {
         let (ios, android) = get_store_locales(&workspace_path).await;
-        let require = |needed: bool, store: &str, result: Result<Vec<String>, String>| match result {
+        let require = |needed: bool, store: &str, platform: &str, result: Result<Vec<String>, String>| match result {
+            Err(e) if needed && e == APP_NOT_FOUND => {
+                Err(format!("The app doesn't exist on {store} yet ({APP_NOT_FOUND}:{platform})"))
+            }
             Err(e) if needed => Err(format!(
                 "Could not read the app's {store} languages ({e}). Deploy stopped so no new store languages get created."
             )),
             result => Ok(result.unwrap_or_default()),
         };
         (
-            require(platform == "ios" || platform == "all", "App Store", ios)?,
-            require(platform == "android" || platform == "all", "Google Play", android)?,
+            require(platform == "ios" || platform == "all", "App Store", "ios", ios)?,
+            require(platform == "android" || platform == "all", "Google Play", "android", android)?,
         )
     } else {
         (vec![], vec![])
     };
     let translations = build_translations(&whats_new_text, &ios_locales, &android_locales).await;
+
+    // Non-Flutter projects keep their version in the native projects and their Fastfile
+    // lanes build the app themselves, so deploy.rb only runs the lanes for them.
+    let root = Path::new(&workspace_path);
+    let kind = setup::detect_kind(root).ok_or("No supported mobile project found")?;
+    let lanes_only = kind != ProjectKind::Flutter;
+    let (ios_dir, android_dir) = setup::platform_dirs(root, kind);
+    if lanes_only {
+        if kind == ProjectKind::Expo {
+            return Err("This Expo project has no ios/ and android/ folders yet. Open it again from the project selector to run expo prebuild.".to_string());
+        }
+        let missing = match platform.as_str() {
+            "ios" => ios_dir.is_none(),
+            "android" => android_dir.is_none(),
+            "all" => ios_dir.is_none() || android_dir.is_none(),
+            _ => true,
+        };
+        if missing {
+            return Err(format!("A {} project can't be deployed to {platform}", kind.label()));
+        }
+        if bump_version.unwrap_or(true) {
+            let root = root.to_path_buf();
+            tokio::task::spawn_blocking(move || {
+                let current = setup::read_version(&root, kind).ok_or("Could not find the app's current version")?;
+                setup::write_version(&root, kind, &setup::next_version(&current))
+            })
+            .await
+            .map_err(|e| e.to_string())??;
+        }
+    }
 
     let process_id = uuid::Uuid::new_v4().to_string();
     let event_name = format!("deploy-event-{process_id}");
@@ -109,7 +144,10 @@ pub async fn deploy_start(
         .env("WHATS_NEW_TRANSLATIONS", serde_json::to_string(&translations).unwrap_or_default())
         .env("STORE_LOCALES_IOS", ios_locales.join(","))
         .env("STORE_LOCALES_ANDROID", android_locales.join(","))
-        .env("BUMP_VERSION", if bump_version.unwrap_or(true) { "true" } else { "false" })
+        .env("BUMP_VERSION", if bump_version.unwrap_or(true) && !lanes_only { "true" } else { "false" })
+        .env("PROJECT_KIND", if lanes_only { "lanes" } else { "flutter" })
+        .env("FASTLANE_IOS_DIR", ios_dir.map(|d| d.to_string_lossy().to_string()).unwrap_or_default())
+        .env("FASTLANE_ANDROID_DIR", android_dir.map(|d| d.to_string_lossy().to_string()).unwrap_or_default())
         .env("RELEASE_TRACK", &track);
 
     // Pass the App Store Connect API key through to fastlane so it authenticates

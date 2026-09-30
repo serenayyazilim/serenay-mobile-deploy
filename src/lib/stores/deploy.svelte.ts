@@ -37,6 +37,8 @@ class DeployState {
   private twoFactorResolve: ((code: string | null) => void) | null = null;
 
   errorDialogOpen = $state(false);
+  firstReleaseOpen = $state(false);
+  firstReleaseStores = $state<("ios" | "android")[]>([]);
   errorTitle = $state("");
   errorLogs = $state<string[]>([]);
 
@@ -184,7 +186,13 @@ class DeployState {
       this.deployStatus = "error";
       this.deployMessage = errorMsg;
 
-      if (!this.errorDialogOpen) {
+      // The app isn't in the store yet: explain the manual first step instead of showing a log.
+      const missingStore = /APP_NOT_FOUND:(ios|android)/.exec(errorMsg)?.[1] as "ios" | "android" | undefined;
+      if (missingStore) {
+        this.firstReleaseStores = [missingStore];
+        this.firstReleaseOpen = true;
+        this.resetDeploy();
+      } else if (!this.errorDialogOpen) {
         this.errorTitle = t("deploy.errorTitle", { name: project.appName });
         this.errorLogs = this.deployLogs.length > 0 ? this.deployLogs : [errorMsg];
         this.errorDialogOpen = true;

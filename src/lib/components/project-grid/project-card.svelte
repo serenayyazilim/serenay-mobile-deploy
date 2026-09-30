@@ -42,7 +42,8 @@
     isDeploying ? "bg-primary/5 ring-2 ring-primary/20" : isBuilding ? "bg-green-500/5 ring-2 ring-green-500/20" : "bg-card dark:bg-transparent hover:bg-secondary/50 hover:shadow-lg hover:shadow-black/5 hover:-translate-y-1"
   }`}
 >
-  {#if (buildState.buildingProjectId === null || isBuilding) && !isDeploying}
+  <!-- Build & Run drives `flutter run`, so it's only offered for Flutter apps. -->
+  {#if (!project.kind || project.kind === "flutter") && (buildState.buildingProjectId === null || isBuilding) && !isDeploying}
     <button
       data-tour={tourTarget ? "tour-project-build" : undefined}
       onclick={() => buildState.handleBuildClick(project)}

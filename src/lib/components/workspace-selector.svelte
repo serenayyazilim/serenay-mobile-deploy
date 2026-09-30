@@ -6,6 +6,8 @@
   import { Input } from "$lib/components/ui/input";
   import { workspaceState, type WorkspaceMode } from "$lib/stores/workspace.svelte";
   import { i18n, t } from "$lib/i18n/index.svelte";
+  import ProjectSetupDialog from "$lib/components/project-setup/project-setup-dialog.svelte";
+  import type { ProjectKind } from "$lib/components/project-setup/types";
 
   interface RecentWorkspace {
     path: string;
@@ -17,6 +19,7 @@
     valid: boolean;
     message: string;
     mode?: WorkspaceMode;
+    kind?: ProjectKind;
     projectName?: string;
     projectCount?: number;
   }
@@ -26,6 +29,8 @@
   let validating = $state(false);
   let validationResult = $state<ValidationResult | null>(null);
   let browsing = $state(false);
+  // A single-app workspace goes through the setup wizard before it opens.
+  let setupWorkspace = $state<{ path: string; kind: ProjectKind; name?: string } | null>(null);
 
   $effect(() => {
     fetchRecentWorkspaces();
@@ -47,15 +52,21 @@
       const result = await invoke<ValidationResult>("workspace_validate", { workspacePath: path });
       validationResult = result;
 
-      if (result.valid) {
-        await invoke("workspace_recent_add", { path, name: result.projectName });
-        if (result.mode) await workspaceState.setWorkspace(path, result.mode);
+      if (result.valid && result.mode === "generic" && result.kind) {
+        setupWorkspace = { path, kind: result.kind, name: result.projectName };
+      } else if (result.valid && result.mode) {
+        await openWorkspace(path, result.mode, result.projectName);
       }
     } catch {
       validationResult = { valid: false, message: t("workspaceSelector.validationError") };
     } finally {
       validating = false;
     }
+  }
+
+  async function openWorkspace(path: string, mode: WorkspaceMode, name?: string) {
+    await invoke("workspace_recent_add", { path, name });
+    await workspaceState.setWorkspace(path, mode);
   }
 
   function handleSubmit(e: SubmitEvent) {
@@ -149,7 +160,7 @@
               type="text"
               bind:value={inputPath}
               oninput={() => (validationResult = null)}
-              placeholder="/Users/username/projects/my-flutter-app"
+              placeholder="/Users/username/projects/my-app"
               class="flex-1 font-mono text-sm"
               disabled={validating || browsing}
             />
@@ -225,12 +236,19 @@
       </Card>
     {/if}
 
-    <p class="text-center text-sm text-muted-foreground">
-      {t("workspaceSelector.folderRequirement.before")}
-      <code class="bg-muted px-1.5 py-0.5 rounded text-xs">pubspec.yaml</code>
-      {t("workspaceSelector.folderRequirement.and")}
-      <code class="bg-muted px-1.5 py-0.5 rounded text-xs">sermobileboss_projects.json</code>
-      {t("workspaceSelector.folderRequirement.after")}
-    </p>
+    <p class="text-center text-sm text-muted-foreground">{t("workspaceSelector.supportedProjects")}</p>
   </div>
 </div>
+
+{#if setupWorkspace}
+  {@const setup = setupWorkspace}
+  <ProjectSetupDialog
+    workspacePath={setup.path}
+    kind={setup.kind}
+    onDone={() => {
+      setupWorkspace = null;
+      openWorkspace(setup.path, "generic", setup.name);
+    }}
+    onCancel={() => (setupWorkspace = null)}
+  />
+{/if}

@@ -1,11 +1,16 @@
 use crate::appstoreconnect::config::read_asc_config;
 use crate::deploy::is_two_factor_prompt;
+use crate::setup::{detect_kind, platform_dirs};
 use regex::Regex;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
+
+/// Returned when the store has no app with this bundle ID / package name yet — the
+/// generated `fetch_locales` lanes print `FASTLANE_APP_NOT_FOUND` for it.
+pub const APP_NOT_FOUND: &str = "APP_NOT_FOUND";
 
 fn strip_ansi(s: &str) -> String {
     Regex::new(r"\x1B\[[0-9;]*m").unwrap().replace_all(s, "").to_string()
@@ -90,6 +95,10 @@ pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path, workspace_path: &st
         return Err("Apple 2-step verification required — skipped during automatic locale detection (no code entry available here)".to_string());
     }
 
+    if stdout_text.contains("FASTLANE_APP_NOT_FOUND") {
+        return Err(APP_NOT_FOUND.to_string());
+    }
+
     let re = Regex::new(r"FASTLANE_LOCALES=(.+)").unwrap();
     if let Some(c) = re.captures(&stdout_text) {
         let locales: Vec<String> = c[1].trim().split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
@@ -122,9 +131,12 @@ pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path, workspace_path: &st
 /// locales the app didn't have, and deliver/supply then created them as new store languages.
 pub async fn get_store_locales(workspace_path: &str) -> (Result<Vec<String>, String>, Result<Vec<String>, String>) {
     let root = Path::new(workspace_path);
-    let (ios_dir, android_dir) = (root.join("ios"), root.join("android"));
-    tokio::join!(
-        run_fastlane_fetch_locales(&ios_dir, workspace_path),
-        run_fastlane_fetch_locales(&android_dir, workspace_path)
-    )
+    let (ios_dir, android_dir) = detect_kind(root).map(|kind| platform_dirs(root, kind)).unwrap_or((None, None));
+    let fetch = |dir: Option<PathBuf>| async move {
+        match dir {
+            Some(dir) => run_fastlane_fetch_locales(&dir, workspace_path).await,
+            None => Err("The project has no such platform".to_string()),
+        }
+    };
+    tokio::join!(fetch(ios_dir), fetch(android_dir))
 }

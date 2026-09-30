@@ -28,13 +28,6 @@ pub fn projects_rename(workspace: String, project_id: String, app_name: String) 
     Ok(())
 }
 
-fn read_pubspec_version(workspace: &str) -> Option<String> {
-    let pubspec_path = Path::new(workspace).join("pubspec.yaml");
-    let content = std::fs::read_to_string(pubspec_path).ok()?;
-    let re = Regex::new(r"(?m)^version:\s*(.+)$").unwrap();
-    re.captures(&content).map(|c| c[1].trim().to_string())
-}
-
 #[derive(Debug, Serialize)]
 pub struct VersionsResult {
     pub versions: HashMap<String, String>,
@@ -43,7 +36,10 @@ pub struct VersionsResult {
 #[tauri::command]
 pub fn projects_versions(workspace: String) -> VersionsResult {
     if detect_workspace_mode(&workspace) == WorkspaceMode::Generic {
-        let version = read_pubspec_version(&workspace).unwrap_or_else(|| "1.0.0+1".to_string());
+        let root = Path::new(&workspace);
+        let version = crate::setup::detect_kind(root)
+            .and_then(|kind| crate::setup::read_version(root, kind))
+            .unwrap_or_else(|| "1.0.0+1".to_string());
         let mut versions = HashMap::new();
         versions.insert(GENERIC_PROJECT_ID.to_string(), version);
         return VersionsResult { versions };

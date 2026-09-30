@@ -2,6 +2,19 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@theme {
+  --animate-indeterminate: indeterminate 1.4s ease-in-out infinite;
+
+  @keyframes indeterminate {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(300%);
+    }
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

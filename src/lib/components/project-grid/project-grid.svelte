@@ -22,6 +22,7 @@
   import DeployLogsDialog from "./dialogs/deploy-logs-dialog.svelte";
   import SyncVersionsDialog from "./dialogs/sync-versions-dialog.svelte";
   import ConfirmDialog from "./dialogs/confirm-dialog.svelte";
+  import FirstReleaseDialog from "$lib/components/project-setup/first-release-dialog.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
   const supportsMultipleProjects = $derived(workspaceState.mode === "sermobileboss");
@@ -191,6 +192,11 @@
     onCancel={() => deployState.cancelTwoFactor()}
   />
 
+  <FirstReleaseDialog
+    bind:open={deployState.firstReleaseOpen}
+    stores={deployState.firstReleaseStores}
+    workspacePath={workspaceState.path ?? ""}
+  />
   <ErrorDialog bind:open={deployState.errorDialogOpen} title={deployState.errorTitle} logs={deployState.errorLogs} onClose={() => deployState.resetDeploy()} />
   <ErrorDialog bind:open={buildState.errorDialogOpen} title={buildState.errorTitle} logs={buildState.errorLogs} onClose={() => buildState.resetBuild()} />
   <BuildLogsDialog

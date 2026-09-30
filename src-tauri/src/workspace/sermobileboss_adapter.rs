@@ -45,6 +45,7 @@ impl WorkspaceAdapter for SermobilebossAdapter {
                     id: key,
                     bundle_id,
                     app_name,
+                    kind: None,
                 }
             })
             .collect();

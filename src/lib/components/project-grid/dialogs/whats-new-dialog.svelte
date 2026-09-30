@@ -34,8 +34,23 @@
   let bumpVersion = $state(true);
   let currentVersion = $state("");
 
+  const platformOptions: { value: DeployPlatform; labelKey: string }[] = [
+    { value: "ios", labelKey: "whatsNew.iosOnly" },
+    { value: "android", labelKey: "whatsNew.androidOnly" },
+    { value: "all", labelKey: "whatsNew.both" },
+  ];
+
+  // Native iOS / Android projects have a single store to deploy to.
+  const singlePlatform = $derived<DeployPlatform | null>(
+    project?.kind === "nativeIos" ? "ios" : project?.kind === "nativeAndroid" ? "android" : null
+  );
+  const visiblePlatformOptions = $derived(
+    singlePlatform ? platformOptions.filter((o) => o.value === singlePlatform) : platformOptions
+  );
+
   $effect(() => {
     if (!open || !project || !workspacePath) return;
+    platform = singlePlatform ?? "all";
     languages = [];
     invoke<Record<string, string | number | boolean>>("config_serconf_get", { workspace: workspacePath, projectId: project.id })
       .then((config) => {
@@ -79,12 +94,6 @@
     onCancel();
   }
 
-  const platformOptions: { value: DeployPlatform; labelKey: string }[] = [
-    { value: "ios", labelKey: "whatsNew.iosOnly" },
-    { value: "android", labelKey: "whatsNew.androidOnly" },
-    { value: "all", labelKey: "whatsNew.both" },
-  ];
-
   const trackOptions: { value: ReleaseTrack; labelKey: string }[] = [
     { value: "production", labelKey: "whatsNew.trackProduction" },
     { value: "test", labelKey: "whatsNew.trackTest" },
@@ -126,7 +135,7 @@
       <div class="space-y-1.5">
         <p class="text-xs text-muted-foreground font-medium">{t("whatsNew.platform")}</p>
         <div class="flex gap-2">
-          {#each platformOptions as opt (opt.value)}
+          {#each visiblePlatformOptions as opt (opt.value)}
             <button
               type="button"
               onclick={() => (platform = opt.value)}

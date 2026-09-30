@@ -6,6 +6,7 @@ pub mod flutter;
 pub mod project;
 pub mod projects;
 pub mod sentry;
+pub mod setup;
 pub mod slack;
 pub mod store_locales;
 pub mod sync_versions;

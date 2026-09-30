@@ -14,6 +14,8 @@ pub struct WorkspaceProject {
     pub bundle_id: String,
     #[serde(rename = "appName")]
     pub app_name: String,
+    /// Set for single-app workspaces; sermobileboss apps are always Flutter.
+    pub kind: Option<crate::setup::ProjectKind>,
 }
 
 /// Rust counterpart of the `WorkspaceAdapter` interface in `lib/workspace/types.ts`.

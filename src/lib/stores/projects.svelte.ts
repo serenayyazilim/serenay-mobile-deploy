@@ -1,9 +1,11 @@
+import type { ProjectKind } from "$lib/components/project-setup/types";
 import { invoke } from "@tauri-apps/api/core";
 
 export interface WorkspaceProject {
   id: string;
   bundleId: string;
   appName: string;
+  kind?: ProjectKind | null;
 }
 
 export type ProjectSortBy = "name" | "version";

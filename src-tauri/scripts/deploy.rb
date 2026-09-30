@@ -3,6 +3,7 @@
 
 require 'fileutils'
 require 'json'
+require 'shellwords'
 
 # Disable STDOUT buffering - required for realtime logging
 STDOUT.sync = true
@@ -428,6 +429,23 @@ class Deployer
     end
   end
 
+  # Non-Flutter projects (React Native, native iOS/Android): the app has already bumped the
+  # version and the project's Fastfile lanes build the app, so only the lanes run here.
+  def self.lanes_only?
+    ENV['PROJECT_KIND'] == 'lanes'
+  end
+
+  def self.deploy_lanes(platforms)
+    log("🚀", "Target: #{test_track? ? 'TestFlight / Internal Testing' : 'App Store / Google Play'}")
+    results = platforms.map do |platform|
+      dir = ENV[platform == :ios ? 'FASTLANE_IOS_DIR' : 'FASTLANE_ANDROID_DIR'].to_s
+      name = platform == :ios ? 'iOS' : 'Android'
+      log(platform == :ios ? "🍎" : "🤖", "Starting #{name} Deploy...")
+      run_command("cd #{dir.shellescape} && fastlane #{fastlane_lane}", "#{name} fastlane #{fastlane_lane}")
+    end
+    results.all?
+  end
+
   def self.print_usage
     puts <<~USAGE
       Usage: ruby deploy.rb <platform> [path]
@@ -456,6 +474,11 @@ if __FILE__ == $0
     Deployer.project_root = File.expand_path(project_path)
   else
     Deployer.project_root = Dir.pwd
+  end
+
+  if Deployer.lanes_only? && %w[ios android all].include?(platform)
+    platforms = platform == 'all' ? [:android, :ios] : [platform.to_sym]
+    exit(Deployer.deploy_lanes(platforms) ? 0 : 1)
   end
 
   case platform
