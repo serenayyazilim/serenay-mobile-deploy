@@ -23,6 +23,7 @@
   import SyncVersionsDialog from "./dialogs/sync-versions-dialog.svelte";
   import ConfirmDialog from "./dialogs/confirm-dialog.svelte";
   import FirstReleaseDialog from "$lib/components/project-setup/first-release-dialog.svelte";
+  import ProjectSetupDialog from "$lib/components/project-setup/project-setup-dialog.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
   const supportsMultipleProjects = $derived(workspaceState.mode === "sermobileboss");
@@ -165,6 +166,7 @@
     bind:open={buildState.deviceDialogOpen}
     onSelect={(device) => workspaceState.path && buildState.handleDeviceSelect(workspaceState.path, device)}
     projectName={buildState.selectedProject?.appName ?? ""}
+    mobileOnly={buildState.selectedProject?.kind === "reactNative" || buildState.selectedProject?.kind === "expo"}
   />
 
   <WhatsNewDialog
@@ -192,6 +194,14 @@
     onCancel={() => deployState.cancelTwoFactor()}
   />
 
+  {#if deployState.setupKind && workspaceState.path}
+    <ProjectSetupDialog
+      workspacePath={workspaceState.path}
+      kind={deployState.setupKind}
+      onDone={() => deployState.finishSetup(true)}
+      onCancel={() => deployState.finishSetup(false)}
+    />
+  {/if}
   <FirstReleaseDialog
     bind:open={deployState.firstReleaseOpen}
     stores={deployState.firstReleaseStores}

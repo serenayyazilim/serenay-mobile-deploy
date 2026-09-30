@@ -2,6 +2,7 @@ use crate::deploy::registry::DeployRegistry;
 use crate::workspace::detect::detect_workspace_mode;
 use crate::workspace::sermobileboss_config::{read_sermobileboss_config, MISSING_CONFIG_MESSAGE};
 use crate::workspace::types::WorkspaceMode;
+use crate::setup::{self, ProjectKind};
 use crate::xcode_gradle;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -184,8 +185,21 @@ pub async fn flutter_build_start(
     app: AppHandle,
     workspace_path: String,
     device_id: Option<String>,
+    device_platform: Option<String>,
     project_id: Option<String>,
 ) -> Result<String, String> {
+    let root = Path::new(&workspace_path);
+    let react_native = matches!(setup::detect_kind(root), Some(ProjectKind::ReactNative | ProjectKind::Expo));
+    let (program, run_args) = if react_native {
+        ("npx", react_native_run_args(root, device_id.as_deref(), device_platform.as_deref())?)
+    } else {
+        let mut args = vec!["run".to_string()];
+        if let Some(id) = &device_id {
+            args.extend(["-d".to_string(), id.clone()]);
+        }
+        ("flutter", args)
+    };
+
     let job_id = uuid::Uuid::new_v4().to_string();
     let event_name = format!("flutter-build-event-{job_id}");
     let return_job_id = job_id.clone();
@@ -207,24 +221,22 @@ pub async fn flutter_build_start(
             }
         }
 
-        emit_log(&app, "🔥 Starting FlutterFire configure...");
-        let configure_ok = run_logged_command("flutterfire", &["configure", "--yes"], &workspace_path, &app, &event_name).await;
-        emit_log(&app, if configure_ok { "✅ FlutterFire configure completed" } else { "⚠️ FlutterFire configure skipped (error or already configured)" });
+        if !react_native {
+            emit_log(&app, "🔥 Starting FlutterFire configure...");
+            let configure_ok = run_logged_command("flutterfire", &["configure", "--yes"], &workspace_path, &app, &event_name).await;
+            emit_log(&app, if configure_ok { "✅ FlutterFire configure completed" } else { "⚠️ FlutterFire configure skipped (error or already configured)" });
 
-        emit_log(&app, "📦 Installing dependencies...");
-        run_logged_command("flutter", &["pub", "get"], &workspace_path, &app, &event_name).await;
-        emit_log(&app, "✅ Dependencies installed");
+            emit_log(&app, "📦 Installing dependencies...");
+            run_logged_command("flutter", &["pub", "get"], &workspace_path, &app, &event_name).await;
+            emit_log(&app, "✅ Dependencies installed");
+        }
 
         emit_log(&app, &format!("🚀 Starting app ({})...", device_id.as_deref().unwrap_or("default device")));
 
-        let mut run_args = vec!["run".to_string()];
-        if let Some(id) = &device_id {
-            run_args.push("-d".to_string());
-            run_args.push(id.clone());
-        }
+        emit_log(&app, &format!("$ {program} {}", run_args.join(" ")));
         let run_args_ref: Vec<&str> = run_args.iter().map(|s| s.as_str()).collect();
 
-        let mut child = match Command::new("flutter")
+        let mut child = match Command::new(program)
             .args(&run_args_ref)
             .current_dir(&workspace_path)
             .stdin(Stdio::piped())
@@ -271,11 +283,43 @@ pub async fn flutter_build_start(
         let status = child.wait().await;
         app.state::<DeployRegistry>().remove(&job_id);
         let success = status.map(|s| s.success()).unwrap_or(false);
-        let message = if success { "App started successfully" } else { "Flutter run failed" };
+        let message = match (success, react_native) {
+            (true, _) => "App started successfully",
+            (false, true) => "React Native run failed",
+            (false, false) => "Flutter run failed",
+        };
         let _ = app.emit(&event_name, json!({ "type": "done", "success": success, "message": message }));
     });
 
     Ok(return_job_id)
+}
+
+/// `run-ios` / `run-android` for the chosen device. The device list comes from
+/// `flutter devices`, whose IDs are simulator UDIDs and adb serials — what these take too.
+fn react_native_run_args(root: &Path, device_id: Option<&str>, device_platform: Option<&str>) -> Result<Vec<String>, String> {
+    let platform = device_platform.unwrap_or_default().to_lowercase();
+    let ios = if platform.starts_with("ios") {
+        true
+    } else if platform.starts_with("android") {
+        false
+    } else {
+        return Err("Choose an iOS or Android device to run a React Native app".to_string());
+    };
+
+    let mut args: Vec<String> = if setup::is_expo(root) {
+        vec!["expo".into(), if ios { "run:ios" } else { "run:android" }.into()]
+    } else {
+        vec!["react-native".into(), if ios { "run-ios" } else { "run-android" }.into()]
+    };
+    if let Some(id) = device_id {
+        let flag = match (setup::is_expo(root), ios) {
+            (true, _) => "--device",
+            (false, true) => "--udid",
+            (false, false) => "--deviceId",
+        };
+        args.extend([flag.to_string(), id.to_string()]);
+    }
+    Ok(args)
 }
 
 /// Sends `r` (hot reload) or `R` (hot restart) to a running `flutter run` process's stdin.
@@ -296,4 +340,22 @@ pub async fn flutter_run_stop(registry: State<'_, DeployRegistry>, job_id: Strin
     stdin.write_all(b"q").await.map_err(|e| e.to_string())?;
     stdin.flush().await.map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::react_native_run_args;
+
+    #[test]
+    fn picks_react_native_or_expo_run_command_per_device() {
+        let root = std::env::temp_dir().join(format!("rn-run-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("package.json"), r#"{"dependencies":{"react-native":"0.76.0"}}"#).unwrap();
+        assert_eq!(react_native_run_args(&root, Some("UDID"), Some("ios")).unwrap(), ["react-native", "run-ios", "--udid", "UDID"]);
+        assert_eq!(react_native_run_args(&root, Some("emulator-5554"), Some("android-arm64")).unwrap(), ["react-native", "run-android", "--deviceId", "emulator-5554"]);
+        assert!(react_native_run_args(&root, Some("macos"), Some("darwin")).is_err());
+
+        std::fs::write(root.join("package.json"), r#"{"dependencies":{"expo":"~51.0.0","react-native":"0.74.0"}}"#).unwrap();
+        assert_eq!(react_native_run_args(&root, Some("UDID"), Some("ios")).unwrap(), ["expo", "run:ios", "--device", "UDID"]);
+    }
 }

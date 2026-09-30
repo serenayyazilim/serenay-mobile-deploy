@@ -87,7 +87,7 @@ pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path, workspace_path: &st
     let result = tokio::time::timeout(Duration::from_secs(90), read_fut).await;
     let _ = child.kill().await;
 
-    let Ok((stdout_text, _stderr_text, two_factor)) = result else {
+    let Ok((stdout_text, stderr_text, two_factor)) = result else {
         return Err("Timed out (90s)".to_string());
     };
 
@@ -107,13 +107,16 @@ pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path, workspace_path: &st
         }
     }
 
-    let clean = strip_ansi(&stdout_text);
-    let error_lines: Vec<&str> = clean
-        .lines()
-        .filter(|l| l.contains("[!]") || l.contains("Error") || l.contains("error") || l.contains("failed"))
-        .map(|l| l.trim())
-        .filter(|l| !l.is_empty())
-        .collect();
+    // fastlane prints the actual cause as a `[!]` line, often on stderr; its generic
+    // "fastlane finished with errors" summary goes to stdout.
+    let clean = strip_ansi(&format!("{stdout_text}\n{stderr_text}"));
+    let matching = |keep: &dyn Fn(&str) -> bool| -> Vec<&str> {
+        clean.lines().map(|l| l.trim()).filter(|l| !l.is_empty() && keep(l)).collect()
+    };
+    let mut error_lines = matching(&|l| l.contains("[!]"));
+    if error_lines.is_empty() {
+        error_lines = matching(&|l| l.contains("Error") || l.contains("error") || l.contains("failed"));
+    }
 
     let error = if !error_lines.is_empty() {
         error_lines.join(" | ")

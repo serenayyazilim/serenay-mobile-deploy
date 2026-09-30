@@ -144,6 +144,22 @@
     }
   }
 
+  let completing = $state(false);
+
+  // Adds the missing lanes / Appfile settings; the store check reruns since it uses those lanes.
+  async function completeFastlane() {
+    completing = true;
+    actionError = "";
+    try {
+      await invoke("setup_complete_fastlane", { workspacePath });
+      await recheck();
+    } catch (e) {
+      actionError = String(e);
+    } finally {
+      completing = false;
+    }
+  }
+
   const saveTeamId = () => runAction(() => invoke("setup_set_team_id", { workspacePath, teamId }));
 
   const choosePlayKey = () =>
@@ -212,6 +228,8 @@
 
       <div class="flex justify-end gap-2">
         <Button variant="outline" onclick={onCancel}>{t("common.cancel")}</Button>
+        <!-- Prebuild is asked for again when the project is deployed. -->
+        <Button variant="outline" onclick={onDone}>{t("setup.skipForNow")}</Button>
         <Button onclick={runPrebuild} disabled={expoIdsMissing}>{t("setup.expo.confirm")}</Button>
       </div>
     {:else if step === "prebuild" || step === "prebuildFailed"}
@@ -279,6 +297,13 @@
                         <li><code class="rounded bg-muted px-1.5 py-0.5 text-xs">{item}</code></li>
                       {/each}
                     </ul>
+                    <div class="flex items-center gap-2 pt-1">
+                      <Button variant="outline" size="sm" onclick={completeFastlane} disabled={completing}>
+                        {#if completing}<LoaderCircle class="animate-spin" />{/if}
+                        {t("setup.fastlane.complete")}
+                      </Button>
+                      <span class="text-xs text-muted-foreground">{t("setup.fastlane.completeHint")}</span>
+                    </div>
                   {/if}
                 </div>
               </li>

@@ -6,10 +6,12 @@
   import type { FlutterDevice } from "$lib/stores/build.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
-  let { open = $bindable(false), onSelect, projectName }: {
+  let { open = $bindable(false), onSelect, projectName, mobileOnly = false }: {
     open: boolean;
     onSelect: (device: FlutterDevice | null) => void;
     projectName: string;
+    /** React Native runs only on iOS and Android devices. */
+    mobileOnly?: boolean;
   } = $props();
 
   let devices = $state<FlutterDevice[]>([]);
@@ -20,7 +22,8 @@
     loading = true;
     error = null;
     try {
-      devices = await invoke<FlutterDevice[]>("flutter_devices", { refresh });
+      const all = await invoke<FlutterDevice[]>("flutter_devices", { refresh });
+      devices = mobileOnly ? all.filter((d) => /^(ios|android)/i.test(d.platform)) : all;
     } catch (e) {
       error = String(e);
     } finally {

@@ -246,8 +246,12 @@
     workspacePath={setup.path}
     kind={setup.kind}
     onDone={() => {
+      // `setup` tracks `setupWorkspace`, so read it before clearing that.
+      const { path, name } = setup;
       setupWorkspace = null;
-      openWorkspace(setup.path, "generic", setup.name);
+      openWorkspace(path, "generic", name).catch(
+        (error) => (validationResult = { valid: false, message: String(error) })
+      );
     }}
     onCancel={() => (setupWorkspace = null)}
   />

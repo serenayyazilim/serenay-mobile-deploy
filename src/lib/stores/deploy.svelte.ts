@@ -5,6 +5,7 @@ import { sendSlackNotification } from "$lib/slack";
 import type { WorkspaceProject } from "$lib/stores/projects.svelte";
 import { confirmState } from "$lib/stores/confirm.svelte";
 import { t } from "$lib/i18n/index.svelte";
+import { incompleteSetup, type ProjectKind } from "$lib/components/project-setup/types";
 
 type DeployStatus = "idle" | "activating" | "deploying" | "success" | "error";
 type DeployPlatform = "ios" | "android" | "all";
@@ -60,9 +61,23 @@ class DeployState {
     }
   }
 
-  handleDeploy(project: WorkspaceProject) {
+  /** Set while the setup dialog is shown before a deploy because something is still missing. */
+  setupKind = $state<ProjectKind | null>(null);
+
+  async handleDeploy(project: WorkspaceProject, workspacePath: string) {
     this.pendingProject = project;
+    // Single-app projects may have skipped parts of the setup; ask for them again now.
+    if (project.kind) {
+      this.setupKind = await incompleteSetup(workspacePath).catch(() => null);
+      if (this.setupKind) return;
+    }
     this.whatsNewDialogOpen = true;
+  }
+
+  finishSetup(completed: boolean) {
+    this.setupKind = null;
+    if (completed) this.whatsNewDialogOpen = true;
+    else this.pendingProject = null;
   }
 
   cancelDeploy() {

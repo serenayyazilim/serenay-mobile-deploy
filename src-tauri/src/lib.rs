@@ -25,7 +25,7 @@ use commands::projects::{
 };
 use commands::sentry::{sentry_check, sentry_create_project};
 use commands::setup::{
-    setup_apply, setup_build_aab, setup_expo_config, setup_expo_prebuild, setup_readiness, setup_set_play_key,
+    setup_apply, setup_build_aab, setup_complete_fastlane, setup_expo_config, setup_expo_prebuild, setup_readiness, setup_set_play_key,
     setup_set_team_id, setup_store_check,
 };
 use commands::slack::{slack_config_delete, slack_config_get, slack_config_save, slack_notify, slack_test};
@@ -101,6 +101,7 @@ pub fn run() {
             setup_expo_config,
             setup_expo_prebuild,
             setup_apply,
+            setup_complete_fastlane,
             setup_readiness,
             setup_store_check,
             setup_set_play_key,

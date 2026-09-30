@@ -62,6 +62,11 @@ pub fn setup_apply(workspace_path: String) -> Result<Vec<Applied>, String> {
 }
 
 #[tauri::command]
+pub fn setup_complete_fastlane(workspace_path: String) -> Result<(), String> {
+    setup::complete_fastlane(Path::new(&workspace_path), kind_of(&workspace_path)?)
+}
+
+#[tauri::command]
 pub fn setup_readiness(workspace_path: String) -> Result<Readiness, String> {
     Ok(setup::readiness(Path::new(&workspace_path), kind_of(&workspace_path)?))
 }

@@ -181,7 +181,7 @@ fn gradle_path(android_dir: &Path) -> Option<PathBuf> {
     ["app/build.gradle.kts", "app/build.gradle"].iter().map(|f| android_dir.join(f)).find(|p| p.exists())
 }
 
-fn is_expo(root: &Path) -> bool {
+pub fn is_expo(root: &Path) -> bool {
     package_json(root).is_some_and(|p| has_dependency(&p, "expo"))
 }
 
@@ -294,6 +294,7 @@ const IOS_FASTFILE: &str = include_str!("templates/ios_Fastfile.rb");
 const IOS_APPFILE: &str = include_str!("templates/ios_Appfile.rb");
 const ANDROID_FASTFILE: &str = include_str!("templates/android_Fastfile.rb");
 const ANDROID_APPFILE: &str = include_str!("templates/android_Appfile.rb");
+const CONTRACT_LANES: [&str; 3] = ["beta", "release", "fetch_locales"];
 pub const PLAY_KEY_FILE: &str = "play-store-key.json";
 
 fn js_install(root: &Path) -> &'static str {
@@ -355,22 +356,125 @@ fn prepare_lines(root: &Path, platform_dir: &Path, kind: ProjectKind, platform: 
     lines.iter().map(|l| format!("    {l}")).collect::<Vec<_>>().join("\n")
 }
 
-fn render(root: &Path, platform_dir: &Path, kind: ProjectKind, platform: Platform) -> (String, String) {
-    let prepare = prepare_lines(root, platform_dir, kind, platform);
+/// A private lane the contract lanes rely on: (name, snippet).
+fn helper_lanes(platform: Platform) -> &'static [(&'static str, &'static str)] {
     match platform {
-        Platform::Ios => (
-            IOS_FASTFILE.replace("{{PREPARE}}", &prepare).replace("{{BUILD_ARGS}}", &ios_build_args(platform_dir, kind)),
-            IOS_APPFILE.replace("{{APP_IDENTIFIER}}", &read_ios_bundle_id(platform_dir).unwrap_or_default()),
-        ),
+        Platform::Ios => &[
+            ("sermobile_api_key", include_str!("templates/ios_api_key.rb")),
+            ("build_ipa", include_str!("templates/ios_build.rb")),
+        ],
+        Platform::Android => &[("build_aab", include_str!("templates/android_build.rb"))],
+    }
+}
+
+fn contract_lane(platform: Platform, lane: &str) -> &'static str {
+    match (platform, lane) {
+        (Platform::Ios, "beta") => include_str!("templates/ios_beta.rb"),
+        (Platform::Ios, "release") => include_str!("templates/ios_release.rb"),
+        (Platform::Ios, _) => include_str!("templates/ios_fetch_locales.rb"),
+        (Platform::Android, "beta") => include_str!("templates/android_beta.rb"),
+        (Platform::Android, "release") => include_str!("templates/android_release.rb"),
+        (Platform::Android, _) => include_str!("templates/android_fetch_locales.rb"),
+    }
+}
+
+fn has_lane(fastfile: &str, lane: &str) -> bool {
+    Regex::new(&format!(r"lane\s+:{lane}\b")).unwrap().is_match(fastfile)
+}
+
+/// The given contract lanes plus the helper lanes they need that `fastfile` doesn't
+/// define yet, with the project's build steps filled in.
+fn lane_snippets(root: &Path, platform_dir: &Path, kind: ProjectKind, platform: Platform, lanes: &[&str], fastfile: &str) -> String {
+    let helpers = helper_lanes(platform).iter().filter(|(name, _)| !has_lane(fastfile, name)).map(|(_, snippet)| *snippet);
+    let aab = if kind == ProjectKind::Flutter {
+        // Flutter builds outside Gradle, so supply can't pick the bundle up from Gradle's output.
+        "\n      aab: \"../build/app/outputs/bundle/release/app-release.aab\","
+    } else {
+        ""
+    };
+    helpers
+        .chain(lanes.iter().map(|lane| contract_lane(platform, lane)))
+        .collect::<Vec<_>>()
+        .join("\n")
+        .replace("{{PREPARE}}", &prepare_lines(root, platform_dir, kind, platform))
+        .replace("{{BUILD_ARGS}}", &ios_build_args(platform_dir, kind))
+        .replace("{{AAB_ARG}}", aab)
+}
+
+fn appfile_entries(platform_dir: &Path, platform: Platform) -> Vec<(&'static str, String)> {
+    match platform {
+        Platform::Ios => vec![("app_identifier", IOS_APPFILE.replace("{{APP_IDENTIFIER}}", &read_ios_bundle_id(platform_dir).unwrap_or_default()))],
         Platform::Android => {
-            // Flutter builds outside Gradle, so supply can't pick the bundle up from Gradle's output.
-            let aab = if kind == ProjectKind::Flutter { "\n      aab: \"../build/app/outputs/bundle/release/app-release.aab\"," } else { "" };
-            (
-                ANDROID_FASTFILE.replace("{{PREPARE}}", &prepare).replace("{{AAB_ARG}}", aab),
-                ANDROID_APPFILE.replace("{{PACKAGE_NAME}}", &read_android_package(platform_dir).unwrap_or_default()),
-            )
+            let appfile = ANDROID_APPFILE.replace("{{PACKAGE_NAME}}", &read_android_package(platform_dir).unwrap_or_default());
+            let mut lines = appfile.lines().map(|l| format!("{l}\n"));
+            vec![("package_name", lines.next().unwrap_or_default()), ("json_key_file", lines.next().unwrap_or_default())]
         }
     }
+}
+
+fn render(root: &Path, platform_dir: &Path, kind: ProjectKind, platform: Platform) -> (String, String) {
+    let template = match platform {
+        Platform::Ios => IOS_FASTFILE,
+        Platform::Android => ANDROID_FASTFILE,
+    };
+    let lanes = lane_snippets(root, platform_dir, kind, platform, &CONTRACT_LANES, "");
+    let appfile = appfile_entries(platform_dir, platform).into_iter().map(|(_, line)| line).collect();
+    (template.replace("{{LANES}}", lanes.trim_end()), appfile)
+}
+
+fn ruby_syntax_ok(path: &Path) -> bool {
+    std::process::Command::new("ruby").arg("-c").arg(path).output().is_ok_and(|o| o.status.success())
+}
+
+/// Adds what an existing fastlane setup lacks without touching what's there: missing lanes
+/// go just before the closing `end` of its `platform` block (or at the end of the file),
+/// missing Appfile settings are appended. A Fastfile that no longer parses is restored.
+pub fn complete_fastlane(root: &Path, kind: ProjectKind) -> Result<(), String> {
+    for (platform, dir) in platforms(root, kind) {
+        let fastlane = dir.join("fastlane");
+        if !fastlane.exists() {
+            continue;
+        }
+
+        let fastfile_path = fastlane.join("Fastfile");
+        let original = std::fs::read_to_string(&fastfile_path).unwrap_or_default();
+        let missing: Vec<&str> = CONTRACT_LANES.into_iter().filter(|lane| !has_lane(&original, lane)).collect();
+        if !missing.is_empty() {
+            let snippets = lane_snippets(root, &dir, kind, platform, &missing, &original);
+            let block = format!("\n  # Added by Serenay Mobile Deploy\n{}", snippets.trim_end());
+            // ponytail: the platform block is taken to close with the last unindented `end`;
+            // a Fastfile laid out differently gets the lanes at its end, outside the block.
+            let closing = Regex::new(r"(?m)^end\s*$").unwrap().find_iter(&original).last().filter(|_| original.contains("platform :"));
+            let updated = match closing {
+                Some(m) => format!("{}{block}\n{}", &original[..m.start()], &original[m.start()..]),
+                None => format!("{}\n{block}\n", original.trim_end()),
+            };
+            std::fs::write(&fastfile_path, &updated).map_err(|e| e.to_string())?;
+            if !ruby_syntax_ok(&fastfile_path) {
+                std::fs::write(&fastfile_path, &original).map_err(|e| e.to_string())?;
+                return Err(format!("Could not add the lanes to {} automatically; the file was left unchanged", fastfile_path.display()));
+            }
+        }
+
+        let appfile_path = fastlane.join("Appfile");
+        let mut appfile = std::fs::read_to_string(&appfile_path).unwrap_or_default();
+        let before = appfile.clone();
+        for (key, line) in appfile_entries(&dir, platform) {
+            let empty = format!("{key}(\"\")");
+            if appfile.contains(&empty) {
+                appfile = appfile.replace(&format!("{empty}\n"), &line);
+            } else if !appfile.contains(key) {
+                if !appfile.is_empty() && !appfile.ends_with('\n') {
+                    appfile.push('\n');
+                }
+                appfile.push_str(&line);
+            }
+        }
+        if appfile != before {
+            std::fs::write(&appfile_path, appfile).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
 }
 
 fn platforms(root: &Path, kind: ProjectKind) -> Vec<(Platform, PathBuf)> {
@@ -432,9 +536,9 @@ fn missing_in_fastlane(fastlane: &Path, platform: Platform) -> Vec<String> {
     let fastfile = std::fs::read_to_string(fastlane.join("Fastfile")).unwrap_or_default();
     let appfile = std::fs::read_to_string(fastlane.join("Appfile")).unwrap_or_default();
 
-    let lanes = ["beta", "release", "fetch_locales"]
+    let lanes = CONTRACT_LANES
         .into_iter()
-        .filter(|lane| !Regex::new(&format!(r"lane\s+:{lane}\b")).unwrap().is_match(&fastfile))
+        .filter(|lane| !has_lane(&fastfile, lane))
         .map(|lane| format!("Fastfile: lane :{lane}"));
     let keys: &[&str] = match platform {
         Platform::Ios => &["app_identifier"],
@@ -705,6 +809,33 @@ mod tests {
         assert!(std::fs::read_to_string(rn.join("android/fastlane/Fastfile")).unwrap().contains("gradle(task: \"bundle\""));
         assert!(std::fs::read_to_string(ios_only.join("fastlane/Fastfile")).unwrap().contains(r#"project: "Shop.xcodeproj", scheme: "Shop""#));
         assert!(std::fs::read_to_string(android_only.join("fastlane/Appfile")).unwrap().contains("package_name(\"com.acme\")"));
+    }
+
+    #[test]
+    fn completes_existing_fastlane_without_touching_its_lanes() {
+        let existing_ios = "default_platform(:ios)\n\nplatform :ios do\n  lane :beta do\n    puts \"mine\"\n  end\nend\n";
+        let root = project(&[
+            ("pubspec.yaml", "name: app"),
+            ("ios/Runner.xcodeproj/project.pbxproj", FLUTTER_PBXPROJ),
+            ("ios/fastlane/Fastfile", existing_ios),
+            ("ios/fastlane/Appfile", "apple_id(\"me@example.com\")"),
+            ("android/app/build.gradle", "applicationId \"com.acme.app\""),
+            ("android/fastlane/Fastfile", "# nothing yet\n"),
+            ("android/fastlane/Appfile", "package_name(\"\")\n"),
+        ]);
+        complete_fastlane(&root, ProjectKind::Flutter).unwrap();
+
+        let ready = readiness(&root, ProjectKind::Flutter);
+        assert!(ready.ios.unwrap().fastlane_missing.is_empty());
+        assert!(ready.android.unwrap().fastlane_missing.is_empty());
+        let ios = std::fs::read_to_string(root.join("ios/fastlane/Fastfile")).unwrap();
+        assert!(ios.starts_with("default_platform(:ios)\n\nplatform :ios do\n  lane :beta do\n    puts \"mine\""));
+        assert_eq!(ios.matches("lane :beta").count(), 1);
+        assert!(ios.trim_end().ends_with("end") && ruby_syntax_ok(&root.join("ios/fastlane/Fastfile")));
+        assert!(ruby_syntax_ok(&root.join("android/fastlane/Fastfile")));
+        let appfile = std::fs::read_to_string(root.join("ios/fastlane/Appfile")).unwrap();
+        assert!(appfile.starts_with("apple_id(\"me@example.com\")\napp_identifier(\"com.acme.app\")"));
+        assert!(std::fs::read_to_string(root.join("android/fastlane/Appfile")).unwrap().starts_with("package_name(\"com.acme.app\")\njson_key_file("));
     }
 
     #[test]

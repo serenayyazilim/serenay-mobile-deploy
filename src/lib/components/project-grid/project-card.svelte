@@ -42,8 +42,8 @@
     isDeploying ? "bg-primary/5 ring-2 ring-primary/20" : isBuilding ? "bg-green-500/5 ring-2 ring-green-500/20" : "bg-card dark:bg-transparent hover:bg-secondary/50 hover:shadow-lg hover:shadow-black/5 hover:-translate-y-1"
   }`}
 >
-  <!-- Build & Run drives `flutter run`, so it's only offered for Flutter apps. -->
-  {#if (!project.kind || project.kind === "flutter") && (buildState.buildingProjectId === null || isBuilding) && !isDeploying}
+  <!-- Build & Run drives `flutter run` or React Native's run-ios/run-android; native projects run from Xcode / Android Studio. -->
+  {#if project.kind !== "nativeIos" && project.kind !== "nativeAndroid" && (buildState.buildingProjectId === null || isBuilding) && !isDeploying}
     <button
       data-tour={tourTarget ? "tour-project-build" : undefined}
       onclick={() => buildState.handleBuildClick(project)}
@@ -63,7 +63,7 @@
   {#if (deployState.deployingProjectId === null || isDeploying) && !isBuilding}
     <button
       data-tour={tourTarget ? "tour-project-deploy" : undefined}
-      onclick={() => deployState.handleDeploy(project)}
+      onclick={() => deployState.handleDeploy(project, workspacePath)}
       disabled={deployState.deployingProjectId !== null || buildState.buildingProjectId !== null}
       title={t("projectCard.deploy")}
       class={`absolute top-3 right-3 p-2 rounded-full transition-all duration-200 disabled:opacity-50 ${

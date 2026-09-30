@@ -53,7 +53,9 @@ class BuildState {
     const project = this.selectedProject;
     if (!project || !workspacePath) return;
 
-    const hasSplashImage = await invoke<boolean>("project_check_splash_image", { workspacePath, projectId: project.id }).catch(() => true);
+    const isFlutter = !project.kind || project.kind === "flutter";
+    const hasSplashImage =
+      !isFlutter || (await invoke<boolean>("project_check_splash_image", { workspacePath, projectId: project.id }).catch(() => true));
     if (!hasSplashImage) {
       const proceed = await confirmState.ask(t("build.splashWarningTitle"), t("build.splashWarningDescription", { name: project.appName }));
       if (!proceed) return;
@@ -77,6 +79,7 @@ class BuildState {
       const jobId = await invoke<string>("flutter_build_start", {
         workspacePath,
         deviceId: device?.id || null,
+        devicePlatform: device?.platform || null,
         projectId: project.id,
       });
       this.jobId = jobId;
