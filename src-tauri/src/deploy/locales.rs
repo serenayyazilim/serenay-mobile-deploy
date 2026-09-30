@@ -7,16 +7,6 @@ use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
-const FLAG_TO_LOCALES: &[(&str, &str, &str)] = &[
-    ("ENGLISH", "en-US", "en-US"),
-    ("RUSSIAN", "ru", "ru-RU"),
-    ("FRENCH", "fr-FR", "fr-FR"),
-    ("ITALIAN", "it", "it-IT"),
-    ("ARABIC", "ar-SA", "ar"),
-    ("SPANISH", "es-ES", "es-ES"),
-    ("KAZAKH", "kk", "kk"),
-];
-
 fn strip_ansi(s: &str) -> String {
     Regex::new(r"\x1B\[[0-9;]*m").unwrap().replace_all(s, "").to_string()
 }
@@ -127,73 +117,14 @@ pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path, workspace_path: &st
     Err(error)
 }
 
-fn read_fastlane_metadata_locales(metadata_path: &Path) -> Vec<String> {
-    let Ok(entries) = std::fs::read_dir(metadata_path) else { return vec![] };
-    let mut locales: Vec<String> = entries
-        .flatten()
-        .filter(|e| {
-            let name = e.file_name().to_string_lossy().to_string();
-            if name.starts_with('.') || name == "default" || name == "review_information" {
-                return false;
-            }
-            e.file_type().map(|t| t.is_dir()).unwrap_or(false)
-        })
-        .map(|e| e.file_name().to_string_lossy().to_string())
-        .collect();
-    locales.sort();
-    locales
-}
-
-/// Full fallback chain used during deploy: 1) fetch live from the store, 2) fastlane
-/// metadata folders, 3) serconf.dart language flags.
-pub async fn get_store_locales(workspace_path: &str) -> (Vec<String>, Vec<String>) {
+/// Fetches the (iOS, Android) locales the app actually has in each store. Deliberately no
+/// fallback: guessing (fastlane metadata folders, serconf.dart flags, a default `tr`) produced
+/// locales the app didn't have, and deliver/supply then created them as new store languages.
+pub async fn get_store_locales(workspace_path: &str) -> (Result<Vec<String>, String>, Result<Vec<String>, String>) {
     let root = Path::new(workspace_path);
-
-    let ios_dir = root.join("ios");
-    let android_dir = root.join("android");
-    let (ios_result, android_result) = tokio::join!(
+    let (ios_dir, android_dir) = (root.join("ios"), root.join("android"));
+    tokio::join!(
         run_fastlane_fetch_locales(&ios_dir, workspace_path),
         run_fastlane_fetch_locales(&android_dir, workspace_path)
-    );
-
-    let ios_from_store = ios_result.unwrap_or_default();
-    let android_from_store = android_result.unwrap_or_default();
-
-    if !ios_from_store.is_empty() || !android_from_store.is_empty() {
-        let ios = if !ios_from_store.is_empty() { ios_from_store } else { vec!["tr".to_string()] };
-        let android = if !android_from_store.is_empty() { android_from_store } else { vec!["tr-TR".to_string()] };
-        return (ios, android);
-    }
-
-    let ios_from_meta = read_fastlane_metadata_locales(&root.join("ios/fastlane/metadata"));
-    let android_from_meta = read_fastlane_metadata_locales(&root.join("android/fastlane/metadata/android"));
-
-    if !ios_from_meta.is_empty() || !android_from_meta.is_empty() {
-        let ios = if !ios_from_meta.is_empty() { ios_from_meta } else { vec!["tr".to_string()] };
-        let android = if !android_from_meta.is_empty() { android_from_meta } else { vec!["tr-TR".to_string()] };
-        return (ios, android);
-    }
-
-    let mut ios = vec!["tr".to_string()];
-    let mut android = vec!["tr-TR".to_string()];
-
-    let Some(project_id) = std::fs::read_to_string(root.join("sermobileboss.txt")).ok().map(|s| s.trim().to_string()) else {
-        return (ios, android);
-    };
-    if project_id.is_empty() {
-        return (ios, android);
-    }
-
-    let serconf_path = root.join("lib/conf/sermobplus-projects").join(&project_id).join("serconf.dart");
-    let Ok(content) = std::fs::read_to_string(&serconf_path) else { return (ios, android) };
-
-    for (flag, ios_locale, android_locale) in FLAG_TO_LOCALES {
-        let re = Regex::new(&format!(r"const\s+{flag}\s*=\s*true\s*;")).unwrap();
-        if re.is_match(&content) {
-            ios.push(ios_locale.to_string());
-            android.push(android_locale.to_string());
-        }
-    }
-
-    (ios, android)
+    )
 }

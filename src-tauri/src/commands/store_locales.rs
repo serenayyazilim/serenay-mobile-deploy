@@ -1,18 +1,11 @@
-use crate::deploy::locales::run_fastlane_fetch_locales;
+use crate::deploy::locales::get_store_locales;
 use serde_json::{json, Value};
-use std::path::Path;
 
 /// Equivalent of `POST /api/store-locales` — a UI-triggered store locale lookup,
 /// independent of the deploy flow.
 #[tauri::command]
 pub async fn store_locales_fetch(workspace_path: String) -> Value {
-    let root = Path::new(&workspace_path);
-    let ios_dir = root.join("ios");
-    let android_dir = root.join("android");
-    let (ios_result, android_result) = tokio::join!(
-        run_fastlane_fetch_locales(&ios_dir, &workspace_path),
-        run_fastlane_fetch_locales(&android_dir, &workspace_path)
-    );
+    let (ios_result, android_result) = get_store_locales(&workspace_path).await;
 
     let to_json = |r: Result<Vec<String>, String>| match r {
         Ok(locales) => json!({ "locales": locales, "error": "" }),

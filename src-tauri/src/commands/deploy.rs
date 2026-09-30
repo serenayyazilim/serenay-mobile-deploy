@@ -75,7 +75,24 @@ pub async fn deploy_start(
         .filter(|s| !s.trim().is_empty())
         .unwrap_or_else(|| "Bug fixes and performance improvements.".to_string());
 
-    let (ios_locales, android_locales) = get_store_locales(&workspace_path).await;
+    // Only the production lanes upload release notes, and deliver/supply create any locale
+    // they're given as a new store language — so without the store's real list we stop
+    // here instead of guessing.
+    let (ios_locales, android_locales) = if track == "production" {
+        let (ios, android) = get_store_locales(&workspace_path).await;
+        let require = |needed: bool, store: &str, result: Result<Vec<String>, String>| match result {
+            Err(e) if needed => Err(format!(
+                "Could not read the app's {store} languages ({e}). Deploy stopped so no new store languages get created."
+            )),
+            result => Ok(result.unwrap_or_default()),
+        };
+        (
+            require(platform == "ios" || platform == "all", "App Store", ios)?,
+            require(platform == "android" || platform == "all", "Google Play", android)?,
+        )
+    } else {
+        (vec![], vec![])
+    };
     let translations = build_translations(&whats_new_text, &ios_locales, &android_locales).await;
 
     let process_id = uuid::Uuid::new_v4().to_string();

@@ -51,88 +51,32 @@ class Deployer
 
   # ============ STORE LOCALES ============
 
-  # Reads locale folders from the fastlane metadata directories.
-  # iOS: ios/fastlane/metadata/{locale}/
-  # Android: android/fastlane/metadata/android/{locale}/
-  # Falls back to serconf.dart if not found.
-  def self.get_store_locales(project)
-    ios_locales     = read_fastlane_locales(:ios)
-    android_locales = read_fastlane_locales(:android)
-
-    if ios_locales.any? || android_locales.any?
-      ios_locales     = ios_locales.any?     ? ios_locales     : ['tr']
-      android_locales = android_locales.any? ? android_locales : ['tr-TR']
-      log("🌍", "Store locales (fastlane metadata): iOS=#{ios_locales.join(', ')}  Android=#{android_locales.join(', ')}")
-      return { ios: ios_locales, android: android_locales }
-    end
-
-    # Fallback: detect from serconf.dart language flags
-    log("⚠️", "fastlane metadata folder not found, using serconf.dart")
-    get_store_locales_from_serconf(project)
+  # The Fastfile writes release notes only for the app's store locales (STORE_LOCALES_*,
+  # fetched from the store by the app), but deliver/supply upload every locale folder under
+  # fastlane/metadata and create that language in the store if the app doesn't have it.
+  # In a sermobileboss workspace those folders are shared by every app, so folders left over
+  # from another app's deploy would add its languages to this one — remove their release notes.
+  def self.prune_stale_release_notes
+    log("🌍", "Store locales: iOS=#{ENV['STORE_LOCALES_IOS']}  Android=#{ENV['STORE_LOCALES_ANDROID']}")
+    prune_release_notes(File.join(ios_path, 'fastlane', 'metadata'), ENV['STORE_LOCALES_IOS'], 'release_notes.txt')
+    prune_release_notes(File.join(android_path, 'fastlane', 'metadata', 'android'), ENV['STORE_LOCALES_ANDROID'], 'changelogs')
   end
 
-  # Lists locale folders under ios/fastlane/metadata/ or
-  # android/fastlane/metadata/android/ (skips hidden files and "default").
-  def self.read_fastlane_locales(platform)
-    metadata_path = case platform
-                    when :ios     then File.join(ios_path, 'fastlane', 'metadata')
-                    when :android then File.join(android_path, 'fastlane', 'metadata', 'android')
-                    end
+  def self.prune_release_notes(metadata_path, store_locales, notes_entry)
+    locales = store_locales.to_s.split(',').map(&:strip).reject(&:empty?)
+    return if locales.empty? || !Dir.exist?(metadata_path)
 
-    return [] unless Dir.exist?(metadata_path)
+    Dir.children(metadata_path).each do |locale|
+      next if locales.include?(locale) || ['default', 'review_information'].include?(locale)
 
-    Dir.entries(metadata_path)
-       .reject { |e| e.start_with?('.') || e == 'default' || e == 'review_information' }
-       .select { |e| Dir.exist?(File.join(metadata_path, e)) }
-       .sort
-  end
+      notes = File.join(metadata_path, locale, notes_entry)
+      next unless File.exist?(notes)
 
-  # Maps serconf.dart language flags to App Store / Google Play locale codes
-  LANGUAGE_LOCALE_MAP = {
-    'ENGLISH' => { ios: 'en-US',  android: 'en-US'  },
-    'RUSSIAN' => { ios: 'ru',     android: 'ru-RU'  },
-    'FRENCH'  => { ios: 'fr-FR',  android: 'fr-FR'  },
-    'ITALIAN' => { ios: 'it',     android: 'it-IT'  },
-    'ARABIC'  => { ios: 'ar-SA',  android: 'ar'     },
-    'SPANISH' => { ios: 'es-ES',  android: 'es-ES'  },
-    'KAZAKH'  => { ios: 'kk',     android: 'kk'     },
-  }.freeze
-
-  def self.get_store_locales_from_serconf(project)
-    ios_locales     = ['tr']
-    android_locales = ['tr-TR']
-
-    serconf_path = File.join(flutter_root, PROJECTS_PATH, project.to_s, 'serconf.dart')
-    unless File.exist?(serconf_path)
-      log("⚠️", "serconf.dart not found, using default locale: tr + en-US")
-      return { ios: ios_locales + ['en-US'], android: android_locales + ['en-US'] }
+      FileUtils.rm_rf(notes)
+      dir = File.dirname(notes)
+      Dir.rmdir(dir) if Dir.empty?(dir)
+      log("🧹", "Removed #{locale} release notes (not a store language of this app)")
     end
-
-    content = File.read(serconf_path)
-
-    LANGUAGE_LOCALE_MAP.each do |flag, locales|
-      if content.match?(/const\s+#{flag}\s*=\s*true\s*;/)
-        ios_locales     << locales[:ios]
-        android_locales << locales[:android]
-      end
-    end
-
-    log("🌍", "Store locales (serconf.dart): iOS=#{ios_locales.join(', ')}  Android=#{android_locales.join(', ')}")
-    { ios: ios_locales, android: android_locales }
-  end
-
-  def self.set_store_locale_envs
-    # Skip re-detection if already fetched from the store on the TypeScript side
-    if ENV['STORE_LOCALES_IOS'].to_s.strip.length > 0 &&
-       ENV['STORE_LOCALES_ANDROID'].to_s.strip.length > 0
-      log("🌍", "Store locales (fetched from store): iOS=#{ENV['STORE_LOCALES_IOS']}  Android=#{ENV['STORE_LOCALES_ANDROID']}")
-      return
-    end
-
-    project = get_current_project
-    locales = get_store_locales(project)
-    ENV['STORE_LOCALES_IOS']     = locales[:ios].join(',')
-    ENV['STORE_LOCALES_ANDROID'] = locales[:android].join(',')
   end
 
   # ============ VERSION ============
@@ -398,8 +342,8 @@ class Deployer
       # Bump version unless the user opted out
       maybe_bump_version
 
-      # Detect store locales and write them to ENV
-      set_store_locale_envs
+      # Drop release notes for locales this app doesn't have in the store
+      prune_stale_release_notes
 
       return false unless run_command("flutter clean && flutter pub get", "Flutter setup")
 
@@ -423,8 +367,8 @@ class Deployer
       # Bump version unless the user opted out
       maybe_bump_version
 
-      # Detect store locales and write them to ENV
-      set_store_locale_envs
+      # Drop release notes for locales this app doesn't have in the store
+      prune_stale_release_notes
 
       return false unless run_command("flutter clean && flutter pub get", "Flutter setup")
 
@@ -455,8 +399,8 @@ class Deployer
       # Bump version (once) unless the user opted out
       maybe_bump_version
 
-      # Detect store locales and write them to ENV
-      set_store_locale_envs
+      # Drop release notes for locales this app doesn't have in the store
+      prune_stale_release_notes
 
       return false unless run_command("flutter clean && flutter pub get", "Flutter setup")
 
