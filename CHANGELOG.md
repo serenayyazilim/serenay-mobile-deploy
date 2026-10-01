@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.11] - 2026-10-01
+
+- The app now runs and deploys any mobile project, not just Flutter: React Native, Expo, native iOS (Swift) and native Android (Kotlin) projects are supported alongside Flutter.
+- Added a project setup wizard: detects the project kind, runs `expo prebuild` for Expo apps (asking for a missing bundle ID / package name), generates the fastlane `Fastfile`/`Appfile` with the `beta`, `release` and `fetch_locales` lanes, and checks store readiness (ASC key, Team ID, Play service account, Android release signing, app existence in each store).
+- Existing fastlane setups are completed in place: only the missing lanes and Appfile settings are added, and a Fastfile that no longer parses is restored. Setup steps can be skipped; a deploy reopens the wizard while something it needs is still missing.
+- Explained the manual first store release when the app isn't created in a store yet.
+- Non-Flutter deploys bump the version in the native projects (and `app.json` for Expo); native single-platform projects only offer their own store.
+- Build & Run works for React Native / Expo on the chosen iOS/Android device, and Stop now terminates the whole run (Metro included).
+- Release notes are only deployed for the app's actual store languages; leftover locale folders from other apps no longer add new store languages, and a production deploy stops early if a store's language list can't be fetched.
+- Store check errors show fastlane's actual cause instead of "fastlane finished with errors".
+
 ## [0.2.10] - 2026-09-22
 
 - Redesigned the sidebar: nav buttons now use a classic borderless style, and the pub.dev/Play Store/App Store promo links became an auto-rotating carousel with real brand icons and gradient colors.

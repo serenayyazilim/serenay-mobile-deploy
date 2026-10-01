@@ -11,15 +11,17 @@
 
 # Serenay Mobile Deploy
 
-A desktop app for deploying Flutter-based mobile apps to the App Store, Google Play, and AppGallery.
+A desktop app for running and deploying mobile apps — Flutter, React Native, Expo, native iOS (Swift) and native Android (Kotlin) — to the App Store, Google Play, and AppGallery.
 
 ## Features
 
+- **Any mobile project** — Flutter, React Native, Expo, native iOS and native Android projects are detected automatically; each can be run on a simulator/device and deployed from the same panel.
+- **Project setup wizard** — prepares a project for deploy on first open: runs `expo prebuild` for Expo apps, generates the fastlane `Fastfile`/`Appfile` (or adds only the missing lanes to an existing setup), and checks store readiness (App Store Connect key, Team ID, Play service account, Android release signing, whether the app exists in each store).
 - **Multi-platform deploy from a single panel** — manage iOS (App Store Connect), Android (Google Play), and Huawei (AppGallery) build/upload flows from one interface.
 - **Fastlane integration** — a Ruby-based deploy script reads and uses the project's `fastlane` metadata (store descriptions, locales).
 - **App Store Connect management** — API key authentication, a dedicated screen to browse/search all your ASC apps, creating/editing/submitting In-App Events, uploading localizations and screenshots, listing territories.
-- **Version sync** — aligns the version/build number across `pubspec.yaml` and the iOS and Android project files with a single command.
-- **Multi-project / workspace support** — automatically detects and manages either multiple Flutter apps in one workspace (`sermobileboss` mode) or a single project (`generic` mode).
+- **Version sync** — aligns the version/build number across `pubspec.yaml` (Flutter), `app.json` (Expo) and the iOS and Android project files with a single command.
+- **Multi-project / workspace support** — automatically detects and manages either multiple apps in one workspace (`sermobileboss` mode) or a single project (`generic` mode).
 - **Firebase integration** — Firebase account management and project creation.
 - **Sentry integration** — release/project creation and auth check (via `~/.sentryclirc` or an environment variable).
 - **Slack notifications** — reports deploy success/failure to a Slack channel via webhook.
@@ -78,12 +80,13 @@ To build/develop this app:
 - [Node.js](https://nodejs.org) 18+
 - [Rust](https://www.rust-lang.org/tools/install) (stable) + Tauri system dependencies — see [Tauri Prerequisites](https://tauri.app/start/prerequisites/)
 - [Ruby](https://www.ruby-lang.org) (for the deploy scripts)
-- [Fastlane](https://fastlane.tools) installed and configured in the project being deployed
 
-To run/build/deploy a Flutter project *through* this app:
+To run/build/deploy a project *through* this app (the app shells out to these tools on your `PATH`; it does not bundle or install them):
 
-- [Flutter SDK](https://flutter.dev/docs/get-started/install), with `flutter`/`dart` available on your `PATH`. The app shells out to these directly — it does not bundle or install the SDK itself.
-- Dependencies (`flutter pub get`) and FlutterFire configuration are handled automatically on each run, so a freshly cloned project works without any manual setup step.
+- **All projects:** [Fastlane](https://fastlane.tools), Xcode (iOS) and/or Android SDK (Android). The device list comes from `flutter devices`, so the [Flutter SDK](https://flutter.dev/docs/get-started/install) is needed for Build & Run on any project.
+- **Flutter:** `flutter`/`dart`. Dependencies (`flutter pub get`) and FlutterFire configuration are handled automatically on each run.
+- **React Native / Expo:** [Node.js](https://nodejs.org) with the project's dependencies installed (`npm install`). Runs use `react-native run-ios`/`run-android` or `expo run:ios`/`run:android`; Expo projects are prebuilt by the setup wizard.
+- **Native iOS / Android:** nothing extra — the generated fastlane lanes build the app.
 
 ## Configuration
 
