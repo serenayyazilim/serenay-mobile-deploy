@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::path::Path;
 use std::process::Stdio;
-use std::sync::Mutex;
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -236,14 +237,14 @@ pub async fn flutter_build_start(
         emit_log(&app, &format!("$ {program} {}", run_args.join(" ")));
         let run_args_ref: Vec<&str> = run_args.iter().map(|s| s.as_str()).collect();
 
-        let mut child = match Command::new(program)
-            .args(&run_args_ref)
-            .current_dir(&workspace_path)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-        {
+        let mut command = Command::new(program);
+        command.args(&run_args_ref).current_dir(&workspace_path).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+        // Own process group so a stop can take down Metro and the build tools with it.
+        #[cfg(unix)]
+        if react_native {
+            command.process_group(0);
+        }
+        let mut child = match command.spawn() {
             Ok(child) => child,
             Err(e) => {
                 let _ = app.emit(&event_name, json!({ "type": "done", "success": false, "message": flutter_not_found_message(&e) }));
@@ -253,6 +254,11 @@ pub async fn flutter_build_start(
 
         if let Some(stdin) = child.stdin.take() {
             app.state::<DeployRegistry>().insert(job_id.clone(), stdin);
+        }
+        if react_native {
+            if let Some(pid) = child.id() {
+                react_native_runs().lock().unwrap().insert(job_id.clone(), pid);
+            }
         }
 
         if let Some(stdout) = child.stdout.take() {
@@ -282,8 +288,11 @@ pub async fn flutter_build_start(
 
         let status = child.wait().await;
         app.state::<DeployRegistry>().remove(&job_id);
-        let success = status.map(|s| s.success()).unwrap_or(false);
+        // Removed from the map only by `flutter_run_stop`, so a missing entry means a user stop.
+        let stopped = react_native && react_native_runs().lock().unwrap().remove(&job_id).is_none();
+        let success = stopped || status.map(|s| s.success()).unwrap_or(false);
         let message = match (success, react_native) {
+            _ if stopped => "App stopped",
             (true, _) => "App started successfully",
             (false, true) => "React Native run failed",
             (false, false) => "Flutter run failed",
@@ -332,9 +341,20 @@ pub async fn flutter_run_hot_reload(registry: State<'_, DeployRegistry>, job_id:
     Ok(())
 }
 
+/// Process group IDs of running React Native / Expo runs, by job ID.
+fn react_native_runs() -> &'static Mutex<HashMap<String, u32>> {
+    static RUNS: OnceLock<Mutex<HashMap<String, u32>>> = OnceLock::new();
+    RUNS.get_or_init(Default::default)
+}
+
 /// Sends `q` (quit) to a running `flutter run` process's stdin to stop it gracefully.
+/// React Native / Expo CLIs ignore stdin when it isn't a TTY, so their process group is terminated instead.
 #[tauri::command]
 pub async fn flutter_run_stop(registry: State<'_, DeployRegistry>, job_id: String) -> Result<(), String> {
+    if let Some(pid) = react_native_runs().lock().unwrap().remove(&job_id) {
+        let status = std::process::Command::new("kill").args(["-TERM", &format!("-{pid}")]).status().map_err(|e| e.to_string())?;
+        return if status.success() { Ok(()) } else { Err("Could not stop the app".to_string()) };
+    }
     let stdin_arc = registry.get(&job_id).ok_or("App is not running")?;
     let mut stdin = stdin_arc.lock().await;
     stdin.write_all(b"q").await.map_err(|e| e.to_string())?;
