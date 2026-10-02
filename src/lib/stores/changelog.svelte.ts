@@ -54,6 +54,12 @@ async function getStore(): Promise<Store> {
   return storeInstance;
 }
 
+// Dev builds share the installed app's store, so they must not mark a version as seen.
+async function markSeen(version: string) {
+  if (import.meta.env.DEV) return;
+  await (await getStore()).set(LAST_SEEN_KEY, version);
+}
+
 class ChangelogState {
   open = $state(false);
   shown = $state<Release[]>([]);
@@ -66,7 +72,7 @@ class ChangelogState {
     const lastSeen = await store.get<string>(LAST_SEEN_KEY);
     if (lastSeen === this.currentVersion) return;
     if (!lastSeen && isFreshInstall) {
-      await store.set(LAST_SEEN_KEY, this.currentVersion);
+      await markSeen(this.currentVersion);
       return;
     }
     const unseen = releases.filter(
@@ -74,7 +80,7 @@ class ChangelogState {
     );
     this.shown = lastSeen ? unseen : unseen.slice(0, 1);
     if (this.shown.length) this.open = true;
-    else await store.set(LAST_SEEN_KEY, this.currentVersion);
+    else await markSeen(this.currentVersion);
   }
 
   /** Reopens the notes for the running version (Settings > About). */
@@ -88,8 +94,7 @@ class ChangelogState {
 
   async dismiss() {
     this.open = false;
-    const store = await getStore();
-    await store.set(LAST_SEEN_KEY, this.currentVersion);
+    await markSeen(this.currentVersion);
   }
 }
 
