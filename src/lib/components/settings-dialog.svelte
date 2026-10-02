@@ -10,11 +10,12 @@
   import AboutSettings from "$lib/components/about-settings.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
-  let { open = $bindable(false), workspacePath = "", showWorkspaceTab = false, onRestartTour }: {
+  let { open = $bindable(false), workspacePath = "", showWorkspaceTab = false, onRestartTour, onShowChangelog }: {
     open?: boolean;
     workspacePath?: string;
     showWorkspaceTab?: boolean;
     onRestartTour?: () => void;
+    onShowChangelog?: () => void;
   } = $props();
 
   type Tab = "general" | "firebase" | "appstoreconnect" | "slack" | "workspace" | "about";
@@ -117,7 +118,7 @@
           {:else if activeTab === "workspace"}
             <SermobilebossWorkspaceSettings {workspacePath} />
           {:else if activeTab === "about"}
-            <AboutSettings {onRestartTour} />
+            <AboutSettings {onRestartTour} {onShowChangelog} />
           {/if}
         </div>
       </div>

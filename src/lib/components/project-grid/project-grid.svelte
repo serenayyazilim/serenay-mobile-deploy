@@ -7,7 +7,9 @@
   import { deployState } from "$lib/stores/deploy.svelte";
   import { buildState } from "$lib/stores/build.svelte";
   import { onboardingState } from "$lib/stores/onboarding.svelte";
+  import { changelogState } from "$lib/stores/changelog.svelte";
   import { ProductTour } from "$lib/components/product-tour";
+  import ChangelogDialog from "$lib/components/changelog-dialog.svelte";
   import SearchBar from "./search-bar.svelte";
   import ProjectCard from "./project-card.svelte";
   import Sidebar from "./sidebar.svelte";
@@ -58,6 +60,7 @@
     if (!onboardingState.completed) {
       setTimeout(() => onboardingState.start(), 400);
     }
+    await changelogState.init(!onboardingState.completed);
   });
 </script>
 
@@ -224,3 +227,4 @@
   />
 
   <ProductTour />
+  <ChangelogDialog />

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { changelogState } from "$lib/stores/changelog.svelte";
   import { getVersion } from "@tauri-apps/api/app";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { fly } from "svelte/transition";
@@ -131,5 +132,9 @@
   onRestartTour={() => {
     showSettings = false;
     onboardingState.restart();
+  }}
+  onShowChangelog={() => {
+    showSettings = false;
+    changelogState.showCurrent();
   }}
 />
