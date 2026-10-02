@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.12] - 2026-10-02
+
+- Added a "What's new" dialog: after an update the app shows the release notes for every version since the one you last used, grouped into new, improved and fixed changes.
+- Added a "What's new in this version" button to Settings > About to reopen the current version's release notes.
+
 ## [0.2.11] - 2026-10-01
 
 - The app now runs and deploys any mobile project, not just Flutter: React Native, Expo, native iOS (Swift) and native Android (Kotlin) projects are supported alongside Flutter.
