@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.13] - 2026-10-05
+
+- Closing the app while a deploy or run is in progress now asks for confirmation first.
+- Added search to the logs dialogs: press Cmd+F (macOS) or Ctrl+F (Windows) to search, with highlighted matches, a match counter and Enter / Shift+Enter to jump between them.
+- Run logs are no longer cut to the last 50 lines; the full log is kept from start to finish.
+- Removed the two-line log preview from the running project card, leaving just the "View all logs" button.
+- Fixed the top edge of a running project card being clipped on the home page.
+- Lines are now only shown in red when they contain "error" or "failed" as a whole word.
+
 ## [0.2.12] - 2026-10-02
 
 - Added a "What's new" dialog: after an update the app shows the release notes for every version since the one you last used, grouped into new, improved and fixed changes.

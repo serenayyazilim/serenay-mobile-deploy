@@ -11,7 +11,7 @@
   }
 
   function logClass(log: string): string {
-    if (/error|❌|failed/i.test(log)) return "text-red-400";
+    if (/\b(error|failed)\b|❌/i.test(log)) return "text-red-400";
     if (/warning|⚠/i.test(log)) return "text-yellow-400";
     return "text-zinc-300";
   }
