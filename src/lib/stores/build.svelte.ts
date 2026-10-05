@@ -88,7 +88,7 @@ class BuildState {
         listen<BuildEvent>(`flutter-build-event-${jobId}`, (event) => {
           const data = event.payload;
           if (data.type === "log") {
-            this.buildLogs = [...this.buildLogs.slice(-50), data.message || ""];
+            this.buildLogs.push(data.message || "");
           } else if (data.type === "error") {
             this.buildLogs = [...this.buildLogs, `❌ ${data.message}`];
           } else if (data.type === "done") {

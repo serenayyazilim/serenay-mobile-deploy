@@ -147,18 +147,13 @@
   {#if isBuilding}
     <div class="w-full mt-3 space-y-2">
       {#if isBuildRunning && buildState.buildLogs.length > 0}
-        <div class="w-full bg-secondary/50 rounded-lg p-2 overflow-hidden">
-          {#each buildState.buildLogs.slice(-2) as log, i (i)}
-            <p class="text-[10px] text-muted-foreground truncate">{log}</p>
-          {/each}
-          <button
-            onclick={(e) => { e.stopPropagation(); buildState.openLogsDialog(); }}
-            class="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md bg-background/80 hover:bg-background text-muted-foreground hover:text-foreground py-1.5 transition-colors"
-          >
-            <ScrollText class="w-3.5 h-3.5" />
-            <span class="text-[10px] font-medium">{t("projectCard.viewAllLogs")}</span>
-          </button>
-        </div>
+        <button
+          onclick={(e) => { e.stopPropagation(); buildState.openLogsDialog(); }}
+          class="flex w-full items-center justify-center gap-1.5 rounded-md bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground py-1.5 transition-colors"
+        >
+          <ScrollText class="w-3.5 h-3.5" />
+          <span class="text-[10px] font-medium">{t("projectCard.viewAllLogs")}</span>
+        </button>
       {/if}
 
       <p class={`text-xs text-center truncate max-w-full ${isBuildSuccess ? "text-green-600" : isBuildError ? "text-red-600" : "text-muted-foreground"}`}>

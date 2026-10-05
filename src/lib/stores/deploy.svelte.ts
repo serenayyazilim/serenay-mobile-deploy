@@ -165,7 +165,7 @@ class DeployState {
             }
           } else if (data.type === "log") {
             const msg = data.message || "";
-            this.deployLogs = [...this.deployLogs, msg];
+            this.deployLogs.push(msg);
             this.deployStatus = "deploying";
             this.deployMessage = msg;
             const progress = detectProgressFromLog(msg);

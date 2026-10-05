@@ -3,23 +3,17 @@
   import { Button } from "$lib/components/ui/button";
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from "$lib/components/ui/dialog";
   import { t } from "$lib/i18n/index.svelte";
+  import LogView from "./log-view.svelte";
   import { buildState, type BuildStatus } from "$lib/stores/build.svelte";
 
   let { open = $bindable(false), title, logs, status }: { open: boolean; title: string; logs: string[]; status: BuildStatus } = $props();
-
-  let scrollEl: HTMLDivElement | undefined;
-
-  $effect(() => {
-    logs.length;
-    if (open && scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
-  });
 
   function copyLogs() {
     navigator.clipboard.writeText(logs.join("\n"));
   }
 
   function logClass(log: string): string {
-    if (/error|❌|failed/i.test(log)) return "text-red-400";
+    if (/\b(error|failed)\b|❌/i.test(log)) return "text-red-400";
     if (/warning|⚠/i.test(log)) return "text-yellow-400";
     return "text-zinc-300";
   }
@@ -37,11 +31,7 @@
       </DialogTitle>
     </DialogHeader>
 
-    <div bind:this={scrollEl} class="flex-1 overflow-auto bg-zinc-950 rounded-lg p-4 font-mono text-sm">
-      {#each logs as log, i (i)}
-        <div class={`py-0.5 whitespace-pre-wrap break-all ${logClass(log)}`}>{log}</div>
-      {/each}
-    </div>
+    <LogView {logs} {logClass} />
 
     <div class="flex items-center justify-between gap-2 pt-4">
       <div class="flex gap-2">

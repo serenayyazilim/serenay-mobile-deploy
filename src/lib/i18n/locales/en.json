@@ -1,4 +1,7 @@
 {
+  "app.closeWhileBusyTitle": "Operation in progress",
+  "app.closeWhileBusyDescription": "A deploy or run is still in progress. Quitting now may leave it unfinished.\nDo you want to quit anyway?",
+  "app.closeWhileBusyConfirm": "Quit",
   "common.loading": "Loading...",
   "common.search": "Search...",
   "common.settings": "Settings",

@@ -1,4 +1,7 @@
 {
+  "app.closeWhileBusyTitle": "İşlem devam ediyor",
+  "app.closeWhileBusyDescription": "Devam eden bir deploy veya çalıştırma işlemi var. Şimdi çıkarsanız işlem yarıda kalabilir.\nYine de çıkmak istiyor musunuz?",
+  "app.closeWhileBusyConfirm": "Çık",
   "common.loading": "Yükleniyor...",
   "common.search": "Ara...",
   "common.settings": "Ayarlar",

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import { LoaderCircle, Plus, RefreshCw } from "@lucide/svelte";
   import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "$lib/components/ui/select";
   import { workspaceState } from "$lib/stores/workspace.svelte";
@@ -26,6 +27,7 @@
   import ConfirmDialog from "./dialogs/confirm-dialog.svelte";
   import FirstReleaseDialog from "$lib/components/project-setup/first-release-dialog.svelte";
   import ProjectSetupDialog from "$lib/components/project-setup/project-setup-dialog.svelte";
+  import { confirmState } from "$lib/stores/confirm.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
   const supportsMultipleProjects = $derived(workspaceState.mode === "sermobileboss");
@@ -53,6 +55,20 @@
     settingsProject = project;
     settingsDialogOpen = true;
   }
+
+  // Ask before closing the window while a deploy or run is in progress.
+  onMount(() => {
+    const appWindow = getCurrentWindow();
+    const unlisten = appWindow.onCloseRequested(async (event) => {
+      const busy = deployState.deployStatus === "activating" || deployState.deployStatus === "deploying" || buildState.buildStatus === "running";
+      if (!busy) return;
+      event.preventDefault();
+      if (await confirmState.ask(t("app.closeWhileBusyTitle"), t("app.closeWhileBusyDescription"), { confirmLabel: t("app.closeWhileBusyConfirm") })) {
+        await appWindow.destroy();
+      }
+    });
+    return () => unlisten.then((fn) => fn());
+  });
 
   onMount(async () => {
     if (workspaceState.path) await projectsState.load(workspaceState.path);
@@ -123,7 +139,7 @@
         </Select>
       </div>
 
-      <div class="flex-1 min-h-0 overflow-y-auto px-8 pb-8">
+      <div class="flex-1 min-h-0 overflow-y-auto px-8 pt-2 pb-8">
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
           {#each projectsState.filtered as project, i (project.id)}
             <ProjectCard
