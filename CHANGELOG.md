@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.14] - 2026-10-12
+
+- Fixed iOS production deploys failing at the end with "Precheck cannot check In-app purchases with the App Store Connect API Key": the build was uploaded but not submitted for review. Precheck now skips in-app purchases for every project, including existing Fastfiles whose `deliver` call doesn't set it.
+
 ## [0.2.13] - 2026-10-05
 
 - Closing the app while a deploy or run is in progress now asks for confirmation first.

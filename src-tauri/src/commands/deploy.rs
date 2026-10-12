@@ -157,7 +157,10 @@ pub async fn deploy_start(
         command
             .env("ASC_KEY_ID", asc.key_id)
             .env("ASC_ISSUER_ID", asc.issuer_id)
-            .env("ASC_PRIVATE_KEY", asc.private_key);
+            .env("ASC_PRIVATE_KEY", asc.private_key)
+            // Precheck can't check in-app purchases with an API key and fails the lane before
+            // submit_for_review; this covers existing Fastfiles whose deliver call doesn't set it.
+            .env("PRECHECK_INCLUDE_IN_APP_PURCHASES", "false");
     }
 
     let mut child = command
