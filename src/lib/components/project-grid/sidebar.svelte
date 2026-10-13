@@ -23,8 +23,8 @@
   } = $props();
 
   const navButtonClass = (active: boolean) =>
-    `w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-      active ? "bg-secondary text-foreground" : "text-foreground hover:bg-secondary/50"
+    `pressable w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-full text-sm font-medium ${
+      active ? "bg-primary/12 text-primary shadow-[inset_0_1px_0_var(--glass-highlight)]" : "text-foreground hover:bg-secondary"
     }`;
 
   const workspaceName = $derived(workspaceState.path?.split("/").filter(Boolean).pop() ?? "");
@@ -32,7 +32,7 @@
   let showSettings = $state(false);
 
   const promoLinkClass =
-    "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium text-white shadow-sm hover:brightness-110 transition-all";
+    "pressable w-full flex items-center gap-2.5 px-3 py-2 rounded-full text-sm font-medium text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.35)] hover:brightness-110";
 
   const promoItems = $derived([
     {
@@ -64,8 +64,9 @@
   });
 </script>
 
-<aside class="w-64 shrink-0 h-screen sticky top-0 flex flex-col bg-secondary/20 border-r border-border/50 p-4">
-  <div class="px-2 pt-2 pb-6">
+<!-- Floating glass sidebar; its top holds the window's traffic lights and drags the window. -->
+<aside class="glass animate-glass-in w-64 shrink-0 h-[calc(100vh-1rem)] sticky top-2 m-2 mr-0 flex flex-col rounded-[26px] p-4 pt-12">
+  <div data-tauri-drag-region class="px-2 pt-2 pb-6">
     <h1 class="text-lg font-semibold tracking-tight">Serenay Mobile Deploy</h1>
   </div>
 
@@ -82,7 +83,7 @@
   </nav>
 
   <div class="border-border/50 space-y-2 pb-4">
-    <div class="relative h-9 overflow-hidden">
+    <div class="relative h-9 overflow-hidden rounded-full">
       {#key promoIndex}
         {@const Icon = promoItems[promoIndex].icon}
         <button
@@ -106,7 +107,7 @@
     <button
       data-tour="tour-settings"
       onclick={() => (showSettings = true)}
-      class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+      class="pressable w-full flex items-center gap-2.5 px-3 py-2 rounded-full text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
     >
       <Settings class="w-4 h-4" />
       {t("common.settings")}
@@ -114,7 +115,7 @@
     <button
       data-tour="tour-switch-workspace"
       onclick={() => workspaceState.clear()}
-      class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+      class="pressable w-full flex items-center gap-2.5 px-3 py-2 rounded-full text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
     >
       <LogOut class="w-4 h-4" />
       {t("sidebar.switchWorkspace")}

@@ -80,15 +80,15 @@
           {/each}
 
           {#if changelogState.shown.length > 1}
-            <div class="ml-auto flex rounded-lg bg-muted p-0.5" role="tablist">
+            <div class="ml-auto flex rounded-full bg-muted p-0.5" role="tablist">
               {#each changelogState.shown as r, i (r.version)}
                 <button
                   type="button"
                   role="tab"
                   aria-selected={active === i}
                   onclick={() => (active = i)}
-                  class="rounded-md px-2.5 py-1 text-xs font-medium tabular-nums transition-all {active === i
-                    ? 'bg-background text-foreground shadow-sm'
+                  class="rounded-full px-2.5 py-1 text-xs font-medium tabular-nums transition-all {active === i
+                    ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'}"
                 >
                   v{r.version}

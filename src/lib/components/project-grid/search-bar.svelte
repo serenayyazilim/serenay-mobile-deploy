@@ -13,6 +13,6 @@
     type="text"
     bind:value
     placeholder={t("common.search")}
-    class="pl-9 h-9 rounded-xl bg-secondary/30 border-0 focus-visible:ring-1 focus-visible:ring-primary/50"
+    class="glass pl-9 h-9 rounded-full focus-visible:ring-2 focus-visible:ring-primary/50"
   />
 </div>

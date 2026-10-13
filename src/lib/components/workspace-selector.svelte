@@ -106,8 +106,8 @@
   }
 </script>
 
-<div class="min-h-screen bg-background flex items-center justify-center p-4">
-  <div class="w-full max-w-2xl space-y-6">
+<div data-tauri-drag-region class="min-h-screen flex items-center justify-center p-4">
+  <div class="animate-glass-in w-full max-w-2xl space-y-6">
     <div class="text-center space-y-2">
       <h1 class="text-3xl font-bold text-foreground">Serenay Mobile Deploy</h1>
       <p class="text-muted-foreground">{t("workspaceSelector.subtitle")}</p>
@@ -151,7 +151,7 @@
               <span class="w-full border-t"></span>
             </div>
             <div class="relative flex justify-center text-xs uppercase">
-              <span class="bg-card px-2 text-muted-foreground">{t("workspaceSelector.orEnterPath")}</span>
+              <span class="rounded-full glass px-3 py-0.5 text-muted-foreground">{t("workspaceSelector.orEnterPath")}</span>
             </div>
           </div>
 

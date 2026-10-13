@@ -23,6 +23,7 @@
   import ErrorDialog from "./dialogs/error-dialog.svelte";
   import BuildLogsDialog from "./dialogs/build-logs-dialog.svelte";
   import TestResultsDialog from "./dialogs/test-results-dialog.svelte";
+  import MiniPlayer from "./mini-player.svelte";
   import { testsState } from "$lib/stores/tests.svelte";
   import DeployLogsDialog from "./dialogs/deploy-logs-dialog.svelte";
   import SyncVersionsDialog from "./dialogs/sync-versions-dialog.svelte";
@@ -102,7 +103,7 @@
     {@render loadingSpinner()}
   {:else}
     <div class="flex-1 min-w-0 h-screen flex flex-col">
-      <div class="shrink-0 flex items-center justify-between gap-3 p-8 pb-6">
+      <div data-tauri-drag-region class="shrink-0 flex items-center justify-between gap-3 px-8 pt-8 pb-6">
         <div class="flex-1 min-w-0">
           <SearchBar bind:value={projectsState.searchQuery} class="max-w-none" />
         </div>
@@ -110,14 +111,14 @@
           {#if supportsMultipleProjects}
             <button
               onclick={() => (syncDialogOpen = true)}
-              class="flex items-center gap-2 px-4 h-9 rounded-xl text-sm font-medium ring-1 ring-border/50 bg-secondary/30 hover:bg-secondary/50 transition-all shrink-0"
+              class="glass pressable flex items-center gap-2 px-4 h-9 rounded-full text-sm font-medium shrink-0"
             >
               <RefreshCw class="w-4 h-4 text-muted-foreground" />
               {t("sidebar.syncVersions")}
             </button>
             <button
               onclick={() => (createDialogOpen = true)}
-              class="flex items-center gap-2 px-4 h-9 rounded-xl font-medium text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all shrink-0"
+              class="pressable flex items-center gap-2 px-4 h-9 rounded-full font-medium text-sm bg-primary text-primary-foreground hover:brightness-110 shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_6px_18px_-6px_var(--primary)] shrink-0"
             >
               <Plus class="w-4 h-4" /> {t("sidebar.newProject")}
             </button>
@@ -238,6 +239,7 @@
   />
 
   <TestResultsDialog />
+  <MiniPlayer />
 
   <DeployLogsDialog
     bind:open={deployState.logsDialogOpen}

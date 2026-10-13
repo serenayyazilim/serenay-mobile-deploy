@@ -12,10 +12,10 @@
   }
 
   function logClass(log: string): string {
-    if (/\b(error|failed)\b|❌/i.test(log)) return "text-red-400";
-    if (/warning|⚠/i.test(log)) return "text-yellow-400";
-    if (/✅|success/i.test(log)) return "text-green-400";
-    return "text-zinc-300";
+    if (/\b(error|failed)\b|❌/i.test(log)) return "text-red-400 log-light:text-red-600";
+    if (/warning|⚠/i.test(log)) return "text-yellow-400 log-light:text-amber-600";
+    if (/✅|success/i.test(log)) return "text-green-400 log-light:text-green-700";
+    return "text-zinc-300 log-light:text-zinc-800";
   }
 </script>
 

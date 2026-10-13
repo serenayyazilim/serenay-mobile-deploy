@@ -195,7 +195,7 @@
 </script>
 
 <Dialog bind:open>
-  <DialogContent class="max-w-2xl p-0 gap-0 overflow-hidden rounded-3xl border-0 shadow-2xl max-h-[85vh] flex flex-col">
+  <DialogContent class="max-w-2xl p-0 gap-0 overflow-hidden max-h-[85vh] flex flex-col">
     <div class="px-6 pt-6 pb-4">
       <div class="flex items-center gap-3">
         <div class="flex-1 min-w-0">

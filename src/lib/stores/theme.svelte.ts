@@ -1,4 +1,5 @@
 import { load, type Store } from "@tauri-apps/plugin-store";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export type ThemeMode = "light" | "dark" | "system";
 
@@ -21,6 +22,8 @@ function prefersDark(): boolean {
 function applyMode(mode: ThemeMode) {
   const isDark = mode === "dark" || (mode === "system" && prefersDark());
   document.documentElement.classList.toggle("dark", isDark);
+  // Match the native glass behind the window to the chosen theme.
+  getCurrentWindow().setTheme(mode === "system" ? null : mode).catch(() => {});
 }
 
 class ThemeState {

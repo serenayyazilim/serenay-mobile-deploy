@@ -146,11 +146,12 @@ fn apply_project_setup(workspace_path: &str, project_id: &str, app: &AppHandle, 
 }
 
 async fn run_logged_command(cmd: &str, args: &[&str], cwd: &str, app: &AppHandle, event_name: &str) -> bool {
-    run_logged_command_capture(cmd, args, cwd, app, event_name).await.is_ok_and(|(ok, _)| ok)
+    run_logged_command_capture(cmd, args, cwd, app, event_name, "⚠️ ").await.is_ok_and(|(ok, _)| ok)
 }
 
-/// Streams the command's output as log events and returns its exit status with the stdout lines.
-pub(crate) async fn run_logged_command_capture(cmd: &str, args: &[&str], cwd: &str, app: &AppHandle, event_name: &str) -> std::io::Result<(bool, Vec<String>)> {
+/// Streams the command's output as log events (stderr lines prefixed with `stderr_prefix`) and
+/// returns its exit status with the stdout lines.
+pub(crate) async fn run_logged_command_capture(cmd: &str, args: &[&str], cwd: &str, app: &AppHandle, event_name: &str, stderr_prefix: &str) -> std::io::Result<(bool, Vec<String>)> {
     let mut child = Command::new(cmd).args(args).current_dir(cwd).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
 
     let stdout_task = child.stdout.take().map(|stdout| {
@@ -171,11 +172,12 @@ pub(crate) async fn run_logged_command_capture(cmd: &str, args: &[&str], cwd: &s
     if let Some(stderr) = child.stderr.take() {
         let app = app.clone();
         let event_name = event_name.to_string();
+        let prefix = stderr_prefix.to_string();
         tokio::spawn(async move {
             let mut lines = BufReader::new(stderr).lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 if !line.trim().is_empty() {
-                    let _ = app.emit(&event_name, json!({ "type": "log", "message": format!("⚠️ {line}") }));
+                    let _ = app.emit(&event_name, json!({ "type": "log", "message": format!("{prefix}{line}") }));
                 }
             }
         });

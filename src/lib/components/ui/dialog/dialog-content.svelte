@@ -8,20 +8,20 @@
 
 <DialogPrimitive.Portal>
   <DialogPrimitive.Overlay
-    class="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50"
+    class="fade-pop fixed inset-0 z-50 bg-black/25 backdrop-blur-[3px]"
   />
   <DialogPrimitive.Content
     class={cn(
-      "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg",
+      "glass-strong glass-pop fixed top-[50%] left-[50%] z-50 grid w-full max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 rounded-[28px] p-6",
       className
     )}
     {...restProps}
   >
     {@render children?.()}
     <DialogPrimitive.Close
-      class="ring-offset-background focus:ring-ring absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:pointer-events-none"
+      class="pressable absolute top-4 right-4 grid size-7 place-items-center rounded-full bg-secondary text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus:outline-none disabled:pointer-events-none"
     >
-      <X class="size-4" />
+      <X class="size-3.5" />
       <span class="sr-only">Kapat</span>
     </DialogPrimitive.Close>
   </DialogPrimitive.Content>

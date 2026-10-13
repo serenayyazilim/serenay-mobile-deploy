@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.0] - 2026-10-13
+
+- Introduced a Liquid Glass design: the window is see-through glass on macOS, with frosted panels, light-catching edges, a pointer-following highlight and capsule buttons across every page, dialog, menu and button. The sidebar floats as a glass panel holding the window controls, and project cards show their glass only on hover. The app's light / dark choice also sets the window's glass.
+- Added smooth animations: dialogs and menus spring open and melt away, buttons give a soft spring when pressed, and cards and pages fade in.
+- Added a video player: plays a YouTube video in the bottom-right corner while a build or deploy runs, sliding up from the bottom. Set the link, its volume (35% by default) or turn it off in Settings > General.
+- Added a light / dark switch to the logs: the sun / moon button next to the log search changes every log panel at once and is remembered. The error dialog now has log search too.
+- Run logs are easier to read: the box borders drawn by Flutter's `logger` package and the `flutter:` prefix are removed, each message's time is shown in front of it, and repeated headers are only shown when they change.
+- HTTP requests in the run logs are grouped: the URL, headers and body form one block, and when the app logs its request with the response status (`<-- status: 200 GET: <url>`), the response appears right under its request.
+- Test logs are easier to read: `flutter test` lines show the file and test name instead of long paths and counters, failing tests are marked in red with their error underneath, and Jest output is no longer shown as warnings.
+- Fixed iOS Shortcuts indexing messages (which list every app installed on the device) showing up in run logs.
+- Fixed responses showing escaped characters (`\u0131`) instead of Turkish letters in run logs.
+
 ## [0.2.15] - 2026-10-13
 
 - Added "Run tests": a new button on each project card runs the project's tests and shows which passed, failed or were skipped, with the failure message under each failing test and the full log one click away. Works with Flutter (`flutter test`), React Native / Expo (Jest), native Android (Gradle unit tests) and native iOS (`xcodebuild test` on an iPhone simulator).

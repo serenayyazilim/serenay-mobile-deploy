@@ -41,8 +41,8 @@
 </script>
 
 <div
-  class={`group relative flex flex-col items-center p-5 rounded-3xl transition-all duration-300 ${
-    isDeploying ? "bg-primary/5 ring-2 ring-primary/20" : isBuilding ? "bg-green-500/5 ring-2 ring-green-500/20" : "bg-card dark:bg-transparent hover:bg-secondary/50 hover:shadow-lg hover:shadow-black/5 hover:-translate-y-1"
+  class={`glass animate-glass-in group relative flex flex-col items-center p-5 rounded-[28px] ${
+    isDeploying ? "ring-2 ring-primary/50" : isBuilding ? "ring-2 ring-green-500/50" : "glass-on-hover hover:-translate-y-1.5"
   }`}
 >
   <!-- Build & Run drives `flutter run` or React Native's run-ios/run-android; native projects run from Xcode / Android Studio. -->
@@ -52,8 +52,8 @@
       onclick={() => buildState.handleBuildClick(project)}
       disabled={buildState.buildingProjectId !== null || deployState.deployingProjectId !== null}
       title={t("projectCard.buildAndRun")}
-      class={`absolute top-3 left-3 p-2 rounded-full transition-all duration-200 disabled:opacity-50 ${
-        isBuildRunning || isBuildSuccess ? "bg-green-500 text-white" : isBuildError ? "bg-red-500 text-white" : `bg-green-500 text-white hover:scale-110 ${tourTarget ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`
+      class={`pressable absolute top-3 left-3 p-2 rounded-full shadow-[inset_0_1px_0_rgb(255_255_255/0.35)] disabled:opacity-50 ${
+        isBuildRunning || isBuildSuccess ? "bg-green-500 text-white" : isBuildError ? "bg-red-500 text-white" : `bg-green-500 text-white ${tourTarget ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`
       }`}
     >
       {#if isBuildRunning}<LoaderCircle class="w-4 h-4 animate-spin" />
@@ -69,8 +69,8 @@
       onclick={() => deployState.handleDeploy(project, workspacePath)}
       disabled={deployState.deployingProjectId !== null || buildState.buildingProjectId !== null}
       title={t("projectCard.deploy")}
-      class={`absolute top-3 right-3 p-2 rounded-full transition-all duration-200 disabled:opacity-50 ${
-        isDeployProcessing ? "bg-primary text-primary-foreground" : isDeploySuccess ? "bg-green-500 text-white" : isDeployError ? "bg-red-500 text-white" : `bg-primary text-primary-foreground hover:scale-110 ${tourTarget ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`
+      class={`pressable absolute top-3 right-3 p-2 rounded-full shadow-[inset_0_1px_0_rgb(255_255_255/0.35)] disabled:opacity-50 ${
+        isDeployProcessing ? "bg-primary text-primary-foreground" : isDeploySuccess ? "bg-green-500 text-white" : isDeployError ? "bg-red-500 text-white" : `bg-primary text-primary-foreground ${tourTarget ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`
       }`}
     >
       {#if isDeployProcessing}<LoaderCircle class="w-4 h-4 animate-spin" />
@@ -84,7 +84,7 @@
     <button
       data-tour={tourTarget ? "tour-project-settings" : undefined}
       onclick={(e) => { e.stopPropagation(); onSettings(project); }}
-      class={`absolute bottom-3 right-3 p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-all duration-200 ${tourTarget ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+      class={`glass pressable absolute bottom-3 right-3 p-2 rounded-full ${tourTarget ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
       title={t("common.settings")}
     >
       <Settings class="w-4 h-4 text-muted-foreground" />
@@ -95,7 +95,7 @@
     <button
       onclick={(e) => { e.stopPropagation(); isTesting ? (testsState.dialogOpen = true) : testsState.run(project, workspacePath); }}
       disabled={testsState.status === "running" && !isTesting}
-      class={`absolute bottom-3 left-3 p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-all duration-200 disabled:opacity-50 ${isTesting ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+      class={`glass pressable absolute bottom-3 left-3 p-2 rounded-full disabled:opacity-50 ${isTesting ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
       title={t("tests.run")}
     >
       {#if isTesting}<LoaderCircle class="w-4 h-4 animate-spin text-muted-foreground" />
@@ -103,7 +103,7 @@
     </button>
   {/if}
 
-  <div class="w-20 h-20 rounded-[22px] bg-gradient-to-br from-secondary to-secondary/50 shadow-lg shadow-black/10 flex items-center justify-center overflow-hidden mb-4">
+  <div class="w-20 h-20 rounded-[22px] bg-gradient-to-br from-secondary to-secondary/50 shadow-lg shadow-black/15 ring-1 ring-white/25 flex items-center justify-center overflow-hidden mb-4">
     {#if iconDataUrl}
       <img src={iconDataUrl} alt={project.appName} class="w-full h-full object-cover" />
     {:else}
@@ -142,7 +142,7 @@
       {#if deployState.deployLogs.length > 0}
         <button
           onclick={(e) => { e.stopPropagation(); deployState.openLogsDialog(); }}
-          class="flex w-full items-center justify-center gap-1.5 rounded-md bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground py-1.5 transition-colors"
+          class="pressable flex w-full items-center justify-center gap-1.5 rounded-full bg-secondary hover:bg-accent text-muted-foreground hover:text-foreground py-1.5 transition-colors"
         >
           <ScrollText class="w-3.5 h-3.5" />
           <span class="text-[10px] font-medium">{t("projectCard.viewAllLogs")}</span>
@@ -164,7 +164,7 @@
       {#if isBuildRunning && buildState.buildLogs.length > 0}
         <button
           onclick={(e) => { e.stopPropagation(); buildState.openLogsDialog(); }}
-          class="flex w-full items-center justify-center gap-1.5 rounded-md bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground py-1.5 transition-colors"
+          class="pressable flex w-full items-center justify-center gap-1.5 rounded-full bg-secondary hover:bg-accent text-muted-foreground hover:text-foreground py-1.5 transition-colors"
         >
           <ScrollText class="w-3.5 h-3.5" />
           <span class="text-[10px] font-medium">{t("projectCard.viewAllLogs")}</span>

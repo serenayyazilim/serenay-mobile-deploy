@@ -1,5 +1,20 @@
+<script lang="ts" module>
+  const THEME_KEY = "log-view-theme";
+
+  function savedTheme(): "dark" | "light" {
+    try {
+      return localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+    } catch {
+      return "dark";
+    }
+  }
+
+  // Shared by every log panel, so a switch in one dialog applies to all of them.
+  let logTheme = $state<"dark" | "light">(savedTheme());
+</script>
+
 <script lang="ts">
-  import { ChevronDown, ChevronUp, Search } from "@lucide/svelte";
+  import { ChevronDown, ChevronUp, Search, Sun, Moon } from "@lucide/svelte";
   import { t } from "$lib/i18n/index.svelte";
 
   let { logs, logClass }: { logs: string[]; logClass: (log: string) => string } = $props();
@@ -24,6 +39,15 @@
     scrollEl?.querySelector(`[data-line="${matches[current]}"]`)?.scrollIntoView({ block: "center" });
   }
 
+  function toggleTheme() {
+    logTheme = logTheme === "dark" ? "light" : "dark";
+    try {
+      localStorage.setItem(THEME_KEY, logTheme);
+    } catch {
+      // Not persisted; the switch still applies for this session.
+    }
+  }
+
   function onWindowKeydown(e: KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
       e.preventDefault();
@@ -35,7 +59,7 @@
 
 <svelte:window onkeydown={onWindowKeydown} />
 
-<div class="flex items-center gap-2 rounded-md border px-2 h-9">
+<div class="flex items-center gap-2 rounded-full border bg-background/40 px-3 h-9">
   <Search class="w-4 h-4 text-muted-foreground shrink-0" />
   <input
     bind:this={inputEl}
@@ -50,11 +74,21 @@
     <button type="button" class="p-1 rounded hover:bg-secondary" onclick={() => jump(-1)}><ChevronUp class="w-4 h-4" /></button>
     <button type="button" class="p-1 rounded hover:bg-secondary" onclick={() => jump(1)}><ChevronDown class="w-4 h-4" /></button>
   {/if}
+  <button
+    type="button"
+    onclick={toggleTheme}
+    title={logTheme === "dark" ? t("logs.lightMode") : t("logs.darkMode")}
+    class="-mr-1.5 grid size-7 place-items-center rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground"
+  >
+    {#if logTheme === "dark"}<Sun class="w-4 h-4" />{:else}<Moon class="w-4 h-4" />{/if}
+  </button>
 </div>
 
-<div bind:this={scrollEl} class="flex-1 overflow-auto bg-zinc-950 rounded-lg p-4 font-mono text-sm">
+<div bind:this={scrollEl} class={`flex-1 overflow-auto ring-1 rounded-2xl p-4 font-mono text-sm transition-colors duration-300 ${
+    logTheme === "light" ? "log-light bg-white/90 ring-black/10" : "bg-zinc-950/85 ring-white/10"
+  }`}>
   {#each logs as log, i (i)}
-    <div data-line={i} class={`py-0.5 whitespace-pre-wrap break-all ${logClass(log)} ${matches[current] === i ? "bg-yellow-500/20" : ""}`}>
+    <div data-line={i} class={`py-0.5 whitespace-pre-wrap break-all ${logClass(log)} ${matches[current] === i ? "bg-yellow-500/20 log-light:bg-yellow-300/40" : ""}`}>
       {#if pattern && pattern.test(log)}
         {#each log.split(new RegExp(pattern.source, "gi")) as part, j}
           {#if j % 2}<mark class="bg-yellow-400 text-black rounded-sm">{part}</mark>{:else}{part}{/if}

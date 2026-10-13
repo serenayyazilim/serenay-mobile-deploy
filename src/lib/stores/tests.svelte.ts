@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { WorkspaceProject } from "$lib/stores/projects.svelte";
 import type { BuildStatus } from "$lib/stores/build.svelte";
+import { createTestLogFormatter } from "$lib/log-format";
 
 export interface TestCase {
   name: string;
@@ -34,10 +35,11 @@ class TestsState {
     let unlisten: UnlistenFn | null = null;
     try {
       const jobId = await invoke<string>("tests_run_start", { workspacePath });
+      const pushLog = createTestLogFormatter(project.kind);
       await new Promise<void>((resolve) => {
         listen<TestEvent>(`test-run-event-${jobId}`, ({ payload }) => {
           if (payload.type === "log") {
-            this.logs.push(payload.message ?? "");
+            pushLog(this.logs, payload.message ?? "");
           } else {
             this.results = payload.results ?? [];
             this.logs.push(`${payload.success ? "✅" : "❌"} ${payload.message}`);

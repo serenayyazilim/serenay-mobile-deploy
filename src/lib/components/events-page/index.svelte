@@ -65,7 +65,7 @@
   }
 </script>
 
-<div class="flex-1 min-w-0 h-screen flex flex-col">
+<div class="animate-glass-in flex-1 min-w-0 h-screen flex flex-col">
   {#if loading}
     <div class="flex-1 flex items-center justify-center h-96">
       <LoaderCircle class="w-8 h-8 animate-spin text-muted-foreground" />
@@ -84,14 +84,14 @@
       </div>
     </div>
   {:else}
-    <div class="shrink-0 flex items-center gap-4 p-8 pb-6">
+    <div data-tauri-drag-region class="shrink-0 flex items-center gap-4 p-8 pb-6">
       <div class="relative max-w-md">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           type="text"
           bind:value={search}
           placeholder={t("eventsPage.searchPlaceholder")}
-          class="pl-9 h-9 rounded-xl bg-secondary/30 border-0 focus-visible:ring-1 focus-visible:ring-primary/50"
+          class="glass pl-9 h-9 rounded-full focus-visible:ring-2 focus-visible:ring-primary/50"
         />
       </div>
       <p class="text-base font-medium text-muted-foreground whitespace-nowrap">
@@ -110,7 +110,7 @@
           {#each filteredApps as app (app.id)}
             <button
               onclick={() => openApp(app)}
-              class="group flex flex-col items-center gap-3 p-5 rounded-3xl bg-card dark:bg-transparent hover:bg-secondary/50 hover:shadow-lg hover:shadow-black/5 hover:-translate-y-1 transition-all duration-300 text-center"
+              class="glass animate-glass-in group flex flex-col items-center gap-3 p-5 rounded-[28px] hover:-translate-y-1.5 transition-[translate,scale] duration-500 ease-(--ease-spring) text-center"
             >
               <AppIcon {workspacePath} projectId={localProjectByBundleId.get(app.bundleId)} bundleId={app.bundleId} name={app.name} />
               <div class="min-w-0 w-full">
@@ -126,7 +126,7 @@
 </div>
 
 <Dialog bind:open={dialogOpen}>
-  <DialogContent class="max-w-2xl p-0 gap-0 overflow-hidden rounded-3xl border-0 shadow-2xl max-h-[85vh] flex flex-col">
+  <DialogContent class="max-w-2xl p-0 gap-0 overflow-hidden max-h-[85vh] flex flex-col">
     <div class="px-6 pt-6 pb-4">
       <DialogTitle class="text-xl font-semibold truncate">{selectedApp?.name}</DialogTitle>
       <p class="text-sm text-muted-foreground">{selectedApp?.bundleId}</p>

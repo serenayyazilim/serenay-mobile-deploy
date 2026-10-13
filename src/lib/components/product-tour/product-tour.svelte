@@ -168,17 +168,17 @@
 {#if onboardingState.active && rect}
   <div class="fixed inset-0 z-[100]" aria-hidden="true">
     <!-- dimming panels around the spotlight -->
-    <div class="absolute bg-black/60 transition-all duration-300" style={`top:0; left:0; right:0; height:${Math.max(rect.top, 0)}px;`}></div>
+    <div class="absolute bg-black/45 transition-all duration-300" style={`top:0; left:0; right:0; height:${Math.max(rect.top, 0)}px;`}></div>
     <div
-      class="absolute bg-black/60 transition-all duration-300"
+      class="absolute bg-black/45 transition-all duration-300"
       style={`top:${rect.top + rect.height}px; left:0; right:0; bottom:0;`}
     ></div>
     <div
-      class="absolute bg-black/60 transition-all duration-300"
+      class="absolute bg-black/45 transition-all duration-300"
       style={`top:${rect.top}px; left:0; width:${Math.max(rect.left, 0)}px; height:${rect.height}px;`}
     ></div>
     <div
-      class="absolute bg-black/60 transition-all duration-300"
+      class="absolute bg-black/45 transition-all duration-300"
       style={`top:${rect.top}px; left:${rect.left + rect.width}px; right:0; height:${rect.height}px;`}
     ></div>
 
@@ -211,7 +211,7 @@
   <!-- tooltip card -->
   {#if ready && current}
     <div
-      class="fixed z-[103] rounded-2xl bg-popover text-popover-foreground ring-1 ring-border/60 shadow-2xl p-4 animate-in fade-in-0 zoom-in-95 duration-200"
+      class="fixed z-[103] glass-strong animate-glass-in rounded-3xl text-popover-foreground p-4"
       style={cardStyle}
     >
       <button

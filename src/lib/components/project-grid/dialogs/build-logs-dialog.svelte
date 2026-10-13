@@ -13,9 +13,13 @@
   }
 
   function logClass(log: string): string {
-    if (/\b(error|failed)\b|❌/i.test(log)) return "text-red-400";
-    if (/warning|⚠/i.test(log)) return "text-yellow-400";
-    return "text-zinc-300";
+    // Request / response blocks from the log formatter, coloured before any "error" inside a body.
+    const http = log.match(/^(?:\d\d:\d\d:\d\d  )?([→←]) ?(\d{3})?/);
+    if (http?.[1] === "→") return /\n {3}← [45]\d\d/.test(log) ? "text-red-400 log-light:text-red-600" : "text-sky-300 log-light:text-sky-700";
+    if (http?.[2]) return /^[23]/.test(http[2]) ? "text-emerald-300 log-light:text-emerald-700" : "text-red-400 log-light:text-red-600";
+    if (/\b(error|failed)\b|❌/i.test(log)) return "text-red-400 log-light:text-red-600";
+    if (/warning|⚠/i.test(log)) return "text-yellow-400 log-light:text-amber-600";
+    return "text-zinc-300 log-light:text-zinc-800";
   }
 </script>
 

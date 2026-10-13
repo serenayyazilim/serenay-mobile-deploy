@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { WorkspaceProject } from "$lib/stores/projects.svelte";
 import { confirmState } from "$lib/stores/confirm.svelte";
 import { t } from "$lib/i18n/index.svelte";
+import { createLogFormatter } from "$lib/log-format";
 
 export type BuildStatus = "idle" | "running" | "success" | "error";
 
@@ -83,12 +84,13 @@ class BuildState {
         projectId: project.id,
       });
       this.jobId = jobId;
+      const pushLog = createLogFormatter();
 
       await new Promise<void>((resolve) => {
         listen<BuildEvent>(`flutter-build-event-${jobId}`, (event) => {
           const data = event.payload;
           if (data.type === "log") {
-            this.buildLogs.push(data.message || "");
+            pushLog(this.buildLogs, data.message || "");
           } else if (data.type === "error") {
             this.buildLogs = [...this.buildLogs, `❌ ${data.message}`];
           } else if (data.type === "done") {

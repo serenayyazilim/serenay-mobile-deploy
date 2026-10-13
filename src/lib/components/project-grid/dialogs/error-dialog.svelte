@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LogView from "./log-view.svelte";
   import { CircleX } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from "$lib/components/ui/dialog";
@@ -11,9 +12,9 @@
   }
 
   function logClass(log: string): string {
-    if (/\b(error|failed)\b|❌/i.test(log)) return "text-red-400";
-    if (/warning|⚠/i.test(log)) return "text-yellow-400";
-    return "text-zinc-300";
+    if (/\b(error|failed)\b|❌/i.test(log)) return "text-red-400 log-light:text-red-600";
+    if (/warning|⚠/i.test(log)) return "text-yellow-400 log-light:text-amber-600";
+    return "text-zinc-300 log-light:text-zinc-800";
   }
 
   function handleOpenChange(value: boolean) {
@@ -31,11 +32,7 @@
       </DialogTitle>
     </DialogHeader>
 
-    <div class="flex-1 overflow-auto bg-zinc-950 rounded-lg p-4 font-mono text-sm">
-      {#each logs as log, i (i)}
-        <div class={`py-0.5 whitespace-pre-wrap break-all ${logClass(log)}`}>{log}</div>
-      {/each}
-    </div>
+    <LogView {logs} {logClass} />
 
     <div class="flex justify-end gap-2 pt-4">
       <Button variant="outline" onclick={copyLogs}>{t("common.copy")}</Button>
