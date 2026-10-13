@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.2] - 2026-10-13
+
+- Fixed the corner video player showing YouTube's "Error 153" instead of playing: the video is now embedded from a page the app serves on this Mac only (127.0.0.1), since YouTube rejects embeds from the app's own page.
+
 ## [0.3.1] - 2026-10-13
 
 - The video player now comes with a default video, so it plays during builds and deploys without setting a link first. A link saved in Settings still takes its place.

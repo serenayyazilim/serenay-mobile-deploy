@@ -31,6 +31,7 @@ use commands::setup::{
 use commands::slack::{slack_config_delete, slack_config_get, slack_config_save, slack_notify, slack_test};
 use commands::store_locales::store_locales_fetch;
 use commands::tests::tests_run_start;
+use commands::video::video_player_port;
 use commands::sync_versions::{sync_versions_start, sync_versions_submit_two_factor_code};
 use commands::workspace::{
     workspace_browse, workspace_config_get, workspace_config_save, workspace_recent_add, workspace_recent_get,
@@ -99,6 +100,7 @@ pub fn run() {
             flutter_run_hot_reload,
             flutter_run_stop,
             tests_run_start,
+            video_player_port,
             store_locales_fetch,
             setup_expo_config,
             setup_expo_prebuild,

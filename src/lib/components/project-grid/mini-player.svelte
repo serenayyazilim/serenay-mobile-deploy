@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { untrack } from "svelte";
+  import { invoke } from "@tauri-apps/api/core";
   import { fly } from "svelte/transition";
   import { backOut } from "svelte/easing";
   import { X } from "@lucide/svelte";
@@ -14,45 +16,30 @@
   let open = $state(false);
   let frame = $state<HTMLIFrameElement>();
 
-  // Starts muted, then once the player reports ready it's unmuted at the set volume, so it never
-  // blasts at 100%. Talks to the player through YouTube's iframe postMessage API (`enablejsapi=1`).
-  let ready = $state(false);
-  const command = (func: string, args: unknown[] = []) =>
-    frame?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args, id: 1, channel: "widget" }), "*");
+  // The player page comes from the app's loopback server (see `commands/video.rs`): YouTube
+  // rejects embeds from the app's own tauri:// page with error 153.
+  let port = $state<number>();
+  invoke<number>("video_player_port").then((p) => (port = p)).catch(() => {});
 
-  // Follow the volume slider in Settings while the video plays.
+  // Starting volume goes in the URL; later slider changes are posted to the page, so the
+  // video doesn't reload.
+  const src = $derived(
+    port && videoState.videoId
+      ? `http://127.0.0.1:${port}/?v=${videoState.videoId}&volume=${untrack(() => videoState.volume)}`
+      : null
+  );
   $effect(() => {
     const volume = videoState.volume;
-    if (ready) command("setVolume", [volume]);
+    frame?.contentWindow?.postMessage({ volume }, "*");
   });
 
-  // Ask the player to report its events (onReady) to this page.
-  function onFrameLoad() {
-    ready = false;
-    frame?.contentWindow?.postMessage(JSON.stringify({ event: "listening", id: 1, channel: "widget" }), "*");
-  }
-
-  function onPlayerMessage(e: MessageEvent) {
-    if (!frame || e.source !== frame.contentWindow || typeof e.data !== "string") return;
-    try {
-      if (JSON.parse(e.data).event === "onReady") {
-        ready = true;
-        command("setVolume", [videoState.volume]);
-        command("unMute");
-      }
-    } catch {
-      // Not a player message.
-    }
-  }
   // Open each time a build or deploy starts; closing keeps it closed until the next one.
   $effect(() => {
     if (busy) open = true;
   });
 </script>
 
-<svelte:window onmessage={onPlayerMessage} />
-
-{#if videoState.enabled && videoState.videoId && open}
+{#if videoState.enabled && src && open}
   <div
     class="glass-strong fixed right-5 bottom-5 z-40 w-96 overflow-hidden rounded-3xl p-1.5"
     in:fly={{ y: 160, duration: 650, easing: backOut }}
@@ -61,12 +48,10 @@
     <div class="relative aspect-video overflow-hidden rounded-[18px] bg-black">
       <iframe
         bind:this={frame}
-        onload={onFrameLoad}
         class="absolute inset-0 size-full"
-        src={`https://www.youtube-nocookie.com/embed/${videoState.videoId}?autoplay=1&mute=1&playsinline=1&rel=0&enablejsapi=1`}
+        {src}
         title="YouTube"
-        allow="autoplay; encrypted-media; picture-in-picture"
-        referrerpolicy="strict-origin-when-cross-origin"
+        allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
         allowfullscreen
       ></iframe>
     </div>

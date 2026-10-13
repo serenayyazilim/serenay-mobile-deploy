@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <style>
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+      iframe { border: 0; width: 100%; height: 100%; }
+    </style>
+  </head>
+  <body>
+    <script>
+      // Served from http://127.0.0.1 so YouTube gets a Referer (the app's tauri:// page sends none,
+      // which YouTube rejects with error 153). Starts muted, then unmutes at ?volume= once ready;
+      // the app posts { volume } to change it while playing.
+      const params = new URLSearchParams(location.search);
+      const id = params.get("v") || "";
+      let volume = Number(params.get("volume") ?? 35);
+      let player = null;
+      let ready = false;
+
+      const command = (func, args = []) =>
+        player?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args, id: 1, channel: "widget" }), "*");
+
+      if (/^[\w-]{11}$/.test(id)) {
+        player = document.createElement("iframe");
+        player.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+        player.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1&playsinline=1&rel=0&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
+        player.onload = () => player.contentWindow.postMessage(JSON.stringify({ event: "listening", id: 1, channel: "widget" }), "*");
+        document.body.append(player);
+      }
+
+      addEventListener("message", (e) => {
+        if (e.source === parent && typeof e.data?.volume === "number") {
+          volume = e.data.volume;
+          if (ready) command("setVolume", [volume]);
+          return;
+        }
+        if (!player || e.source !== player.contentWindow || typeof e.data !== "string") return;
+        try {
+          if (JSON.parse(e.data).event === "onReady") {
+            ready = true;
+            command("setVolume", [volume]);
+            command("unMute");
+          }
+        } catch {}
+      });
+    </script>
+  </body>
+</html>
