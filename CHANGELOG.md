@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.15] - 2026-10-13
+
+- Added "Run tests": a new button on each project card runs the project's tests and shows which passed, failed or were skipped, with the failure message under each failing test and the full log one click away. Works with Flutter (`flutter test`), React Native / Expo (Jest), native Android (Gradle unit tests) and native iOS (`xcodebuild test` on an iPhone simulator).
+
 ## [0.2.14] - 2026-10-12
 
 - Fixed iOS production deploys failing at the end with "Precheck cannot check In-app purchases with the App Store Connect API Key": the build was uploaded but not submitted for review. Precheck now skips in-app purchases for every project, including existing Fastfiles whose `deliver` call doesn't set it.

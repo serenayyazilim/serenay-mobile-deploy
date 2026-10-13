@@ -146,22 +146,28 @@ fn apply_project_setup(workspace_path: &str, project_id: &str, app: &AppHandle, 
 }
 
 async fn run_logged_command(cmd: &str, args: &[&str], cwd: &str, app: &AppHandle, event_name: &str) -> bool {
-    let Ok(mut child) = Command::new(cmd).args(args).current_dir(cwd).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() else {
-        return false;
-    };
+    run_logged_command_capture(cmd, args, cwd, app, event_name).await.is_ok_and(|(ok, _)| ok)
+}
 
-    if let Some(stdout) = child.stdout.take() {
+/// Streams the command's output as log events and returns its exit status with the stdout lines.
+pub(crate) async fn run_logged_command_capture(cmd: &str, args: &[&str], cwd: &str, app: &AppHandle, event_name: &str) -> std::io::Result<(bool, Vec<String>)> {
+    let mut child = Command::new(cmd).args(args).current_dir(cwd).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+
+    let stdout_task = child.stdout.take().map(|stdout| {
         let app = app.clone();
         let event_name = event_name.to_string();
         tokio::spawn(async move {
+            let mut captured = Vec::new();
             let mut lines = BufReader::new(stdout).lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 if !line.trim().is_empty() {
                     let _ = app.emit(&event_name, json!({ "type": "log", "message": line }));
+                    captured.push(line);
                 }
             }
-        });
-    }
+            captured
+        })
+    });
     if let Some(stderr) = child.stderr.take() {
         let app = app.clone();
         let event_name = event_name.to_string();
@@ -175,7 +181,12 @@ async fn run_logged_command(cmd: &str, args: &[&str], cwd: &str, app: &AppHandle
         });
     }
 
-    child.wait().await.map(|s| s.success()).unwrap_or(false)
+    let ok = child.wait().await.map(|s| s.success()).unwrap_or(false);
+    let captured = match stdout_task {
+        Some(task) => task.await.unwrap_or_default(),
+        None => Vec::new(),
+    };
+    Ok((ok, captured))
 }
 
 /// Equivalent of `POST /api/flutter/build` (SSE) — streams project setup (in sermobileboss

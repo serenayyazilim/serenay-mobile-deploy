@@ -1,10 +1,11 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
-  import { Rocket, LoaderCircle, CircleCheck, CircleX, Play, Settings, Clock, ScrollText } from "@lucide/svelte";
+  import { Rocket, LoaderCircle, CircleCheck, CircleX, Play, Settings, Clock, ScrollText, FlaskConical } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { formatDuration } from "$lib/deploy-utils";
   import { deployState } from "$lib/stores/deploy.svelte";
   import { buildState } from "$lib/stores/build.svelte";
+  import { testsState } from "$lib/stores/tests.svelte";
   import type { WorkspaceProject } from "$lib/stores/projects.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
@@ -35,6 +36,8 @@
   const isBuildSuccess = $derived(isBuilding && buildState.buildStatus === "success");
   const isBuildError = $derived(isBuilding && buildState.buildStatus === "error");
   const isBuildRunning = $derived(isBuilding && buildState.buildStatus === "running");
+
+  const isTesting = $derived(testsState.project?.id === project.id && testsState.status === "running");
 </script>
 
 <div
@@ -85,6 +88,18 @@
       title={t("common.settings")}
     >
       <Settings class="w-4 h-4 text-muted-foreground" />
+    </button>
+  {/if}
+
+  {#if !isDeploying && !isBuilding}
+    <button
+      onclick={(e) => { e.stopPropagation(); isTesting ? (testsState.dialogOpen = true) : testsState.run(project, workspacePath); }}
+      disabled={testsState.status === "running" && !isTesting}
+      class={`absolute bottom-3 left-3 p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-all duration-200 disabled:opacity-50 ${isTesting ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+      title={t("tests.run")}
+    >
+      {#if isTesting}<LoaderCircle class="w-4 h-4 animate-spin text-muted-foreground" />
+      {:else}<FlaskConical class="w-4 h-4 text-muted-foreground" />{/if}
     </button>
   {/if}
 

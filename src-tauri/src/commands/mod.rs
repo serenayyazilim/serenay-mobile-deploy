@@ -10,4 +10,5 @@ pub mod setup;
 pub mod slack;
 pub mod store_locales;
 pub mod sync_versions;
+pub mod tests;
 pub mod workspace;

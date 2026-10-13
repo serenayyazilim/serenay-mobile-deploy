@@ -36,16 +36,16 @@ pub enum Platform {
     Android,
 }
 
-fn package_json(root: &Path) -> Option<Value> {
+pub(crate) fn package_json(root: &Path) -> Option<Value> {
     serde_json::from_str(&std::fs::read_to_string(root.join("package.json")).ok()?).ok()
 }
 
-fn has_dependency(pkg: &Value, name: &str) -> bool {
+pub(crate) fn has_dependency(pkg: &Value, name: &str) -> bool {
     ["dependencies", "devDependencies"].iter().any(|k| pkg.get(k).and_then(|d| d.get(name)).is_some())
 }
 
 /// First `*.<ext>` entry in `dir` (e.g. `Runner.xcodeproj`), ignoring CocoaPods' own project.
-fn find_xcode_file(dir: &Path, ext: &str) -> Option<PathBuf> {
+pub(crate) fn find_xcode_file(dir: &Path, ext: &str) -> Option<PathBuf> {
     let mut found: Vec<PathBuf> = std::fs::read_dir(dir)
         .ok()?
         .flatten()

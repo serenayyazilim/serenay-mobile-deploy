@@ -22,6 +22,8 @@
   import TwoFactorDialog from "./dialogs/two-factor-dialog.svelte";
   import ErrorDialog from "./dialogs/error-dialog.svelte";
   import BuildLogsDialog from "./dialogs/build-logs-dialog.svelte";
+  import TestResultsDialog from "./dialogs/test-results-dialog.svelte";
+  import { testsState } from "$lib/stores/tests.svelte";
   import DeployLogsDialog from "./dialogs/deploy-logs-dialog.svelte";
   import SyncVersionsDialog from "./dialogs/sync-versions-dialog.svelte";
   import ConfirmDialog from "./dialogs/confirm-dialog.svelte";
@@ -60,7 +62,7 @@
   onMount(() => {
     const appWindow = getCurrentWindow();
     const unlisten = appWindow.onCloseRequested(async (event) => {
-      const busy = deployState.deployStatus === "activating" || deployState.deployStatus === "deploying" || buildState.buildStatus === "running";
+      const busy = deployState.deployStatus === "activating" || deployState.deployStatus === "deploying" || buildState.buildStatus === "running" || testsState.status === "running";
       if (!busy) return;
       event.preventDefault();
       if (await confirmState.ask(t("app.closeWhileBusyTitle"), t("app.closeWhileBusyDescription"), { confirmLabel: t("app.closeWhileBusyConfirm") })) {
@@ -234,6 +236,8 @@
     logs={buildState.buildLogs}
     status={buildState.buildStatus}
   />
+
+  <TestResultsDialog />
 
   <DeployLogsDialog
     bind:open={deployState.logsDialogOpen}
