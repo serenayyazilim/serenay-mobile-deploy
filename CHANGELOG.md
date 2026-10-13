@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.1] - 2026-10-13
+
+- The video player now comes with a default video, so it plays during builds and deploys without setting a link first. A link saved in Settings still takes its place.
+
 ## [0.3.0] - 2026-10-13
 
 - Introduced a Liquid Glass design: the window is see-through glass on macOS, with frosted panels, light-catching edges, a pointer-following highlight and capsule buttons across every page, dialog, menu and button. The sidebar floats as a glass panel holding the window controls, and project cards show their glass only on hover. The app's light / dark choice also sets the window's glass.

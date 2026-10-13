@@ -11,7 +11,7 @@ export function youtubeId(url: string): string | undefined {
 /** The corner video player shown during builds and deploys. */
 class VideoState {
   enabled = $state(true);
-  url = $state("");
+  url = $state("https://www.youtube.com/watch?v=rFZHOHl-L8A");
   /** Starting volume, 0–100. */
   volume = $state(35);
   videoId = $derived(youtubeId(this.url));
