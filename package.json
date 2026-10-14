@@ -1,6 +1,6 @@
 {
   "name": "serenay-mobile-deploy",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "",
   "type": "module",
   "scripts": {
@@ -16,6 +16,7 @@
     "@lucide/svelte": "^1.31.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.7.2",
+    "@tauri-apps/plugin-notification": "^2.6.0",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-store": "^2.4.4",

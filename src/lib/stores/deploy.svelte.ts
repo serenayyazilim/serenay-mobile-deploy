@@ -6,6 +6,12 @@ import type { WorkspaceProject } from "$lib/stores/projects.svelte";
 import { confirmState } from "$lib/stores/confirm.svelte";
 import { t } from "$lib/i18n/index.svelte";
 import { incompleteSetup, type ProjectKind } from "$lib/components/project-setup/types";
+import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
+
+async function notifyDeployDone(title: string, body: string) {
+  const granted = (await isPermissionGranted()) || (await requestPermission()) === "granted";
+  if (granted) sendNotification({ title, body });
+}
 
 type DeployStatus = "idle" | "activating" | "deploying" | "success" | "error";
 type DeployPlatform = "ios" | "android" | "all";
@@ -190,6 +196,7 @@ class DeployState {
       this.deployStatus = "success";
       this.deployMessage = t("deploy.completed");
       this.deployProgress = 100;
+      notifyDeployDone(project.appName, `✅ ${t("deploy.completed")}`).catch(() => {});
       await onVersionRefresh();
       sendSlackNotification(workspacePath, project, true, projectVersions[project.id] || "19.0.x", undefined, duration);
     } catch (error) {
@@ -200,6 +207,7 @@ class DeployState {
       console.error("[Deploy Failed]", errorMsg);
       this.deployStatus = "error";
       this.deployMessage = errorMsg;
+      notifyDeployDone(project.appName, `❌ ${t("deploy.failed")}`).catch(() => {});
 
       // The app isn't in the store yet: explain the manual first step instead of showing a log.
       const missingStore = /APP_NOT_FOUND:(ios|android)/.exec(errorMsg)?.[1] as "ios" | "android" | undefined;

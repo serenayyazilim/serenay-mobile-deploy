@@ -39,7 +39,7 @@ pub async fn tests_run_start(app: AppHandle, workspace_path: String) -> Result<S
     tokio::spawn(async move {
         let _ = app.emit(&event_name, json!({ "type": "log", "message": format!("$ {program} {}", args.join(" ")) }));
         let args_ref: Vec<&str> = args.iter().map(String::as_str).collect();
-        let (ok, stdout) = match run_logged_command_capture(&program, &args_ref, &workspace_path, &app, &event_name, "").await {
+        let (ok, stdout) = match run_logged_command_capture(&program, &args_ref, &workspace_path, &app, &event_name, "", None).await {
             Ok(r) => r,
             Err(e) => {
                 let _ = app.emit(&event_name, json!({ "type": "done", "success": false, "message": format!("Could not start {program}: {e}"), "results": [] }));

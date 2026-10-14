@@ -36,6 +36,8 @@ class BuildState {
   isReloading = $state(false);
   isRestarting = $state(false);
   isStopping = $state(false);
+  // Set by a stop pressed before `flutter_build_start` hands back a job ID (project still activating).
+  private stopRequested = false;
 
   private autoCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly autoCloseDelayMs = 4000;
@@ -69,6 +71,8 @@ class BuildState {
     this.buildingProjectId = project.id;
     this.buildStatus = "running";
     this.buildLogs = [];
+    this.jobId = null;
+    this.stopRequested = false;
 
     let unlisten: UnlistenFn | null = null;
 
@@ -76,6 +80,12 @@ class BuildState {
       this.buildLogs = [...this.buildLogs, `📁 ${t("build.activatingProject")}`];
       await invoke("project_activate", { workspacePath, projectId: project.id, backup: false });
       this.buildLogs = [...this.buildLogs, `✅ ${t("build.projectActivated")}`];
+      if (this.stopRequested) {
+        this.buildStatus = "success";
+        this.buildLogs = [...this.buildLogs, "✅ App stopped"];
+        this.scheduleAutoClose();
+        return;
+      }
 
       const jobId = await invoke<string>("flutter_build_start", {
         workspacePath,
@@ -84,6 +94,7 @@ class BuildState {
         projectId: project.id,
       });
       this.jobId = jobId;
+      if (this.stopRequested) invoke("flutter_run_stop", { jobId }).catch(() => {});
       const pushLog = createLogFormatter();
 
       await new Promise<void>((resolve) => {
@@ -169,9 +180,11 @@ class BuildState {
   }
 
   async stopBuild() {
-    if (!this.jobId || this.buildStatus !== "running" || this.isStopping) return;
-    this.isStopping = true;
+    if (this.buildStatus !== "running" || this.isStopping || this.stopRequested) return;
+    this.stopRequested = true;
     this.buildLogs = [...this.buildLogs, `⏹️ ${t("build.stopTriggered")}`];
+    if (!this.jobId) return; // still activating: handled once `project_activate` returns
+    this.isStopping = true;
     try {
       await invoke("flutter_run_stop", { jobId: this.jobId });
     } catch (error) {

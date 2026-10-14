@@ -145,14 +145,24 @@ fn apply_project_setup(workspace_path: &str, project_id: &str, app: &AppHandle, 
     }
 }
 
-async fn run_logged_command(cmd: &str, args: &[&str], cwd: &str, app: &AppHandle, event_name: &str) -> bool {
-    run_logged_command_capture(cmd, args, cwd, app, event_name, "⚠️ ").await.is_ok_and(|(ok, _)| ok)
+async fn run_logged_command(cmd: &str, args: &[&str], cwd: &str, app: &AppHandle, event_name: &str, job_id: &str) -> bool {
+    run_logged_command_capture(cmd, args, cwd, app, event_name, "⚠️ ", Some(job_id)).await.is_ok_and(|(ok, _)| ok)
 }
 
 /// Streams the command's output as log events (stderr lines prefixed with `stderr_prefix`) and
-/// returns its exit status with the stdout lines.
-pub(crate) async fn run_logged_command_capture(cmd: &str, args: &[&str], cwd: &str, app: &AppHandle, event_name: &str, stderr_prefix: &str) -> std::io::Result<(bool, Vec<String>)> {
-    let mut child = Command::new(cmd).args(args).current_dir(cwd).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+/// returns its exit status with the stdout lines. With a `job_id`, the command runs in its own
+/// process group that `flutter_run_stop` can terminate.
+pub(crate) async fn run_logged_command_capture(cmd: &str, args: &[&str], cwd: &str, app: &AppHandle, event_name: &str, stderr_prefix: &str, job_id: Option<&str>) -> std::io::Result<(bool, Vec<String>)> {
+    let mut command = Command::new(cmd);
+    command.args(args).current_dir(cwd).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    #[cfg(unix)]
+    if job_id.is_some() {
+        command.process_group(0);
+    }
+    let mut child = command.spawn()?;
+    if let Some(job_id) = job_id {
+        track_process_group(job_id, child.id());
+    }
 
     let stdout_task = child.stdout.take().map(|stdout| {
         let app = app.clone();
@@ -217,10 +227,20 @@ pub async fn flutter_build_start(
     let job_id = uuid::Uuid::new_v4().to_string();
     let event_name = format!("flutter-build-event-{job_id}");
     let return_job_id = job_id.clone();
+    runs().lock().unwrap().insert(job_id.clone(), Run::default());
 
     tokio::spawn(async move {
         let emit_log = |app: &AppHandle, msg: &str| {
             let _ = app.emit(&event_name, json!({ "type": "log", "message": msg }));
+        };
+        // Ends the job early when a stop came in during one of the steps before `flutter run`.
+        let finish_if_stopped = |app: &AppHandle| {
+            let stopped = runs().lock().unwrap().get(&job_id).is_some_and(|run| run.stopped);
+            if stopped {
+                runs().lock().unwrap().remove(&job_id);
+                let _ = app.emit(&event_name, json!({ "type": "done", "success": true, "message": "App stopped" }));
+            }
+            stopped
         };
 
         if detect_workspace_mode(&workspace_path) == WorkspaceMode::Sermobileboss {
@@ -234,14 +254,23 @@ pub async fn flutter_build_start(
                 }
             }
         }
+        if finish_if_stopped(&app) {
+            return;
+        }
 
         if !react_native {
             emit_log(&app, "🔥 Starting FlutterFire configure...");
-            let configure_ok = run_logged_command("flutterfire", &["configure", "--yes"], &workspace_path, &app, &event_name).await;
+            let configure_ok = run_logged_command("flutterfire", &["configure", "--yes"], &workspace_path, &app, &event_name, &job_id).await;
+            if finish_if_stopped(&app) {
+                return;
+            }
             emit_log(&app, if configure_ok { "✅ FlutterFire configure completed" } else { "⚠️ FlutterFire configure skipped (error or already configured)" });
 
             emit_log(&app, "📦 Installing dependencies...");
-            run_logged_command("flutter", &["pub", "get"], &workspace_path, &app, &event_name).await;
+            run_logged_command("flutter", &["pub", "get"], &workspace_path, &app, &event_name, &job_id).await;
+            if finish_if_stopped(&app) {
+                return;
+            }
             emit_log(&app, "✅ Dependencies installed");
         }
 
@@ -252,14 +281,13 @@ pub async fn flutter_build_start(
 
         let mut command = Command::new(program);
         command.args(&run_args_ref).current_dir(&workspace_path).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
-        // Own process group so a stop can take down Metro and the build tools with it.
+        // Own process group so a stop can take down Metro / Gradle / xcodebuild with it.
         #[cfg(unix)]
-        if react_native {
-            command.process_group(0);
-        }
+        command.process_group(0);
         let mut child = match command.spawn() {
             Ok(child) => child,
             Err(e) => {
+                runs().lock().unwrap().remove(&job_id);
                 let _ = app.emit(&event_name, json!({ "type": "done", "success": false, "message": flutter_not_found_message(&e) }));
                 return;
             }
@@ -268,18 +296,21 @@ pub async fn flutter_build_start(
         if let Some(stdin) = child.stdin.take() {
             app.state::<DeployRegistry>().insert(job_id.clone(), stdin);
         }
-        if react_native {
-            if let Some(pid) = child.id() {
-                react_native_runs().lock().unwrap().insert(job_id.clone(), pid);
-            }
-        }
+        track_process_group(&job_id, child.id());
 
         if let Some(stdout) = child.stdout.take() {
             let app = app.clone();
             let event_name = event_name.clone();
+            let job_id = job_id.clone();
             tokio::spawn(async move {
                 let mut lines = BufReader::new(stdout).lines();
                 while let Ok(Some(line)) = lines.next_line().await {
+                    // From here on `flutter run` reads key commands, so a stop can quit it with `q`.
+                    if !react_native && line.contains("Flutter run key commands") {
+                        if let Some(run) = runs().lock().unwrap().get_mut(&job_id) {
+                            run.ready = true;
+                        }
+                    }
                     if !line.trim().is_empty() {
                         let _ = app.emit(&event_name, json!({ "type": "log", "message": line }));
                     }
@@ -301,8 +332,7 @@ pub async fn flutter_build_start(
 
         let status = child.wait().await;
         app.state::<DeployRegistry>().remove(&job_id);
-        // Removed from the map only by `flutter_run_stop`, so a missing entry means a user stop.
-        let stopped = react_native && react_native_runs().lock().unwrap().remove(&job_id).is_none();
+        let stopped = runs().lock().unwrap().remove(&job_id).is_some_and(|run| run.stopped);
         let success = stopped || status.map(|s| s.success()).unwrap_or(false);
         let message = match (success, react_native) {
             _ if stopped => "App stopped",
@@ -354,24 +384,57 @@ pub async fn flutter_run_hot_reload(registry: State<'_, DeployRegistry>, job_id:
     Ok(())
 }
 
-/// Process group IDs of running React Native / Expo runs, by job ID.
-fn react_native_runs() -> &'static Mutex<HashMap<String, u32>> {
-    static RUNS: OnceLock<Mutex<HashMap<String, u32>>> = OnceLock::new();
+/// A `flutter_build_start` job: the process group of the step it is running, whether
+/// `flutter run` is up and reading key commands, and whether a stop was requested.
+#[derive(Default)]
+struct Run {
+    pgid: Option<u32>,
+    ready: bool,
+    stopped: bool,
+}
+
+fn runs() -> &'static Mutex<HashMap<String, Run>> {
+    static RUNS: OnceLock<Mutex<HashMap<String, Run>>> = OnceLock::new();
     RUNS.get_or_init(Default::default)
 }
 
-/// Sends `q` (quit) to a running `flutter run` process's stdin to stop it gracefully.
-/// React Native / Expo CLIs ignore stdin when it isn't a TTY, so their process group is terminated instead.
+fn kill_process_group(pgid: u32) {
+    let _ = std::process::Command::new("kill").args(["-TERM", &format!("-{pgid}")]).status();
+}
+
+/// Records the process group a job's current step runs in, killing it right away if a stop already came in.
+fn track_process_group(job_id: &str, pid: Option<u32>) {
+    let mut runs = runs().lock().unwrap();
+    if let (Some(run), Some(pid)) = (runs.get_mut(job_id), pid) {
+        run.pgid = Some(pid);
+        if run.stopped {
+            kill_process_group(pid);
+        }
+    }
+}
+
+/// Stops a `flutter_build_start` job at whatever step it is in. Once `flutter run` reads key
+/// commands it gets `q` (quits cleanly and stops the app on the device); before that — and for
+/// React Native / Expo CLIs, which ignore stdin when it isn't a TTY — the current step's process
+/// group is terminated, and the job ends before starting its next step.
 #[tauri::command]
 pub async fn flutter_run_stop(registry: State<'_, DeployRegistry>, job_id: String) -> Result<(), String> {
-    if let Some(pid) = react_native_runs().lock().unwrap().remove(&job_id) {
-        let status = std::process::Command::new("kill").args(["-TERM", &format!("-{pid}")]).status().map_err(|e| e.to_string())?;
-        return if status.success() { Ok(()) } else { Err("Could not stop the app".to_string()) };
+    let (pgid, ready) = {
+        let mut runs = runs().lock().unwrap();
+        let run = runs.get_mut(&job_id).ok_or("App is not running")?;
+        run.stopped = true;
+        (run.pgid, run.ready)
+    };
+    if let (true, Some(stdin_arc)) = (ready, registry.get(&job_id)) {
+        let mut stdin = stdin_arc.lock().await;
+        stdin.write_all(b"q").await.map_err(|e| e.to_string())?;
+        stdin.flush().await.map_err(|e| e.to_string())?;
+        return Ok(());
     }
-    let stdin_arc = registry.get(&job_id).ok_or("App is not running")?;
-    let mut stdin = stdin_arc.lock().await;
-    stdin.write_all(b"q").await.map_err(|e| e.to_string())?;
-    stdin.flush().await.map_err(|e| e.to_string())?;
+    // Between steps the last group has already exited; the `stopped` flag ends the job instead.
+    if let Some(pgid) = pgid {
+        kill_process_group(pgid);
+    }
     Ok(())
 }
 

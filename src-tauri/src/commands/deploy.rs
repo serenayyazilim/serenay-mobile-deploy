@@ -25,10 +25,10 @@ pub fn deploy_check_splash_image(workspace_path: String, project_id: String) -> 
             .and_then(|content| serde_json::from_str::<serde_json::Value>(&content).ok())
             .and_then(|json| json.get("image").and_then(|v| v.as_str()).map(String::from));
 
-        return match image {
-            Some(image) => Path::new(&workspace_path).join(image).exists(),
-            None => false,
-        };
+        // A color-only splash.json (written by `project_splash_color_save`) falls back to Launch/.
+        if let Some(image) = image {
+            return Path::new(&workspace_path).join(image).exists();
+        }
     }
 
     let launch = project_folder.join("Launch");

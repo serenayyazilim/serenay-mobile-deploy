@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.3] - 2026-10-14
+
+- Stop now stops a run right away: pressing it while the project is still being prepared or built ends the run on the spot, instead of waiting for the app to start on the device first.
+- A deploy now ends with a macOS notification saying whether it succeeded or failed.
+- A progress bar on the app's Dock icon shows how far a running deploy, build or test has got, and turns red if it fails.
+- The app icon now fills its rounded shape on macOS 26 and later, like other Mac apps, instead of showing up small.
+- Fixed deploy warning that a project had no splash image when its splash color had been changed in the app: the image in the project's Launch folder is now used.
+
 ## [0.3.2] - 2026-10-13
 
 - Fixed the corner video player showing YouTube's "Error 153" instead of playing: the video is now embedded from a page the app serves on this Mac only (127.0.0.1), since YouTube rejects embeds from the app's own page.

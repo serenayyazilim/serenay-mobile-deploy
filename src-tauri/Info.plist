@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- macOS 26+ reads the icon from Resources/Assets.car (system applies the squircle mask); older macOS falls back to icon.icns -->
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+</dict>
+</plist>

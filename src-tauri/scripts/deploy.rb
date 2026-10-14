@@ -187,21 +187,22 @@ class Deployer
       begin
         content = File.read(splash_config_file)
         config = JSON.parse(content)
-        default_config.merge(config)
+        default_config = default_config.merge(config)
       rescue
         log("⚠️", "Failed to read splash.json, using default values")
-        default_config
       end
-    else
-      # No splash.json, look for an image in the Launch folder
+    end
+
+    # No image in splash.json (or no splash.json), look for an image in the Launch folder
+    unless default_config["image"]
       launch_path = File.join(project_path, 'Launch')
       if File.exist?(File.join(launch_path, 'splash.png'))
         default_config["image"] = "lib/conf/sermobplus-projects/#{project}/Launch/splash.png"
       elsif File.exist?(File.join(launch_path, '2x.png'))
         default_config["image"] = "lib/conf/sermobplus-projects/#{project}/Launch/2x.png"
       end
-      default_config
     end
+    default_config
   end
 
   # Generate the Flutter native splash yaml file
