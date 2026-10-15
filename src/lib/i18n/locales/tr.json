@@ -125,6 +125,7 @@
   "deviceSelector.physical": "Fiziksel",
 
   "common.save": "Kaydet",
+  "common.delete": "Sil",
 
   "colorsTab.primaryColor": "Primary Renk",
   "colorsTab.primaryColorDescription": "Uygulamanın ana tema rengi (fallbackPrimary)",

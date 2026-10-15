@@ -125,6 +125,7 @@
   "deviceSelector.physical": "Physical",
 
   "common.save": "Save",
+  "common.delete": "Delete",
 
   "colorsTab.primaryColor": "Primary Color",
   "colorsTab.primaryColorDescription": "The app's main theme color (fallbackPrimary)",

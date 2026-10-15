@@ -43,6 +43,9 @@ use deploy::registry::DeployRegistry;
 pub fn run() {
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     let _ = fix_path_env::fix();
+    // Inherited by every fastlane run: its update banner prints release notes, and lines like
+    // "...two-factor authentication..." in them were mistaken for a 2FA code prompt.
+    std::env::set_var("FASTLANE_SKIP_UPDATE_CHECK", "1");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())

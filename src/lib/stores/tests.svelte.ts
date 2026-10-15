@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { WorkspaceProject } from "$lib/stores/projects.svelte";
 import type { BuildStatus } from "$lib/stores/build.svelte";
 import { createTestLogFormatter } from "$lib/log-format";
+import { t } from "$lib/i18n/index.svelte";
 
 export interface TestCase {
   name: string;
@@ -34,6 +35,10 @@ class TestsState {
 
     let unlisten: UnlistenFn | null = null;
     try {
+      // Same as Start: switch the multi-app workspace to this project first (no-op in generic mode).
+      this.logs.push(`📁 ${t("build.activatingProject")}`);
+      await invoke("project_activate", { workspacePath, projectId: project.id, backup: false });
+      this.logs.push(`✅ ${t("build.projectActivated")}`);
       const jobId = await invoke<string>("tests_run_start", { workspacePath });
       const pushLog = createTestLogFormatter(project.kind);
       await new Promise<void>((resolve) => {

@@ -42,7 +42,7 @@
           const cardShot = shots.find(
             (s) => s.attributes?.appEventAssetType === "EVENT_CARD" && s.attributes?.assetDeliveryState?.state === "COMPLETE"
           );
-          thumbnails[ev.id] = assetImageUrl(cardShot, 96) || null;
+          thumbnails[ev.id] = assetImageUrl(cardShot, 600) || null;
         } catch {
           thumbnails[ev.id] = null;
         }
@@ -144,50 +144,46 @@
         <p class="text-sm">{t("events.noEvents")}</p>
       </div>
     {:else}
-      <div class="space-y-2">
+      <div class="grid grid-cols-2 gap-3">
         {#each events as ev (ev.id)}
           {@const state = ev.attributes.eventState}
           {@const stateInfo = EVENT_STATE_LABELS[state] || { label: state, className: "bg-secondary text-muted-foreground" }}
-          {@const localizationIds = (ev.relationships?.localizations?.data || []).map((d: any) => d.id)}
-          {@const primaryLoc =
-            included.find((l) => localizationIds.includes(l.id) && l.attributes.locale === ev.attributes.primaryLocale) ||
-            included.find((l) => localizationIds.includes(l.id))}
+          {@const primaryLoc = primaryLocalizationFor(ev)}
+          {@const schedule = ev.attributes.territorySchedules?.[0]}
+          {@const dateLocale = i18n.locale === "tr" ? "tr-TR" : "en-US"}
           <div
             onclick={() => (view = { edit: ev.id })}
             onkeydown={(e) => e.key === "Enter" && (view = { edit: ev.id })}
             role="button"
             tabindex="0"
-            class="p-4 rounded-xl bg-secondary/30 ring-1 ring-border/30 hover:ring-border/60 cursor-pointer transition-all flex items-center gap-3"
+            class="group relative overflow-hidden rounded-2xl bg-secondary/30 ring-1 ring-border/30 hover:ring-border/60 cursor-pointer transition-all"
           >
-            <div class="w-11 h-11 rounded-lg overflow-hidden bg-secondary/60 ring-1 ring-border/30 flex items-center justify-center flex-shrink-0">
+            <div class="aspect-video bg-secondary/60 flex items-center justify-center">
               {#if thumbnails[ev.id]}
                 <img src={thumbnails[ev.id]} alt="" class="w-full h-full object-cover" />
               {:else if thumbnails[ev.id] === undefined}
-                <LoaderCircle class="w-3.5 h-3.5 animate-spin text-muted-foreground/50" />
+                <LoaderCircle class="w-5 h-5 animate-spin text-muted-foreground/50" />
               {:else}
-                <ImageOff class="w-4 h-4 text-muted-foreground/40" />
+                <ImageOff class="w-6 h-6 text-muted-foreground/40" />
               {/if}
             </div>
-            <div class="min-w-0 flex-1 flex items-center justify-between gap-3">
-              <div class="min-w-0">
-                <div class="flex items-center gap-2">
-                  <p class="text-sm font-medium truncate">{primaryLoc?.attributes?.name || ev.attributes.referenceName}</p>
-                  <span class={`text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${stateInfo.className}`}>{stateInfo.label}</span>
-                </div>
+            <span class={`absolute top-2 left-2 text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap backdrop-blur-md ${stateInfo.className}`}>{stateInfo.label}</span>
+            <button
+              onclick={(e) => handleDelete(ev.id, e)}
+              disabled={deletingId === ev.id}
+              title={t("common.delete")}
+              class="absolute top-2 right-2 p-1.5 rounded-full bg-black/55 text-white backdrop-blur-md hover:bg-red-600 transition-colors"
+            >
+              {#if deletingId === ev.id}<LoaderCircle class="w-3.5 h-3.5 animate-spin" />{:else}<Trash2 class="w-3.5 h-3.5" />{/if}
+            </button>
+            <div class="p-3">
+              <p class="text-sm font-medium truncate">{primaryLoc?.attributes?.name || ev.attributes.referenceName}</p>
+              <p class="text-xs text-muted-foreground mt-0.5 truncate">{badgeLabel(ev.attributes.badge)}</p>
+              {#if schedule}
                 <p class="text-xs text-muted-foreground mt-0.5 truncate">
-                  {badgeLabel(ev.attributes.badge)}
-                  {#if ev.attributes.territorySchedules?.[0]}
-                    · {new Date(ev.attributes.territorySchedules[0].eventStart).toLocaleDateString(i18n.locale === "tr" ? "tr-TR" : "en-US")} - {new Date(ev.attributes.territorySchedules[0].eventEnd).toLocaleDateString(i18n.locale === "tr" ? "tr-TR" : "en-US")}
-                  {/if}
+                  {new Date(schedule.eventStart).toLocaleDateString(dateLocale)} - {new Date(schedule.eventEnd).toLocaleDateString(dateLocale)}
                 </p>
-              </div>
-              <button
-                onclick={(e) => handleDelete(ev.id, e)}
-                disabled={deletingId === ev.id}
-                class="p-2 rounded-full text-muted-foreground hover:text-red-600 hover:bg-red-500/10 transition-colors flex-shrink-0"
-              >
-                {#if deletingId === ev.id}<LoaderCircle class="w-4 h-4 animate-spin" />{:else}<Trash2 class="w-4 h-4" />{/if}
-              </button>
+              {/if}
             </div>
           </div>
         {/each}

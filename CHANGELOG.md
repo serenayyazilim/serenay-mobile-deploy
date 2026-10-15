@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.4] - 2026-10-15
+
+- Fixed deploys stopping with "Apple 2-step verification required" and the 6-digit code window opening without a code ever arriving: a line in fastlane's update notes that mentions two-factor authentication was taken for Apple asking for a code. Only Apple's real code prompt opens the window now, and fastlane's update notes are no longer printed.
+- Run tests now switches a multi-app workspace to the project you clicked before testing, the same way Start does, so the tests run against that project instead of whichever was active.
+- The corner video player can be dragged anywhere on screen: hover over it and a handle appears at the top. It stays inside the window.
+- The In-App Events list is now a two-column grid of cards: each event's image is shown large, with its name, badge and dates underneath and its status on the image.
+
 ## [0.3.3] - 2026-10-14
 
 - Stop now stops a run right away: pressing it while the project is still being prepared or built ends the run on the spot, instead of waiting for the app to start on the device first.
