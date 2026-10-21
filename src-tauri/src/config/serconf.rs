@@ -88,7 +88,7 @@ pub fn read_serconf(workspace: &str, project_id: &str) -> Option<BTreeMap<String
     for key in ["API_URL", "ILETISIM_URL"] {
         if let Some(Value::String(val)) = config.get_mut(key) {
             let mut v = val.clone();
-            v = Regex::new(r"^https?://(www\.)?").unwrap().replace(&v, "").to_string();
+            v = Regex::new(r"^https?://").unwrap().replace(&v, "").to_string();
             v = Regex::new(r"/sermobileboss/?$").unwrap().replace(&v, "").to_string();
             *val = v;
         }

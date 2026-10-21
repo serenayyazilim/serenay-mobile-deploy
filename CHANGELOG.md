@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.5] - 2026-10-21
+
+- Fixed the API URL and Contact URL losing their "www." when a project's settings were saved: the field now shows the address as it is in the project (only https:// and /sermobileboss/ are hidden), and saving or building no longer changes it. Projects that already lost it need "www." typed back in once.
+
 ## [0.3.4] - 2026-10-15
 
 - Fixed deploys stopping with "Apple 2-step verification required" and the 6-digit code window opening without a code ever arriving: a line in fastlane's update notes that mentions two-factor authentication was taken for Apple asking for a code. Only Apple's real code prompt opens the window now, and fastlane's update notes are no longer printed.
