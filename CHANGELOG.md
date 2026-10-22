@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.6] - 2026-10-22
+
+- Fixed saving the Apple Team ID failing with "Not a directory (os error 20)" in projects copied from an external disk: the hidden "._" files macOS leaves there were taken for the Xcode project. They are skipped now.
+
 ## [0.3.5] - 2026-10-21
 
 - Fixed the API URL and Contact URL losing their "www." when a project's settings were saved: the field now shows the address as it is in the project (only https:// and /sermobileboss/ are hidden), and saving or building no longer changes it. Projects that already lost it need "www." typed back in once.

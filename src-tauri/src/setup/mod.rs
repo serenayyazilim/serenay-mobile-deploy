@@ -50,7 +50,8 @@ pub(crate) fn find_xcode_file(dir: &Path, ext: &str) -> Option<PathBuf> {
         .ok()?
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.extension().is_some_and(|e| e == ext) && p.file_stem().is_some_and(|s| s != "Pods"))
+        // Projects and workspaces are bundles; this skips the `._` files macOS leaves on external disks.
+        .filter(|p| p.is_dir() && p.extension().is_some_and(|e| e == ext) && p.file_stem().is_some_and(|s| s != "Pods"))
         .collect();
     found.sort();
     found.into_iter().next()
@@ -731,7 +732,10 @@ mod tests {
 
     #[test]
     fn writes_team_id_next_to_each_bundle_id() {
-        let root = project(&[("ios/Runner.xcodeproj/project.pbxproj", FLUTTER_PBXPROJ)]);
+        let root = project(&[
+            ("ios/Runner.xcodeproj/project.pbxproj", FLUTTER_PBXPROJ),
+            ("ios/._Runner.xcodeproj", ""),
+        ]);
         let ios = root.join("ios");
         assert!(write_team_id(&ios, "abc").is_err());
         write_team_id(&ios, "ABCDE12345").unwrap();
