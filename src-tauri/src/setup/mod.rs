@@ -208,9 +208,11 @@ pub fn read_version(root: &Path, kind: ProjectKind) -> Option<String> {
 }
 
 /// Same scheme as deploy.rb's `auto_increment_version`: bump the patch with a carry at 9,
-/// build number = major·10⁷ + minor·10⁵ + patch·10³.
+/// build number = the previous one + 1 (stores only take a higher one).
 pub fn next_version(current: &str) -> String {
-    let mut parts = current.split('+').next().unwrap_or("").split('.').map(|p| p.trim().parse::<u64>().unwrap_or(0));
+    let (name, build) = current.split_once('+').unwrap_or((current, "0"));
+    let build = build.trim().parse::<u64>().unwrap_or(0) + 1;
+    let mut parts = name.split('.').map(|p| p.trim().parse::<u64>().unwrap_or(0));
     let (mut major, mut minor, mut patch) = (parts.next().unwrap_or(1), parts.next().unwrap_or(0), parts.next().unwrap_or(0) + 1);
     if patch > 9 {
         patch = 0;
@@ -220,7 +222,7 @@ pub fn next_version(current: &str) -> String {
         minor = 0;
         major += 1;
     }
-    format!("{major}.{minor}.{patch}+{}", major * 10_000_000 + minor * 100_000 + patch * 1_000)
+    format!("{major}.{minor}.{patch}+{build}")
 }
 
 fn replace_in_file(path: &Path, replacements: &[(&str, String)]) -> Result<(), String> {
@@ -844,9 +846,9 @@ mod tests {
 
     #[test]
     fn bumps_version_like_deploy_rb() {
-        assert_eq!(next_version("1.0+1"), "1.0.1+10001000");
-        assert_eq!(next_version("2.3.9+20309000"), "2.4.0+20400000");
-        assert_eq!(next_version("1.9.9"), "2.0.0+20000000");
+        assert_eq!(next_version("1.0+1"), "1.0.1+2");
+        assert_eq!(next_version("2.3.9+20309000"), "2.4.0+20309001");
+        assert_eq!(next_version("1.9.9"), "2.0.0+1");
     }
 
     #[test]

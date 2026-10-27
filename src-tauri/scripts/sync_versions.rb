@@ -29,11 +29,6 @@ IOS_APPFILE    = File.join(workspace, 'ios/fastlane/Appfile')
 def log(emoji, msg)  = puts("#{emoji} #{msg}")
 def err(msg)         = STDERR.puts("❌ #{msg}")
 
-def build_number_from_version(version_str)
-  parts = version_str.split('.').map(&:to_i)
-  parts[0].to_i * 10_000_000 + parts[1].to_i * 100_000 + parts[2].to_i * 1_000
-end
-
 def save_version(project_id, version_str)
   dir  = File.join(PROJECTS_PATH, project_id)
   return false unless File.directory?(dir)

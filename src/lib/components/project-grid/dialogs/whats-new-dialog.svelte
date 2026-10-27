@@ -69,12 +69,12 @@
   });
 
   function nextVersion(current: string): string {
-    const [semver] = current.split("+");
+    const [semver, prevBuild = "0"] = current.split("+");
     let [major, minor, patch] = semver.split(".").map((n) => parseInt(n, 10) || 0);
     patch += 1;
     if (patch > 9) { patch = 0; minor += 1; }
     if (minor > 9) { minor = 0; major += 1; }
-    const build = major * 10_000_000 + minor * 100_000 + patch * 1_000;
+    const build = (parseInt(prevBuild, 10) || 0) + 1;
     return `${major}.${minor}.${patch}+${build}`;
   }
 

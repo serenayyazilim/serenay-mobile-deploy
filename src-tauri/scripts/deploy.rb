@@ -306,8 +306,8 @@ class Deployer
 
     new_version_part = "#{major}.#{minor}.#{patch}"
 
-    # Compute the build number (9 digits): major * 10000000 + minor * 100000 + patch * 1000
-    new_build = major * 10000000 + minor * 100000 + patch * 1000
+    # Build number = the previous one + 1 (stores only take a higher one)
+    new_build = parts[1].to_i + 1
     new_version = "#{new_version_part}+#{new_build}"
 
     log("🔼", "Auto-incrementing version: #{current} → #{new_version}")

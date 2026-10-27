@@ -31,11 +31,11 @@
     return b ? `${major}.${minor}.${patch}+${b}` : `${major}.${minor}.${patch}`;
   }
 
+  // Stores only take a higher build number, so a changed version gets the saved one + 1.
   function autoBuild(major: string, minor: string, patch: string) {
-    const ma = parseInt(major) || 0;
-    const mi = parseInt(minor) || 0;
-    const pa = parseInt(patch) || 0;
-    return String(ma * 10_000_000 + mi * 100_000 + pa * 1_000);
+    const saved = parseParts(original);
+    const changed = major !== saved.major || minor !== saved.minor || patch !== saved.patch;
+    return String((parseInt(saved.build) || 0) + (changed ? 1 : 0));
   }
 
   let loading = $state(true);
@@ -56,7 +56,7 @@
       major = p.major;
       minor = p.minor;
       patch = p.patch;
-      build = p.build || autoBuild(p.major, p.minor, p.patch);
+      build = p.build || "1";
     } catch {
       original = "1.0.0+1";
     } finally {
