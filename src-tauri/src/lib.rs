@@ -3,6 +3,7 @@ mod commands;
 mod config;
 mod deploy;
 mod firebase;
+mod mcp;
 mod setup;
 mod slack;
 mod workspace;
@@ -55,6 +56,10 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_notification::init())
         .manage(DeployRegistry::default())
+        .setup(|app| {
+            mcp::start(app.handle().clone());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             workspace_browse,
             workspace_validate,
@@ -125,6 +130,7 @@ pub fn run() {
             slack_config_save,
             slack_config_delete,
             slack_test,
+            mcp::mcp_status_set,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

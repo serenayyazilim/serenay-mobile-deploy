@@ -100,6 +100,27 @@ The following integrations are optional and enabled via environment variables in
 | `SENTRY_AUTH_TOKEN`   | Sentry API token (falls back to reading `~/.sentryclirc`) |
 | `SENTRY_ORG`          | Sentry organization slug                          |
 
+## AI control (MCP)
+
+While the app is open with a workspace, it serves an MCP server on `http://127.0.0.1:47321/mcp` (this Mac only). Add it to Claude Code once:
+
+```sh
+claude mcp add --transport http --scope user serenay-deploy http://127.0.0.1:47321/mcp
+```
+
+Then ask in plain words, e.g. *"deploy sellerapp to TestFlight with the notes: login fixes"*, *"run it on the iPhone simulator"* or *"make the primary color red"*. The tools:
+
+| Area | Tools |
+|------|-------|
+| Workspace | `status`, `list_workspaces`, `open_workspace`, `list_projects` |
+| Deploy, run, test | `deploy`, `list_devices`, `run_app`, `hot_reload`, `hot_restart`, `stop_app`, `run_tests` |
+| Version and settings | `set_version`, `rename_project`, `get_project_config`, `update_project_config`, `get_colors`, `update_colors`, `get_splash_color`, `set_splash_color`, `set_project_asset`, `check_splash_image`, `create_project` |
+| Store setup | `setup_readiness`, `setup_apply`, `complete_fastlane`, `set_team_id`, `set_play_key`, `store_check`, `store_locales`, `build_aab` |
+| App Store Connect | `asc_status`, `asc_apps`, `asc_territories`, `asc_events_list`, `asc_event_get`/`create`/`update`/`delete`/`submit`, `asc_localization_create`/`update`/`delete`, `asc_screenshots`, `asc_screenshot_upload`/`delete` |
+| Integrations | `firebase_accounts`, `firebase_create_project`, `sentry_check`, `sentry_create_project`, `slack_test` |
+
+Deploys, runs and tests show in the app as usual (a 2FA code, if asked, is entered there); `status` follows them. Keys and webhooks are only set in the app, never through MCP.
+
 ## Project structure
 
 ```

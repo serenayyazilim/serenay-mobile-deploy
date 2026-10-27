@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.7] - 2026-10-27
+
+- Added an MCP server, so an AI assistant like Claude Code can use the app: deploy, run on a device, hot reload, run tests, switch workspaces, change the version, settings, colors and assets, check and fix the store setup, manage App Store In-App Events, and create Firebase and Sentry projects. Deploys, runs and tests show in the app exactly as if their button was pressed. See "AI control (MCP)" in the README.
+- The build number now goes up by 1 on each deploy instead of being computed from the version (19.0.3 used to give 190003000). It continues from the current number, so the stores still accept it.
+
 ## [0.3.6] - 2026-10-22
 
 - Fixed saving the Apple Team ID failing with "Not a directory (os error 20)" in projects copied from an external disk: the hidden "._" files macOS leaves there were taken for the Xcode project. They are skipped now.

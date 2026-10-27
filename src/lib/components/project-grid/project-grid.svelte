@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { connectMcp } from "$lib/mcp.svelte";
   import { LoaderCircle, Plus, RefreshCw } from "@lucide/svelte";
   import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "$lib/components/ui/select";
   import { workspaceState } from "$lib/stores/workspace.svelte";
@@ -72,6 +73,8 @@
     });
     return () => unlisten.then((fn) => fn());
   });
+
+  onMount(connectMcp);
 
   onMount(async () => {
     if (workspaceState.path) await projectsState.load(workspaceState.path);
