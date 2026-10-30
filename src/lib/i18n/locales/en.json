@@ -269,6 +269,8 @@
   "workspaceSettings.locality": "City (L)",
   "workspaceSettings.state": "State (S)",
   "workspaceSettings.country": "Country code (C, e.g. US)",
+  "workspaceSettings.minVersion": "Minimum version",
+  "workspaceSettings.minVersionHint": "Apps below this version jump to it on their next deploy with a version bump. Leave it empty to turn this off.",
 
   "firebase.logout": "Log out",
   "firebase.login": "Firebase Login",

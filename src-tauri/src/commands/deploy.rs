@@ -4,6 +4,7 @@ use crate::deploy::registry::DeployRegistry;
 use crate::deploy::locales::{get_store_locales, APP_NOT_FOUND};
 use crate::setup::{self, ProjectKind};
 use crate::deploy::{find_script_path, is_two_factor_prompt, translate::build_translations};
+use crate::workspace::sermobileboss_config::min_version;
 use serde_json::json;
 use std::path::Path;
 use std::process::Stdio;
@@ -160,6 +161,7 @@ pub async fn deploy_start(
         .env("STORE_LOCALES_IOS", ios_locales.join(","))
         .env("STORE_LOCALES_ANDROID", android_locales.join(","))
         .env("BUMP_VERSION", if bump_version.unwrap_or(true) && !lanes_only { "true" } else { "false" })
+        .env("MIN_VERSION", min_version(&workspace_path))
         .env("PROJECT_KIND", if lanes_only { "lanes" } else { "flutter" })
         .env("FASTLANE_IOS_DIR", ios_dir.map(|d| d.to_string_lossy().to_string()).unwrap_or_default())
         .env("FASTLANE_ANDROID_DIR", android_dir.map(|d| d.to_string_lossy().to_string()).unwrap_or_default())

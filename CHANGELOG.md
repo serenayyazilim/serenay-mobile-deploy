@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.9] - 2026-10-30
+
+- serMobilePro workspaces skip old versions again: an app below the minimum version (19.0.0 by default) jumps to it on its next deploy with a version bump. Change it or leave it empty to turn it off in Settings > Workspace Settings.
+- serMobilePro apps get their build number from the version again (19.0.1 gives 190001000). Other projects still go up by 1 on each deploy.
+
 ## [0.3.8] - 2026-10-30
 
 - iOS deploys now check App Store Connect before the build starts, instead of failing after it: an agreement that isn't accepted or has expired stops any iOS deploy, and for a production deploy so does a version still waiting for review, in review or pending release, or unanswered Age Rating questions. The message says what to fix and where.

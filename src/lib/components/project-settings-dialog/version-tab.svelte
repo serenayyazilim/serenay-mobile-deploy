@@ -3,6 +3,7 @@
   import { LoaderCircle, Tag } from "@lucide/svelte";
   import { t } from "$lib/i18n/index.svelte";
   import type { WorkspaceProject } from "$lib/stores/projects.svelte";
+  import { workspaceState } from "$lib/stores/workspace.svelte";
 
   let {
     project,
@@ -31,10 +32,14 @@
     return b ? `${major}.${minor}.${patch}+${b}` : `${major}.${minor}.${patch}`;
   }
 
-  // Stores only take a higher build number, so a changed version gets the saved one + 1.
+  // Stores only take a higher build number, so a changed version gets the saved one + 1,
+  // or in serMobilePro the one derived from the version (19.0.1 -> 190001000).
   function autoBuild(major: string, minor: string, patch: string) {
     const saved = parseParts(original);
     const changed = major !== saved.major || minor !== saved.minor || patch !== saved.patch;
+    if (changed && workspaceState.mode === "sermobileboss") {
+      return String((parseInt(major) || 0) * 10_000_000 + (parseInt(minor) || 0) * 100_000 + (parseInt(patch) || 0) * 1_000);
+    }
     return String((parseInt(saved.build) || 0) + (changed ? 1 : 0));
   }
 

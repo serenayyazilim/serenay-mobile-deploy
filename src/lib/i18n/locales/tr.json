@@ -269,6 +269,8 @@
   "workspaceSettings.locality": "Şehir (L)",
   "workspaceSettings.state": "İl/Eyalet (S)",
   "workspaceSettings.country": "Ülke kodu (C, ör. TR)",
+  "workspaceSettings.minVersion": "Minimum sürüm",
+  "workspaceSettings.minVersionHint": "Bu sürümün altındaki uygulamalar, sürüm artırmalı ilk deploy'da bu sürüme atlar. Kapatmak için boş bırakın.",
 
   "firebase.logout": "Çıkış",
   "firebase.login": "Firebase Giriş",

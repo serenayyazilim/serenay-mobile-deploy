@@ -1,6 +1,8 @@
 use crate::setup::{self, detect_kind, ProjectKind};
 use crate::workspace::detect::detect_workspace_mode;
-use crate::workspace::sermobileboss_config::{read_sermobileboss_config, write_sermobileboss_config, SermobilebossConfig};
+use crate::workspace::sermobileboss_config::{
+    is_valid_min_version, min_version, read_sermobileboss_config, write_sermobileboss_config, SermobilebossConfig,
+};
 use crate::workspace::types::WorkspaceMode;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -194,5 +196,13 @@ pub fn workspace_config_save(workspace: String, config: SermobilebossConfig) -> 
     if required.iter().any(|v| v.trim().is_empty()) {
         return Err("All fields are required".to_string());
     }
+    if !is_valid_min_version(&config.min_version) {
+        return Err("Minimum version must look like 19.0.0".to_string());
+    }
     write_sermobileboss_config(&workspace, &config).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn workspace_min_version(workspace: String) -> String {
+    min_version(&workspace)
 }

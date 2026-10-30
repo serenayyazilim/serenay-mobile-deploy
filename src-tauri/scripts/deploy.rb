@@ -264,6 +264,19 @@ class Deployer
     success
   end
 
+  # serMobilePro only (MIN_VERSION is empty elsewhere): an app below the minimum
+  # version continues from it.
+  def self.at_least_min_version(current)
+    min = ENV['MIN_VERSION'].to_s
+    return current if min.empty?
+
+    name, build = current.split('+')
+    return current unless (name.split('.').map(&:to_i) <=> min.split('.').map(&:to_i)) < 0
+
+    log("⚠️", "Project version (#{current}) is below #{min}, starting from #{min}")
+    build ? "#{min}+#{build}" : min
+  end
+
   def self.auto_increment_version
     # First, find the active project
     current_project = get_current_project
@@ -271,7 +284,7 @@ class Deployer
     if current_project
       # Read the version from the project's own version.json, falling back to
       # pubspec.yaml, then to a hardcoded default if neither exists yet.
-      current = get_project_version(current_project) || get_current_version || DEFAULT_VERSION
+      current = at_least_min_version(get_project_version(current_project) || get_current_version || DEFAULT_VERSION)
       log("📌", "Project version: #{current}")
     else
       # Generic (single-project) workspace: the source of truth is always pubspec.yaml.
@@ -306,9 +319,10 @@ class Deployer
 
     new_version_part = "#{major}.#{minor}.#{patch}"
 
-    # Build number = the previous one + 1 (stores only take a higher one)
-    new_build = parts[1].to_i + 1
-    new_version = "#{new_version_part}+#{new_build}"
+    # serMobilePro apps derive the build number from the version (19.0.1 -> 190001000),
+    # everything else takes the previous one + 1 (stores only take a higher one)
+    new_build = current_project ? major * 10000000 + minor * 100000 + patch * 1000 : parts[1].to_i + 1
+    new_version ="#{new_version_part}+#{new_build}"
 
     log("🔼", "Auto-incrementing version: #{current} → #{new_version}")
     update_version(new_version)

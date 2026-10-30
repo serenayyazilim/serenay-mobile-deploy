@@ -16,11 +16,12 @@
     keystoreLocality: string;
     keystoreState: string;
     keystoreCountry: string;
+    minVersion: string;
   }
 
   const EMPTY_FORM: FormState = {
     bundleIdPrefix: "", keystoreAliasPrefix: "", keystorePassword: "", keystoreCommonName: "",
-    keystoreOrgUnit: "", keystoreOrgName: "", keystoreLocality: "", keystoreState: "", keystoreCountry: "",
+    keystoreOrgUnit: "", keystoreOrgName: "", keystoreLocality: "", keystoreState: "", keystoreCountry: "", minVersion: "19.0.0",
   };
 
   let form = $state<FormState>({ ...EMPTY_FORM });
@@ -40,13 +41,14 @@
     if (workspacePath) checkConfig();
   });
 
-  const canSave = $derived(Object.values(form).every((v) => v.trim().length > 0));
+  // The minimum version is the only optional field: leaving it empty turns it off.
+  const canSave = $derived(Object.entries(form).every(([key, v]) => key === "minVersion" || v.trim().length > 0));
 
   async function handleSave() {
     saving = true;
     result = null;
     try {
-      await invoke("workspace_config_save", { workspace: workspacePath, config: form });
+      await invoke("workspace_config_save", { workspace: workspacePath, config: { ...form, minVersion: form.minVersion.trim() } });
       result = { success: true, message: t("projectSettings.saved") };
     } catch (e) {
       result = { success: false, message: String(e) };
@@ -84,6 +86,12 @@
       <input bind:value={form.keystoreLocality} placeholder={t("workspaceSettings.locality")} class="h-9 px-3 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
       <input bind:value={form.keystoreState} placeholder={t("workspaceSettings.state")} class="h-9 px-3 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
       <input bind:value={form.keystoreCountry} placeholder={t("workspaceSettings.country")} maxlength={2} class="h-9 px-3 text-sm rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
+    </div>
+
+    <div class="space-y-1 pt-1">
+      <label class="text-xs text-muted-foreground" for="min-version">{t("workspaceSettings.minVersion")}</label>
+      <input id="min-version" bind:value={form.minVersion} placeholder="19.0.0" class="w-full h-9 px-3 text-sm font-mono rounded-lg bg-background/50 ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50 outline-none" />
+      <p class="text-xs text-muted-foreground/80">{t("workspaceSettings.minVersionHint")}</p>
     </div>
 
     {#if result}

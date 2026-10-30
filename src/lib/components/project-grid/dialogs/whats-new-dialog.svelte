@@ -4,6 +4,7 @@
   import { Dialog, DialogContent, DialogHeader, DialogTitle } from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
   import type { WorkspaceProject } from "$lib/stores/projects.svelte";
+  import { workspaceState } from "$lib/stores/workspace.svelte";
   import { t } from "$lib/i18n/index.svelte";
 
   type DeployPlatform = "ios" | "android" | "all";
@@ -33,6 +34,7 @@
   let languages = $state<{ flag: string; labelKey: string }[]>([]);
   let bumpVersion = $state(true);
   let currentVersion = $state("");
+  let minVersion = $state("");
 
   const platformOptions: { value: DeployPlatform; labelKey: string }[] = [
     { value: "ios", labelKey: "whatsNew.iosOnly" },
@@ -66,15 +68,25 @@
     invoke<{ versions: Record<string, string> }>("projects_versions", { workspace: workspacePath })
       .then((data) => (currentVersion = data.versions?.[project.id] ?? ""))
       .catch(() => {});
+
+    minVersion = "";
+    invoke<string>("workspace_min_version", { workspace: workspacePath })
+      .then((version) => (minVersion = version))
+      .catch(() => {});
   });
 
   function nextVersion(current: string): string {
     const [semver, prevBuild = "0"] = current.split("+");
     let [major, minor, patch] = semver.split(".").map((n) => parseInt(n, 10) || 0);
+    // Same as deploy.rb's at_least_min_version: an app below the minimum continues from it.
+    const min = minVersion.split(".").map(Number);
+    if (min.length === 3 && (major - min[0] || minor - min[1] || patch - min[2]) < 0) [major, minor, patch] = min;
     patch += 1;
     if (patch > 9) { patch = 0; minor += 1; }
     if (minor > 9) { minor = 0; major += 1; }
-    const build = (parseInt(prevBuild, 10) || 0) + 1;
+    const build = workspaceState.mode === "sermobileboss"
+      ? major * 10_000_000 + minor * 100_000 + patch * 1_000
+      : (parseInt(prevBuild, 10) || 0) + 1;
     return `${major}.${minor}.${patch}+${build}`;
   }
 

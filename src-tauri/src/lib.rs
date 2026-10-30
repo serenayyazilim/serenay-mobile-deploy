@@ -35,8 +35,8 @@ use commands::tests::tests_run_start;
 use commands::video::video_player_port;
 use commands::sync_versions::{sync_versions_start, sync_versions_submit_two_factor_code};
 use commands::workspace::{
-    workspace_browse, workspace_config_get, workspace_config_save, workspace_recent_add, workspace_recent_get,
-    workspace_validate,
+    workspace_browse, workspace_config_get, workspace_config_save, workspace_min_version, workspace_recent_add,
+    workspace_recent_get, workspace_validate,
 };
 use deploy::registry::DeployRegistry;
 
@@ -65,6 +65,7 @@ pub fn run() {
             workspace_validate,
             workspace_recent_get,
             workspace_recent_add,
+            workspace_min_version,
             projects_list,
             projects_rename,
             projects_versions,
