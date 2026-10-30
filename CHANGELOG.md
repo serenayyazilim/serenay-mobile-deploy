@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.8] - 2026-10-30
+
+- iOS deploys now check App Store Connect before the build starts, instead of failing after it: an agreement that isn't accepted or has expired stops any iOS deploy, and for a production deploy so does a version still waiting for review, in review or pending release, or unanswered Age Rating questions. The message says what to fix and where.
+
 ## [0.3.7] - 2026-10-27
 
 - Added an MCP server, so an AI assistant like Claude Code can use the app: deploy, run on a device, hot reload, run tests, switch workspaces, change the version, settings, colors and assets, check and fix the store setup, manage App Store In-App Events, and create Firebase and Sentry projects. Deploys, runs and tests show in the app exactly as if their button was pressed. See "AI control (MCP)" in the README.

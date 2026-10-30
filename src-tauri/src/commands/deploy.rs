@@ -1,3 +1,4 @@
+use crate::appstoreconnect::client;
 use crate::appstoreconnect::config::read_asc_config;
 use crate::deploy::registry::DeployRegistry;
 use crate::deploy::locales::{get_store_locales, APP_NOT_FOUND};
@@ -106,6 +107,20 @@ pub async fn deploy_start(
     let kind = setup::detect_kind(root).ok_or("No supported mobile project found")?;
     let lanes_only = kind != ProjectKind::Flutter;
     let (ios_dir, android_dir) = setup::platform_dirs(root, kind);
+
+    // Google Play's API doesn't expose its declarations or agreements, so only App Store
+    // Connect is checked here.
+    if platform == "ios" || platform == "all" {
+        let config = read_asc_config(&workspace_path);
+        let bundle_id = ios_dir.as_deref().and_then(setup::read_ios_bundle_id);
+        if let (Some(config), Some(bundle_id)) = (config, bundle_id) {
+            let blockers = client::deploy_blockers(&config, &bundle_id, track == "production").await;
+            if !blockers.is_empty() {
+                return Err(format!("Deploy stopped before the build:\n• {}", blockers.join("\n• ")));
+            }
+        }
+    }
+
     if lanes_only {
         if kind == ProjectKind::Expo {
             return Err("This Expo project has no ios/ and android/ folders yet. Open it again from the project selector to run expo prebuild.".to_string());

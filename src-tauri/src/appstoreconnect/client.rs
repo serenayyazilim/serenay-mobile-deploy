@@ -106,6 +106,94 @@ pub async fn list_apps(config: &AscConfig) -> Result<Vec<Value>, AscApiError> {
     Ok(data.and_then(|v| v.get("data").and_then(|d| d.as_array().cloned())).unwrap_or_default())
 }
 
+// ── Deploy preflight ──────────────────────────────────────────────
+
+// Age rating answers that may legitimately stay empty (not-a-kids-app, overrides, deprecated
+// questions). ponytail: denylist — a new optional field Apple adds would show up as missing.
+const OPTIONAL_AGE_RATING_FIELDS: &[&str] = &[
+    "kidsAgeBand",
+    "ageRatingOverride",
+    "ageRatingOverrideV2",
+    "koreaAgeRatingOverride",
+    "seventeenPlus",
+    "gamblingAndContests",
+    "developerAgeRatingInfoUrl",
+];
+
+/// Things in App Store Connect that make a deploy fail after the long build, so they're
+/// checked before it starts. Agreements also block TestFlight uploads; the rest only matter
+/// for an App Store submission. Errors other than a missing agreement are left to fastlane.
+pub async fn deploy_blockers(config: &AscConfig, bundle_id: &str, submission: bool) -> Vec<String> {
+    let app = match find_app_by_bundle_id(config, bundle_id).await {
+        Ok(Some(app)) => app,
+        Err(e) if e.status == 403 && e.message.to_lowercase().contains("agreement") => {
+            return vec![format!(
+                "App Store Connect has an agreement that isn't accepted or has expired — accept it under Business (or the account holder's home page) and deploy again ({})",
+                e.message
+            )];
+        }
+        _ => return vec![],
+    };
+    if !submission {
+        return vec![];
+    }
+    let app_id = app.get("id").and_then(|v| v.as_str()).unwrap_or("");
+    let mut blockers = Vec::new();
+
+    let busy = format!(
+        "/v1/apps/{app_id}/appStoreVersions?filter[platform]=IOS&filter[appVersionState]=WAITING_FOR_REVIEW,IN_REVIEW,PENDING_DEVELOPER_RELEASE&limit=1"
+    );
+    if let Ok(Some(v)) = asc_fetch(config, Method::GET, &busy, None).await {
+        if let Some(version) = v.get("data").and_then(|d| d.as_array()).and_then(|a| a.first()) {
+            let attrs = version.get("attributes").cloned().unwrap_or(Value::Null);
+            let name = attrs.get("versionString").and_then(|v| v.as_str()).unwrap_or("?");
+            let state = attrs.get("appVersionState").and_then(|v| v.as_str()).unwrap_or("?");
+            blockers.push(format!(
+                "Version {name} is still {state} on the App Store — a new version can't be submitted until it's released or removed from review"
+            ));
+        }
+    }
+
+    // The editable app info is the one not yet live; a live-only app has just one.
+    let infos = asc_fetch(config, Method::GET, &format!("/v1/apps/{app_id}/appInfos"), None).await;
+    let infos = infos.ok().flatten().and_then(|v| v.get("data").and_then(|d| d.as_array().cloned())).unwrap_or_default();
+    let info = infos
+        .iter()
+        .find(|i| {
+            let state = i.get("attributes").and_then(|a| a.get("state")).and_then(|v| v.as_str()).unwrap_or("");
+            !["READY_FOR_DISTRIBUTION", "REPLACED_WITH_NEW_INFO"].contains(&state)
+        })
+        .or(infos.first());
+    if let Some(info_id) = info.and_then(|i| i.get("id")).and_then(|v| v.as_str()) {
+        let path = format!("/v1/appInfos/{info_id}/ageRatingDeclaration");
+        if let Ok(Some(rating)) = asc_fetch(config, Method::GET, &path, None).await {
+            let missing = missing_age_rating_answers(&data_field(Some(rating)));
+            if !missing.is_empty() {
+                blockers.push(format!(
+                    "Age Ratings in App Store Connect are incomplete (unanswered: {}) — answer them under App Information → Age Rating",
+                    missing.join(", ")
+                ));
+            }
+        }
+    }
+
+    blockers
+}
+
+fn missing_age_rating_answers(declaration: &Value) -> Vec<String> {
+    declaration
+        .get("attributes")
+        .and_then(|a| a.as_object())
+        .map(|attrs| {
+            attrs
+                .iter()
+                .filter(|(key, value)| value.is_null() && !OPTIONAL_AGE_RATING_FIELDS.contains(&key.as_str()))
+                .map(|(key, _)| key.clone())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 // ── Territories ──────────────────────────────────────────────
 
 pub async fn list_territories(config: &AscConfig) -> Result<Vec<Value>, AscApiError> {
@@ -341,6 +429,22 @@ pub async fn submit_app_event_for_review(
     });
     let data = asc_fetch(config, Method::POST, "/v1/reviewSubmissionItems", Some(body)).await?;
     Ok(data_field(data))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lists_only_unanswered_required_age_rating_questions() {
+        let declaration = json!({ "attributes": {
+            "violenceRealistic": "NONE",
+            "gunsOrOtherWeapons": null,
+            "kidsAgeBand": null,
+            "ageRatingOverride": null,
+        }});
+        assert_eq!(missing_age_rating_answers(&declaration), vec!["gunsOrOtherWeapons"]);
+    }
 }
 
 fn urlencoding_encode(s: &str) -> String {
