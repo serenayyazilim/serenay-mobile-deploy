@@ -61,6 +61,7 @@ export function connectMcp() {
           project: deployState.activeProject?.appName ?? null,
           status: deployState.deployStatus,
           message: deployState.deployMessage,
+          warnings: deployState.deployWarnings,
           progress: deployState.deployProgress,
           elapsedSeconds: deployState.deployElapsed,
           waitingForTwoFactorCode: deployState.twoFactorOpen,

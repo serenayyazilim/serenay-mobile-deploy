@@ -108,21 +108,39 @@ pub async fn list_apps(config: &AscConfig) -> Result<Vec<Value>, AscApiError> {
 
 // ── Deploy preflight ──────────────────────────────────────────────
 
-// Age rating answers that may legitimately stay empty (not-a-kids-app, overrides, deprecated
-// questions). ponytail: denylist — a new optional field Apple adds would show up as missing.
-const OPTIONAL_AGE_RATING_FIELDS: &[&str] = &[
-    "kidsAgeBand",
-    "ageRatingOverride",
-    "ageRatingOverrideV2",
-    "koreaAgeRatingOverride",
-    "seventeenPlus",
-    "gamblingAndContests",
-    "developerAgeRatingInfoUrl",
+// The questions every app answers. The response also has fields that may stay empty for good
+// (overrides, Korea's GRAC number, deprecated questions), and Apple keeps adding more, so only
+// these count. ponytail: a new required question isn't caught here; fastlane fails on it after
+// the build. socialMediaAgeRestricted is left out: it only applies when socialMedia is true.
+const REQUIRED_AGE_RATING_FIELDS: &[&str] = &[
+    "advertising",
+    "ageAssurance",
+    "alcoholTobaccoOrDrugUseOrReferences",
+    "contests",
+    "gambling",
+    "gamblingSimulated",
+    "gunsOrOtherWeapons",
+    "healthOrWellnessTopics",
+    "horrorOrFearThemes",
+    "lootBox",
+    "matureOrSuggestiveThemes",
+    "medicalOrTreatmentInformation",
+    "messagingAndChat",
+    "parentalControls",
+    "profanityOrCrudeHumor",
+    "sexualContentGraphicAndNudity",
+    "sexualContentOrNudity",
+    "socialMedia",
+    "unrestrictedWebAccess",
+    "userGeneratedContent",
+    "violenceCartoonOrFantasy",
+    "violenceRealistic",
+    "violenceRealisticProlongedGraphicOrSadistic",
 ];
 
 /// Things in App Store Connect that make a deploy fail after the long build, so they're
-/// checked before it starts. Agreements also block TestFlight uploads; the rest only matter
-/// for an App Store submission. Errors other than a missing agreement are left to fastlane.
+/// checked before it starts. Agreements also block TestFlight uploads; a version still in
+/// review blocks the submission. Errors other than a missing agreement are left to fastlane.
 pub async fn deploy_blockers(config: &AscConfig, bundle_id: &str, submission: bool) -> Vec<String> {
     let app = match find_app_by_bundle_id(config, bundle_id).await {
         Ok(Some(app)) => app,
@@ -154,6 +172,15 @@ pub async fn deploy_blockers(config: &AscConfig, bundle_id: &str, submission: bo
         }
     }
 
+    blockers
+}
+
+/// Things worth knowing that don't stop a deploy. Unanswered Age Rating questions only fail
+/// the submission: the uploaded build stays and can be submitted from App Store Connect.
+pub async fn deploy_warnings(config: &AscConfig, bundle_id: &str) -> Vec<String> {
+    let Ok(Some(app)) = find_app_by_bundle_id(config, bundle_id).await else { return vec![] };
+    let app_id = app.get("id").and_then(|v| v.as_str()).unwrap_or("");
+
     // The editable app info is the one not yet live; a live-only app has just one.
     let infos = asc_fetch(config, Method::GET, &format!("/v1/apps/{app_id}/appInfos"), None).await;
     let infos = infos.ok().flatten().and_then(|v| v.get("data").and_then(|d| d.as_array().cloned())).unwrap_or_default();
@@ -164,20 +191,18 @@ pub async fn deploy_blockers(config: &AscConfig, bundle_id: &str, submission: bo
             !["READY_FOR_DISTRIBUTION", "REPLACED_WITH_NEW_INFO"].contains(&state)
         })
         .or(infos.first());
-    if let Some(info_id) = info.and_then(|i| i.get("id")).and_then(|v| v.as_str()) {
-        let path = format!("/v1/appInfos/{info_id}/ageRatingDeclaration");
-        if let Ok(Some(rating)) = asc_fetch(config, Method::GET, &path, None).await {
-            let missing = missing_age_rating_answers(&data_field(Some(rating)));
-            if !missing.is_empty() {
-                blockers.push(format!(
-                    "Age Ratings in App Store Connect are incomplete (unanswered: {}) — answer them under App Information → Age Rating",
-                    missing.join(", ")
-                ));
-            }
-        }
-    }
+    let Some(info_id) = info.and_then(|i| i.get("id")).and_then(|v| v.as_str()) else { return vec![] };
 
-    blockers
+    let path = format!("/v1/appInfos/{info_id}/ageRatingDeclaration");
+    let Ok(Some(rating)) = asc_fetch(config, Method::GET, &path, None).await else { return vec![] };
+    let missing = missing_age_rating_answers(&data_field(Some(rating)));
+    if missing.is_empty() {
+        return vec![];
+    }
+    vec![format!(
+        "Age Rating questions are unanswered ({}). The build still uploads, but submitting it for review may fail — answer them under App Information → Age Rating",
+        missing.join(", ")
+    )]
 }
 
 fn missing_age_rating_answers(declaration: &Value) -> Vec<String> {
@@ -187,7 +212,7 @@ fn missing_age_rating_answers(declaration: &Value) -> Vec<String> {
         .map(|attrs| {
             attrs
                 .iter()
-                .filter(|(key, value)| value.is_null() && !OPTIONAL_AGE_RATING_FIELDS.contains(&key.as_str()))
+                .filter(|(key, value)| value.is_null() && REQUIRED_AGE_RATING_FIELDS.contains(&key.as_str()))
                 .map(|(key, _)| key.clone())
                 .collect()
         })
@@ -442,8 +467,12 @@ mod tests {
             "gunsOrOtherWeapons": null,
             "kidsAgeBand": null,
             "ageRatingOverride": null,
+            "gracRatingClassificationNumber": null,
+            "socialMediaAgeRestricted": null,
+            "someFutureOptionalField": null,
+            "socialMedia": null,
         }});
-        assert_eq!(missing_age_rating_answers(&declaration), vec!["gunsOrOtherWeapons"]);
+        assert_eq!(missing_age_rating_answers(&declaration), vec!["gunsOrOtherWeapons", "socialMedia"]);
     }
 }
 

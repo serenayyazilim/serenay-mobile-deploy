@@ -1,6 +1,10 @@
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 use std::time::Duration;
+
+/// `deploy_start`'s error starts with this, followed by the failed locales, until the
+/// caller agrees to ship those languages with the text as written.
+pub const TRANSLATION_FAILED: &str = "TRANSLATION_FAILED";
 
 const LOCALE_TO_LANG: &[(&str, &str)] = &[
     ("tr", "tr"), ("tr-TR", "tr"),
@@ -17,52 +21,46 @@ fn locale_to_lang(locale: &str) -> String {
     LOCALE_TO_LANG.iter().find(|(l, _)| *l == locale).map(|(_, lang)| lang.to_string()).unwrap_or_else(|| locale.to_string())
 }
 
-async fn translate_text(text: &str, target_lang: &str) -> String {
+async fn translate_text(text: &str, target_lang: &str) -> Option<String> {
     let url = format!(
         "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl={}&dt=t&q={}",
         target_lang,
         urlencoding(text)
     );
 
-    let client = match reqwest::Client::builder().timeout(Duration::from_secs(8)).build() {
-        Ok(c) => c,
-        Err(_) => return text.to_string(),
-    };
-
-    let Ok(res) = client.get(&url).send().await else { return text.to_string() };
-    if !res.status().is_success() {
-        return text.to_string();
-    }
-    let Ok(data) = res.json::<Value>().await else { return text.to_string() };
-
-    data.get(0)
-        .and_then(|v| v.as_array())
-        .map(|segments| {
-            segments
-                .iter()
-                .filter_map(|s| s.get(0).and_then(|t| t.as_str()))
-                .collect::<Vec<_>>()
-                .join("")
-        })
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| text.to_string())
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(8)).build().ok()?;
+    let res = client.get(&url).send().await.ok()?.error_for_status().ok()?;
+    parse_translation(&res.json::<Value>().await.ok()?)
 }
 
-pub async fn build_translations(text: &str, ios: &[String], android: &[String]) -> HashMap<String, String> {
-    let all_locales: HashSet<String> = ios.iter().chain(android.iter()).cloned().collect();
-    let mut lang_to_translation: HashMap<String, String> = HashMap::new();
-    let mut translations = HashMap::new();
+fn parse_translation(data: &Value) -> Option<String> {
+    let segments = data.get(0)?.as_array()?;
+    let text: String = segments.iter().filter_map(|s| s.get(0)?.as_str()).collect();
+    (!text.is_empty()).then_some(text)
+}
 
-    for locale in &all_locales {
+/// Returns the translations by locale, and the locales that couldn't be translated.
+pub async fn build_translations(text: &str, ios: &[String], android: &[String]) -> (HashMap<String, String>, Vec<String>) {
+    let all_locales: BTreeSet<&String> = ios.iter().chain(android).collect();
+    let mut by_lang: HashMap<String, Option<String>> = HashMap::new();
+    let mut translations = HashMap::new();
+    let mut failed = Vec::new();
+
+    for locale in all_locales {
         let lang = locale_to_lang(locale);
-        if !lang_to_translation.contains_key(&lang) {
+        if !by_lang.contains_key(&lang) {
             let translated = translate_text(text, &lang).await;
-            lang_to_translation.insert(lang.clone(), translated);
+            by_lang.insert(lang.clone(), translated);
         }
-        translations.insert(locale.clone(), lang_to_translation[&lang].clone());
+        match &by_lang[&lang] {
+            Some(translated) => {
+                translations.insert(locale.clone(), translated.clone());
+            }
+            None => failed.push(locale.clone()),
+        }
     }
 
-    translations
+    (translations, failed)
 }
 
 fn urlencoding(s: &str) -> String {
@@ -74,4 +72,18 @@ fn urlencoding(s: &str) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_translation;
+    use serde_json::json;
+
+    #[test]
+    fn joins_segments_and_rejects_unusable_responses() {
+        let ok = json!([[["Hello. ", "Merhaba. "], ["World", "Dünya"]], null, "tr"]);
+        assert_eq!(parse_translation(&ok).as_deref(), Some("Hello. World"));
+        assert_eq!(parse_translation(&json!([[], null, "tr"])), None);
+        assert_eq!(parse_translation(&json!({ "error": "nope" })), None);
+    }
 }

@@ -3,7 +3,7 @@ use crate::appstoreconnect::config::read_asc_config;
 use crate::deploy::registry::DeployRegistry;
 use crate::deploy::locales::{get_store_locales, APP_NOT_FOUND};
 use crate::setup::{self, ProjectKind};
-use crate::deploy::{find_script_path, is_two_factor_prompt, translate::build_translations};
+use crate::deploy::{find_script_path, is_two_factor_prompt, translate::{build_translations, TRANSLATION_FAILED}};
 use crate::workspace::sermobileboss_config::min_version;
 use serde_json::json;
 use std::path::Path;
@@ -52,7 +52,7 @@ pub(crate) async fn stream_lines<R: tokio::io::AsyncRead + Unpin>(stream: R, app
     }
 }
 
-/// Equivalent of `POST /api/deploy` (SSE). The command returns a `processId` immediately;
+/// Equivalent of `POST /api/deploy` (SSE). The command returns a `processId` and any warnings immediately;
 /// deploy progress is published via the `deploy-event-{processId}` event.
 #[tauri::command]
 pub async fn deploy_start(
@@ -63,7 +63,8 @@ pub async fn deploy_start(
     whats_new: Option<String>,
     bump_version: Option<bool>,
     track: Option<String>,
-) -> Result<String, String> {
+    allow_untranslated: Option<bool>,
+) -> Result<serde_json::Value, String> {
     if !["ios", "android", "huawei", "all"].contains(&platform.as_str()) {
         return Err("Invalid platform. Must be ios, android, huawei or all".to_string());
     }
@@ -100,7 +101,16 @@ pub async fn deploy_start(
     } else {
         (vec![], vec![])
     };
-    let translations = build_translations(&whats_new_text, &ios_locales, &android_locales).await;
+    // Only the store being deployed to matters: another store's language failing shouldn't
+    // stop this deploy.
+    let (translated_ios, translated_android): (&[String], &[String]) = (
+        if platform == "android" { &[] } else { &ios_locales },
+        if platform == "ios" { &[] } else { &android_locales },
+    );
+    let (translations, failed) = build_translations(&whats_new_text, translated_ios, translated_android).await;
+    if !failed.is_empty() && !allow_untranslated.unwrap_or(false) {
+        return Err(format!("{TRANSLATION_FAILED}:{}", failed.join(",")));
+    }
 
     // Non-Flutter projects keep their version in the native projects and their Fastfile
     // lanes build the app themselves, so deploy.rb only runs the lanes for them.
@@ -111,6 +121,7 @@ pub async fn deploy_start(
 
     // Google Play's API doesn't expose its declarations or agreements, so only App Store
     // Connect is checked here.
+    let mut warnings = Vec::new();
     if platform == "ios" || platform == "all" {
         let config = read_asc_config(&workspace_path);
         let bundle_id = ios_dir.as_deref().and_then(setup::read_ios_bundle_id);
@@ -118,6 +129,9 @@ pub async fn deploy_start(
             let blockers = client::deploy_blockers(&config, &bundle_id, track == "production").await;
             if !blockers.is_empty() {
                 return Err(format!("Deploy stopped before the build:\n• {}", blockers.join("\n• ")));
+            }
+            if track == "production" {
+                warnings = client::deploy_warnings(&config, &bundle_id).await;
             }
         }
     }
@@ -208,7 +222,7 @@ pub async fn deploy_start(
 
     let _ = app.emit(&event_name, json!({ "type": "started", "processId": process_id }));
 
-    Ok(process_id)
+    Ok(json!({ "processId": process_id, "warnings": warnings }))
 }
 
 /// Equivalent of `POST /api/deploy/input` — writes the 2FA code to the running process's stdin.

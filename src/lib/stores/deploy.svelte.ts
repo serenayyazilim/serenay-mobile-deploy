@@ -33,6 +33,7 @@ class DeployState {
   deployProgress = $state(0);
   deployElapsed = $state(0);
   deployLogs = $state<string[]>([]);
+  deployWarnings = $state<string[]>([]);
   logsDialogOpen = $state(false);
   activeProject = $state<WorkspaceProject | null>(null);
 
@@ -132,6 +133,7 @@ class DeployState {
     this.activeProject = project;
     this.deployProgress = 0;
     this.deployLogs = [];
+    this.deployWarnings = [];
     this.logsDialogOpen = false;
     this.startElapsedTimer();
 
@@ -149,7 +151,26 @@ class DeployState {
       this.deployMessage = t("deploy.starting");
       this.deployProgress = 30;
 
-      const processId = await invoke<string>("deploy_start", { platform, workspacePath, whatsNew, bumpVersion, track });
+      const start = (allowUntranslated: boolean) => invoke<{ processId: string; warnings: string[] }>("deploy_start", { platform, workspacePath, whatsNew, bumpVersion, track, allowUntranslated });
+      let started: { processId: string; warnings: string[] };
+      try {
+        started = await start(false);
+      } catch (error) {
+        const locales = /TRANSLATION_FAILED:(\S+)/.exec(String(error))?.[1];
+        if (!locales) throw error;
+        // Also shown in the MCP status, since the question can only be answered in the app.
+        this.deployMessage = t("deploy.translationFailedTitle");
+        const proceed = await confirmState.ask(this.deployMessage, t("deploy.translationFailedDescription", { locales: locales.replaceAll(",", ", ") }));
+        if (!proceed) {
+          this.resetDeploy();
+          return;
+        }
+        this.deployMessage = t("deploy.starting");
+        started = await start(true);
+      }
+      const { processId, warnings } = started;
+      this.deployWarnings = warnings;
+      this.deployLogs.push(...warnings.map((w) => `⚠️ ${w}`));
 
       await new Promise<void>((resolve, reject) => {
         listen<DeployEvent>(`deploy-event-${processId}`, async (event) => {
@@ -234,6 +255,7 @@ class DeployState {
     this.deployProgress = 0;
     this.deployElapsed = 0;
     this.deployLogs = [];
+    this.deployWarnings = [];
     this.logsDialogOpen = false;
     this.activeProject = null;
     this.stopElapsedTimer();

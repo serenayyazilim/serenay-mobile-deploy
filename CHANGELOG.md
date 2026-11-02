@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.10] - 2026-11-02
+
+- A production deploy no longer publishes untranslated release notes without telling you: if a language can't be translated, the deploy asks before the build starts, listing those languages. Continue tries the translation once more and sends your text as written for the languages that still fail; Cancel stops the deploy.
+- Unanswered Age Rating questions no longer stop an iOS deploy before the build. The deploy carries on and shows a warning on the project card and in its logs: the build still uploads, and if the submission fails you can answer the questions and submit it from App Store Connect. Fields that aren't required, like the Korean GRAC number, no longer count as unanswered.
+
 ## [0.3.9] - 2026-10-30
 
 - serMobilePro workspaces skip old versions again: an app below the minimum version (19.0.0 by default) jumps to it on its next deploy with a version bump. Change it or leave it empty to turn it off in Settings > Workspace Settings.

@@ -139,6 +139,10 @@
         {/if}
       </p>
 
+      {#each deployState.deployWarnings as warning}
+        <p class="text-[10px] text-amber-600 dark:text-amber-500">⚠️ {warning}</p>
+      {/each}
+
       {#if deployState.deployLogs.length > 0}
         <button
           onclick={(e) => { e.stopPropagation(); deployState.openLogsDialog(); }}

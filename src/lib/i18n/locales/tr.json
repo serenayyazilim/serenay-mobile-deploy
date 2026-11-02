@@ -318,6 +318,8 @@
   "deploy.errorTitle": "Deploy Hatası - {name}",
   "deploy.splashWarningTitle": "Splash görseli bulunamadı",
   "deploy.splashWarningDescription": "\"{name}\" projesi için splash.json ya da Launch klasöründe geçerli bir görsel bulunamadı. Deploy sırasında splash ekranı güncellenmeyecek (mevcut haliyle kalacak). Devam etmek istiyor musunuz?",
+  "deploy.translationFailedTitle": "Sürüm notları çevrilemedi",
+  "deploy.translationFailedDescription": "Şu mağaza dilleri çevrilemedi: {locales}. Devam edersen bu dillerde sürüm notları yazdığın haliyle yayınlanır. Devam etmek istiyor musun?",
 
   "workspaceSelector.subtitle": "Mobil projenizi seçerek başlayın",
   "workspaceSelector.projectFolder": "Proje Klasörü",

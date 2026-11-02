@@ -318,6 +318,8 @@
   "deploy.errorTitle": "Deploy Error - {name}",
   "deploy.splashWarningTitle": "Splash image not found",
   "deploy.splashWarningDescription": "No valid image was found in splash.json or the Launch folder for \"{name}\". The splash screen will not be updated during this deploy (it stays as-is). Do you want to continue?",
+  "deploy.translationFailedTitle": "Release notes couldn't be translated",
+  "deploy.translationFailedDescription": "These store languages couldn't be translated: {locales}. If you continue, they get the release notes exactly as you wrote them. Do you want to continue?",
 
   "workspaceSelector.subtitle": "Select your mobile project to get started",
   "workspaceSelector.projectFolder": "Project Folder",
