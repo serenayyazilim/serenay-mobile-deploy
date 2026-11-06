@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.11] - 2026-11-06
+
+- The MCP server can now be used from other devices on the same network. Requests from them need the token in `~/Library/Application Support/com.serenaymobiledeploy.app/mcp-token` (made on first start) as `Authorization: Bearer <token>`; this Mac still needs none. See the README for the `claude mcp add` command.
+
 ## [0.3.10] - 2026-11-02
 
 - A production deploy no longer publishes untranslated release notes without telling you: if a language can't be translated, the deploy asks before the build starts, listing those languages. Continue tries the translation once more and sends your text as written for the languages that still fail; Cancel stops the deploy.

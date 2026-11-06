@@ -1,4 +1,4 @@
-//! A loopback-only MCP server (streamable HTTP, JSON responses) so an AI assistant can use the
+//! An MCP server (streamable HTTP, JSON responses) so an AI assistant can use the
 //! app: deploy, run and test apps, change versions and settings, check store setup, manage App
 //! Store events and more. Jobs with a screen of their own (deploy, run, tests, switching the
 //! workspace) are handed to the frontend and run exactly as if their button was pressed; the
@@ -25,20 +25,37 @@ pub fn mcp_status_set(status: Value) {
     *STATUS.lock().unwrap() = status;
 }
 
+/// The bearer token other devices on the network must send, made once and kept in
+/// `~/Library/Application Support/com.serenaymobiledeploy.app/mcp-token`. This Mac needs none.
+fn lan_token() -> Option<String> {
+    let path = dirs::config_dir()?.join("com.serenaymobiledeploy.app").join("mcp-token");
+    if let Ok(token) = std::fs::read_to_string(&path) {
+        return Some(token.trim().to_string()).filter(|t| !t.is_empty());
+    }
+    let token = format!("{}{}", uuid::Uuid::new_v4().simple(), uuid::Uuid::new_v4().simple());
+    std::fs::create_dir_all(path.parent()?).ok()?;
+    std::fs::write(&path, &token).ok()?;
+    Some(token)
+}
+
 pub fn start(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
-        let listener = match TcpListener::bind(("127.0.0.1", PORT)).await {
+        // Without a token, stay on this Mac only.
+        let token = lan_token();
+        let host = if token.is_some() { "0.0.0.0" } else { "127.0.0.1" };
+        let listener = match TcpListener::bind((host, PORT)).await {
             Ok(l) => l,
             Err(e) => return eprintln!("MCP server could not listen on {PORT}: {e}"),
         };
-        while let Ok((stream, _)) = listener.accept().await {
-            tokio::spawn(serve(stream, app.clone()));
+        while let Ok((stream, peer)) = listener.accept().await {
+            let needed = if peer.ip().is_loopback() { None } else { token.clone() };
+            tokio::spawn(serve(stream, app.clone(), needed));
         }
     });
 }
 
-async fn serve(mut stream: TcpStream, app: AppHandle) {
-    let (status, body) = match read_request(&mut stream).await {
+async fn serve(mut stream: TcpStream, app: AppHandle, token: Option<String>) {
+    let (status, body) = match read_request(&mut stream, token.as_deref()).await {
         Ok(body) => match serde_json::from_slice::<Value>(&body) {
             Ok(message) => match handle(&app, &message).await {
                 Some(response) => ("200 OK", response.to_string()),
@@ -57,8 +74,9 @@ async fn serve(mut stream: TcpStream, app: AppHandle) {
 
 /// Returns the body of a `POST` with a JSON content type and no `Origin`. Both checks keep web
 /// pages out: a browser always sends `Origin` on such a request, and a JSON content type would
-/// need a CORS preflight this server never answers.
-async fn read_request(stream: &mut TcpStream) -> Result<Vec<u8>, &'static str> {
+/// need a CORS preflight this server never answers. With a `token`, it must also come as
+/// `Authorization: Bearer <token>`.
+async fn read_request(stream: &mut TcpStream, token: Option<&str>) -> Result<Vec<u8>, &'static str> {
     let mut buf = Vec::new();
     let mut chunk = [0u8; 8192];
     let header_end = loop {
@@ -82,6 +100,11 @@ async fn read_request(stream: &mut TcpStream) -> Result<Vec<u8>, &'static str> {
     let header = |name: &str| head.lines().find_map(|l| l.strip_prefix(name).map(|v| v.trim().to_string()));
     if header("origin:").is_some() {
         return Err("403 Forbidden");
+    }
+    if let Some(token) = token {
+        if header("authorization:").as_deref() != Some(&format!("bearer {}", token.to_lowercase())) {
+            return Err("401 Unauthorized");
+        }
     }
     if !header("content-type:").is_some_and(|t| t.starts_with("application/json")) {
         return Err("415 Unsupported Media Type");
@@ -446,11 +469,15 @@ mod tests {
     use super::*;
 
     async fn send(raw: &str) -> Result<Vec<u8>, &'static str> {
+        send_with(raw, None).await
+    }
+
+    async fn send_with(raw: &str, token: Option<&str>) -> Result<Vec<u8>, &'static str> {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let mut client = TcpStream::connect(listener.local_addr().unwrap()).await.unwrap();
         client.write_all(raw.as_bytes()).await.unwrap();
         let (mut server, _) = listener.accept().await.unwrap();
-        read_request(&mut server).await
+        read_request(&mut server, token).await
     }
 
     #[tokio::test]
@@ -461,6 +488,9 @@ mod tests {
         assert_eq!(send(&post("Origin: https://evil.example\r\n", "application/json")).await, Err("403 Forbidden"));
         assert_eq!(send(&post("", "text/plain")).await, Err("415 Unsupported Media Type"));
         assert_eq!(send("GET /mcp HTTP/1.1\r\n\r\n").await, Err("405 Method Not Allowed"));
+        assert_eq!(send_with(&post("", "application/json"), Some("abc")).await, Err("401 Unauthorized"));
+        assert_eq!(send_with(&post("Authorization: Bearer xyz\r\n", "application/json"), Some("abc")).await, Err("401 Unauthorized"));
+        assert_eq!(send_with(&post("Authorization: Bearer abc\r\n", "application/json"), Some("abc")).await.unwrap(), body.as_bytes());
     }
 
     #[test]

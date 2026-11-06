@@ -102,7 +102,7 @@ The following integrations are optional and enabled via environment variables in
 
 ## AI control (MCP)
 
-While the app is open with a workspace, it serves an MCP server on `http://127.0.0.1:47321/mcp` (this Mac only). Add it to Claude Code once:
+While the app is open with a workspace, it serves an MCP server on `http://127.0.0.1:47321/mcp` (other devices on the network need a token, see below). Add it to Claude Code once:
 
 ```sh
 claude mcp add --transport http --scope user serenay-deploy http://127.0.0.1:47321/mcp
@@ -118,6 +118,12 @@ Then ask in plain words, e.g. *"deploy sellerapp to TestFlight with the notes: l
 | Store setup | `setup_readiness`, `setup_apply`, `complete_fastlane`, `set_team_id`, `set_play_key`, `store_check`, `store_locales`, `build_aab` |
 | App Store Connect | `asc_status`, `asc_apps`, `asc_territories`, `asc_events_list`, `asc_event_get`/`create`/`update`/`delete`/`submit`, `asc_localization_create`/`update`/`delete`, `asc_screenshots`, `asc_screenshot_upload`/`delete` |
 | Integrations | `firebase_accounts`, `firebase_create_project`, `sentry_check`, `sentry_create_project`, `slack_test` |
+
+**From another device on the same network:** the server also listens on the local network, but only answers there with the token in `~/Library/Application Support/com.serenaymobiledeploy.app/mcp-token` (made on first start; delete it and restart the app to change it). On the other device, with this Mac's IP (`ipconfig getifaddr en0`):
+
+```sh
+claude mcp add --transport http serenay-deploy http://<mac-ip>:47321/mcp --header "Authorization: Bearer <token>"
+```
 
 Deploys, runs and tests show in the app as usual (a 2FA code, if asked, is entered there); `status` follows them. Keys and webhooks are only set in the app, never through MCP.
 
