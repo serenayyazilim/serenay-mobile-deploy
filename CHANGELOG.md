@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.12] - 2026-11-06
+
+- The MCP server has a new `logs` tool: every log line of the deploy, the app run or the tests, not just the last 30, so an AI assistant can find why a deploy failed. It keeps the last failed deploy's logs after the app clears them, can show only matching lines (e.g. `error|failed`) or the last N, and can read log files under `~/Library/Logs`, such as the gym log with the full xcodebuild output of a failed iOS build.
+
 ## [0.3.11] - 2026-11-06
 
 - The MCP server can now be used from other devices on the same network. Requests from them need the token in `~/Library/Application Support/com.serenaymobiledeploy.app/mcp-token` (made on first start) as `Authorization: Bearer <token>`; this Mac still needs none. See the README for the `claude mcp add` command.
