@@ -3,6 +3,7 @@ pub mod config;
 pub mod deploy;
 pub mod firebase;
 pub mod flutter;
+pub mod git;
 pub mod project;
 pub mod projects;
 pub mod sentry;

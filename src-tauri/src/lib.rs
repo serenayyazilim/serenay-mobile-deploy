@@ -131,6 +131,8 @@ pub fn run() {
             slack_config_save,
             slack_config_delete,
             slack_test,
+            commands::git::git_status,
+            commands::git::git_switch,
             mcp::mcp_status_set,
             mcp::mcp_logs_reply,
         ])

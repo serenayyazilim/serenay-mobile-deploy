@@ -5,7 +5,7 @@
 //! frontend reports its state back through `mcp_status_set`, which is also where the open
 //! workspace comes from. Everything else calls the Tauri commands directly.
 
-use crate::commands::{appstoreconnect as asc, config, firebase, flutter, project, projects, sentry, setup, slack, store_locales, workspace};
+use crate::commands::{appstoreconnect as asc, config, firebase, flutter, git, project, projects, sentry, setup, slack, store_locales, workspace};
 use crate::workspace::types::WorkspaceProject;
 use serde::Serialize;
 use serde_json::{json, Map, Value};
@@ -184,6 +184,8 @@ const TOOLS: &[(&str, &str, &[Param])] = &[
     ]),
     ("list_workspaces", "Workspaces opened before in the app, which open_workspace can switch to.", &[]),
     ("open_workspace", "Switches the app to a workspace opened before (see list_workspaces).", &[("path", "string", true, "Workspace folder")]),
+    ("git_status", "The workspace's git branch, its branches (local and remote), how many files have uncommitted changes, and commits ahead of / behind the remote as of the last fetch.", &[]),
+    ("git_switch", "Switches the workspace to a branch with its latest commits: fetches, puts uncommitted changes aside in a git stash (the app's project setup changes many files; git stash pop brings them back), switches, pulls (fast-forward only) and runs flutter pub get. pod install runs on the next deploy. Takes up to a few minutes.", &[("branch", "string", true, "Branch name, e.g. main or develop")]),
     ("list_projects", "Projects in the open workspace with their bundle ids and versions (x.y.z+build).", &[]),
 
     // Deploy, run, test (shown in the app)
@@ -406,6 +408,14 @@ async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, S
                 .map(|p| json!({ "id": p.id, "appName": p.app_name, "bundleId": p.bundle_id, "kind": p.kind, "version": versions.get(&p.id) }))
                 .collect();
             Ok(json!({ "workspace": ws, "projects": list }))
+        }
+
+        "git_status" => out(git::git_status(ws).await?),
+        "git_switch" => {
+            if running(&status, "deploy") || running(&status, "run") || running(&status, "tests") {
+                return Err("A deploy, run or test is going on; switch branches when it's done.".to_string());
+            }
+            out(git::git_switch(app.clone(), ws, required(args, "branch")?).await?)
         }
 
         "deploy" => {

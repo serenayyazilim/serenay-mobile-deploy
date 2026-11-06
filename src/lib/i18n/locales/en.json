@@ -444,5 +444,12 @@
   "firstRelease.openAppStore": "Open App Store Connect",
   "firstRelease.openPlayConsole": "Open Play Console",
   "firstRelease.buildAab": "Build .aab",
-  "firstRelease.buildingAab": "Building..."
+  "firstRelease.buildingAab": "Building...",
+
+  "git.branch": "Git branch",
+  "git.busy": "Switch branches when the deploy or run is done",
+  "git.switchTitle": "Switch to {branch}?",
+  "git.switchDescription": "Gets the latest commits of the branch and its packages (flutter pub get). This may take a few minutes.",
+  "git.switchWithChanges": "{count} files have uncommitted changes (the project setup changes many). They are put aside in a git stash, not deleted: git stash pop brings them back. Then the branch's latest commits and packages are fetched; this may take a few minutes.",
+  "git.behind": "{count} commits behind the remote"
 }

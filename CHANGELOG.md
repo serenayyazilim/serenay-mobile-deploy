@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.13] - 2026-11-06
+
+- The sidebar shows the workspace's git branch under its name and switches it: pick a branch and the app fetches, puts uncommitted changes aside in a git stash (they aren't deleted; `git stash pop` brings them back), switches, pulls the latest commits and runs `flutter pub get`. It shows how many commits the branch is behind, and waits while a deploy or run is going on.
+- The MCP server can do the same with the new `git_status` and `git_switch` tools, e.g. "switch sermobilepro to main and update it".
+
 ## [0.3.12] - 2026-11-06
 
 - The MCP server has a new `logs` tool: every log line of the deploy, the app run or the tests, not just the last 30, so an AI assistant can find why a deploy failed. It keeps the last failed deploy's logs after the app clears them, can show only matching lines (e.g. `error|failed`) or the last N, and can read log files under `~/Library/Logs`, such as the gym log with the full xcodebuild output of a failed iOS build.

@@ -444,5 +444,12 @@
   "firstRelease.openAppStore": "App Store Connect'i aç",
   "firstRelease.openPlayConsole": "Play Console'u aç",
   "firstRelease.buildAab": ".aab oluştur",
-  "firstRelease.buildingAab": "Oluşturuluyor..."
+  "firstRelease.buildingAab": "Oluşturuluyor...",
+
+  "git.branch": "Git branch",
+  "git.busy": "Deploy veya çalıştırma bitince branch değiştirin",
+  "git.switchTitle": "{branch} branch'ine geçilsin mi?",
+  "git.switchDescription": "Branch'in son commit'leri ve paketleri (flutter pub get) alınır. Birkaç dakika sürebilir.",
+  "git.switchWithChanges": "{count} dosyada commit edilmemiş değişiklik var (proje kurulumu birçok dosyayı değiştirir). Bunlar silinmez, git stash'e alınır: git stash pop ile geri gelir. Sonra branch'in son commit'leri ve paketleri alınır; birkaç dakika sürebilir.",
+  "git.behind": "Uzak depodan {count} commit geride"
 }

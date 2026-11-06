@@ -3,7 +3,13 @@
   import { getVersion } from "@tauri-apps/api/app";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { fly } from "svelte/transition";
-  import { FolderOpen, LogOut, Settings, CalendarClock, Home } from "@lucide/svelte";
+  import { FolderOpen, LogOut, Settings, CalendarClock, Home, GitBranch, LoaderCircle } from "@lucide/svelte";
+  import { invoke } from "@tauri-apps/api/core";
+  import { listen } from "@tauri-apps/api/event";
+  import { confirmState } from "$lib/stores/confirm.svelte";
+  import { projectsState } from "$lib/stores/projects.svelte";
+  import { deployState } from "$lib/stores/deploy.svelte";
+  import { buildState } from "$lib/stores/build.svelte";
   import FlutterIcon from "$lib/components/icons/flutter-icon.svelte";
   import GooglePlayIcon from "$lib/components/icons/google-play-icon.svelte";
   import AppStoreIcon from "$lib/components/icons/app-store-icon.svelte";
@@ -30,6 +36,62 @@
   const workspaceName = $derived(workspaceState.path?.split("/").filter(Boolean).pop() ?? "");
 
   let showSettings = $state(false);
+
+  // The workspace's git branch; hidden when the workspace isn't a git repository.
+  type GitStatus = { branch: string; branches: string[]; changed: number; ahead: number; behind: number };
+  let git = $state<GitStatus | null>(null);
+  let switching = $state(false);
+  let gitMessage = $state("");
+  let gitError = $state(false);
+
+  async function loadGit() {
+    const path = workspaceState.path;
+    git = path ? await invoke<GitStatus>("git_status", { workspacePath: path }).catch(() => null) : null;
+  }
+
+  $effect(() => {
+    workspaceState.path;
+    gitMessage = "";
+    loadGit();
+  });
+
+  // Also after a switch made through MCP.
+  $effect(() => {
+    const unlisten = listen("git-switched", () => {
+      loadGit();
+      if (workspaceState.path) projectsState.load(workspaceState.path);
+    });
+    return () => unlisten.then((fn) => fn());
+  });
+
+  async function switchBranch(event: Event & { currentTarget: HTMLSelectElement }) {
+    const select = event.currentTarget;
+    const branch = select.value;
+    const path = workspaceState.path;
+    if (!git || !path) return;
+    const ok = await confirmState.ask(
+      t("git.switchTitle", { branch }),
+      git.changed > 0 ? t("git.switchWithChanges", { count: git.changed }) : t("git.switchDescription")
+    );
+    if (!ok) {
+      select.value = git.branch;
+      return;
+    }
+    switching = true;
+    gitMessage = "";
+    try {
+      gitMessage = await invoke<string>("git_switch", { workspacePath: path, branch });
+      gitError = false;
+    } catch (error) {
+      gitMessage = String(error);
+      gitError = true;
+    } finally {
+      switching = false;
+      await loadGit();
+    }
+  }
+
+  const jobRunning = $derived(!!deployState.deployingProjectId || !!buildState.buildingProjectId);
 
   const promoLinkClass =
     "pressable w-full flex items-center gap-2.5 px-3 py-2 rounded-full text-sm font-medium text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.35)] hover:brightness-110";
@@ -104,6 +166,32 @@
       <FolderOpen class="w-4 h-4 shrink-0" />
       <span class="truncate">{workspaceName}</span>
     </div>
+    {#if git}
+      <div class="flex items-center gap-2 px-3 py-1 text-sm text-muted-foreground" title={jobRunning ? t("git.busy") : t("git.branch")}>
+        {#if switching}
+          <LoaderCircle class="w-4 h-4 shrink-0 animate-spin" />
+        {:else}
+          <GitBranch class="w-4 h-4 shrink-0" />
+        {/if}
+        <select
+          aria-label={t("git.branch")}
+          class="min-w-0 flex-1 truncate bg-transparent rounded-md py-0.5 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+          value={git.branch}
+          disabled={switching || jobRunning}
+          onchange={switchBranch}
+        >
+          {#each git.branches as branch (branch)}
+            <option value={branch}>{branch}</option>
+          {/each}
+        </select>
+        {#if git.behind > 0}
+          <span class="text-xs shrink-0" title={t("git.behind", { count: git.behind })}>↓{git.behind}</span>
+        {/if}
+      </div>
+      {#if gitMessage}
+        <p class="px-3 text-xs break-words {gitError ? 'text-destructive' : 'text-muted-foreground'}">{gitMessage}</p>
+      {/if}
+    {/if}
     <button
       data-tour="tour-settings"
       onclick={() => (showSettings = true)}
