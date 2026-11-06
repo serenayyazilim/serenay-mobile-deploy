@@ -132,6 +132,7 @@ pub fn run() {
             slack_config_delete,
             slack_test,
             mcp::mcp_status_set,
+            mcp::mcp_logs_reply,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -18,6 +18,7 @@ pub const PORT: u16 = 47321;
 const MAX_REQUEST: usize = 1 << 20;
 
 static STATUS: Mutex<Value> = Mutex::new(Value::Null);
+static LOGS_REPLY: Mutex<Option<tokio::sync::oneshot::Sender<Value>>> = Mutex::new(None);
 
 /// The frontend's open workspace and the state of its deploy, run and test jobs, pushed on every change.
 #[tauri::command]
@@ -36,6 +37,14 @@ fn lan_token() -> Option<String> {
     std::fs::create_dir_all(path.parent()?).ok()?;
     std::fs::write(&path, &token).ok()?;
     Some(token)
+}
+
+/// The frontend's answer to `mcp-logs-request`: every log line of the deploy, run and tests.
+#[tauri::command]
+pub fn mcp_logs_reply(logs: Value) {
+    if let Some(reply) = LOGS_REPLY.lock().unwrap().take() {
+        let _ = reply.send(logs);
+    }
 }
 
 pub fn start(app: AppHandle) {
@@ -167,6 +176,12 @@ const PROJECT: Param = ("project", "string", false, "Project id or app name from
 const TOOLS: &[(&str, &str, &[Param])] = &[
     // Workspace
     ("status", "The open workspace and the state of the deploy, the app run and the tests: status, progress, message, latest log lines, test results, and whether a 2FA code is awaited.", &[]),
+    ("logs", "Every log line of the deploy, the app run or the tests (the last failed one's, once the app has cleared them), to find out why something failed. Lines are numbered; without contains or tail, the last 500 come back. With path it reads a log file under ~/Library/Logs instead, such as the gym log fastlane names when an iOS build fails, which holds the full xcodebuild output.", &[
+        ("job", "string", false, "deploy (default), run or tests"),
+        ("contains", "string", false, "Keep only lines containing this, ignoring case; separate alternatives with |, e.g. error|failed|warning"),
+        ("tail", "integer", false, "Keep only the last this many lines (after contains)"),
+        ("path", "string", false, "A log file under ~/Library/Logs to read instead of the app's logs"),
+    ]),
     ("list_workspaces", "Workspaces opened before in the app, which open_workspace can switch to.", &[]),
     ("open_workspace", "Switches the app to a workspace opened before (see list_workspaces).", &[("path", "string", true, "Workspace folder")]),
     ("list_projects", "Projects in the open workspace with their bundle ids and versions (x.y.z+build).", &[]),
@@ -297,6 +312,51 @@ fn merged<V: Clone + serde::de::DeserializeOwned>(mut current: std::collections:
     Ok(current)
 }
 
+async fn logs(app: &AppHandle, args: &Value) -> Result<String, String> {
+    let lines: Vec<String> = if let Some(path) = text(args, "path") {
+        let base = dirs::home_dir().ok_or("No home folder")?.join("Library/Logs");
+        let path = std::fs::canonicalize(&path).map_err(|e| format!("{path}: {e}"))?;
+        if !path.starts_with(std::fs::canonicalize(&base).unwrap_or(base)) {
+            return Err("Only files under ~/Library/Logs can be read".to_string());
+        }
+        let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+        String::from_utf8_lossy(&bytes).lines().map(str::to_string).collect()
+    } else {
+        let job = text(args, "job").unwrap_or_else(|| "deploy".to_string());
+        let (reply, answer) = tokio::sync::oneshot::channel();
+        *LOGS_REPLY.lock().unwrap() = Some(reply);
+        app.emit("mcp-logs-request", ()).map_err(|e| e.to_string())?;
+        let all = tokio::time::timeout(std::time::Duration::from_secs(5), answer)
+            .await
+            .map_err(|_| "The app did not answer; open a workspace in it.".to_string())?
+            .map_err(|_| "The app did not answer.".to_string())?;
+        let lines = all.get(&job).and_then(Value::as_array).ok_or(format!("Unknown job \"{job}\"; use deploy, run or tests."))?;
+        lines.iter().filter_map(Value::as_str).map(str::to_string).collect()
+    };
+    let tail = args.get("tail").and_then(Value::as_u64).map(|n| n as usize);
+    Ok(pick_lines(&lines, text(args, "contains").as_deref(), tail))
+}
+
+/// Numbers the lines, drops color codes, keeps those containing any of the `|`-separated
+/// `contains` alternatives, then the last `tail` (500 when neither is given).
+fn pick_lines(lines: &[String], contains: Option<&str>, tail: Option<usize>) -> String {
+    let ansi = regex::Regex::new(r"\x1b\[[0-9;]*[A-Za-z]").unwrap();
+    let wanted: Vec<String> = contains.map(|c| c.split('|').map(|w| w.trim().to_lowercase()).filter(|w| !w.is_empty()).collect()).unwrap_or_default();
+    let kept: Vec<String> = lines
+        .iter()
+        .enumerate()
+        .map(|(i, line)| (i + 1, ansi.replace_all(line, "")))
+        .filter(|(_, line)| wanted.is_empty() || wanted.iter().any(|w| line.to_lowercase().contains(w)))
+        .map(|(n, line)| format!("{n}: {line}"))
+        .collect();
+    let tail = tail.or(if wanted.is_empty() { Some(500) } else { None }).unwrap_or(kept.len());
+    let shown = &kept[kept.len().saturating_sub(tail)..];
+    if lines.is_empty() {
+        return "No log lines.".to_string();
+    }
+    format!("{} lines in all, {} matching, showing the last {}:\n{}", lines.len(), kept.len(), shown.len(), shown.join("\n"))
+}
+
 fn running(status: &Value, job: &str) -> bool {
     matches!(status.pointer(&format!("/{job}/status")).and_then(Value::as_str), Some("activating" | "deploying" | "running"))
 }
@@ -311,6 +371,7 @@ async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, S
     let status = STATUS.lock().unwrap().clone();
     match name {
         "status" => return Ok(status),
+        "logs" => return logs(app, args).await.map(Value::String),
         "list_workspaces" => return out(workspace::workspace_recent_get()),
         "open_workspace" => {
             let path = required(args, "path")?;
@@ -491,6 +552,14 @@ mod tests {
         assert_eq!(send_with(&post("", "application/json"), Some("abc")).await, Err("401 Unauthorized"));
         assert_eq!(send_with(&post("Authorization: Bearer xyz\r\n", "application/json"), Some("abc")).await, Err("401 Unauthorized"));
         assert_eq!(send_with(&post("Authorization: Bearer abc\r\n", "application/json"), Some("abc")).await.unwrap(), body.as_bytes());
+    }
+
+    #[test]
+    fn picks_numbered_matching_lines_without_colors() {
+        let lines: Vec<String> = ["ok", "\x1b[35merror: no profile\x1b[0m", "warning: x", "done"].map(String::from).to_vec();
+        assert_eq!(pick_lines(&lines, Some("ERROR|warning"), None), "4 lines in all, 2 matching, showing the last 2:\n2: error: no profile\n3: warning: x");
+        assert_eq!(pick_lines(&lines, None, Some(1)), "4 lines in all, 4 matching, showing the last 1:\n4: done");
+        assert_eq!(pick_lines(&[], None, None), "No log lines.");
     }
 
     #[test]

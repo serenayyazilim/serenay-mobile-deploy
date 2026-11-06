@@ -83,10 +83,20 @@ export function connectMcp() {
     });
   });
   const unlisten = listen<McpAction>("mcp-action", ({ payload }) => runAction(payload).catch(() => {}));
+  // Full logs only on request: sending them with every status change would copy thousands of lines per line.
+  const unlistenLogs = listen("mcp-logs-request", () => {
+    const logs = {
+      deploy: deployState.deployLogs.length ? deployState.deployLogs : deployState.errorLogs,
+      run: buildState.buildLogs.length ? buildState.buildLogs : buildState.errorLogs,
+      tests: testsState.logs,
+    };
+    invoke("mcp_logs_reply", { logs: $state.snapshot(logs) }).catch(() => {});
+  });
 
   return () => {
     stopEffect();
     unlisten.then((fn) => fn());
+    unlistenLogs.then((fn) => fn());
     invoke("mcp_status_set", { status: null }).catch(() => {});
   };
 }

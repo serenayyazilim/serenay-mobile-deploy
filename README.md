@@ -112,7 +112,7 @@ Then ask in plain words, e.g. *"deploy sellerapp to TestFlight with the notes: l
 
 | Area | Tools |
 |------|-------|
-| Workspace | `status`, `list_workspaces`, `open_workspace`, `list_projects` |
+| Workspace | `status`, `logs`, `list_workspaces`, `open_workspace`, `list_projects` |
 | Deploy, run, test | `deploy`, `list_devices`, `run_app`, `hot_reload`, `hot_restart`, `stop_app`, `run_tests` |
 | Version and settings | `set_version`, `rename_project`, `get_project_config`, `update_project_config`, `get_colors`, `update_colors`, `get_splash_color`, `set_splash_color`, `set_project_asset`, `check_splash_image`, `create_project` |
 | Store setup | `setup_readiness`, `setup_apply`, `complete_fastlane`, `set_team_id`, `set_play_key`, `store_check`, `store_locales`, `build_aab` |
