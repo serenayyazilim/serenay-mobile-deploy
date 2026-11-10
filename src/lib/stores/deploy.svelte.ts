@@ -115,7 +115,8 @@ class DeployState {
     whatsNew: string,
     platform: DeployPlatform = "all",
     bumpVersion: boolean = true,
-    track: ReleaseTrack = "production"
+    track: ReleaseTrack = "production",
+    smokeTest: boolean = false
   ) {
     const project = this.pendingProject;
     if (!project || !workspacePath) return;
@@ -151,7 +152,7 @@ class DeployState {
       this.deployMessage = t("deploy.starting");
       this.deployProgress = 30;
 
-      const start = (allowUntranslated: boolean) => invoke<{ processId: string; warnings: string[] }>("deploy_start", { platform, workspacePath, whatsNew, bumpVersion, track, allowUntranslated });
+      const start = (allowUntranslated: boolean) => invoke<{ processId: string; warnings: string[] }>("deploy_start", { platform, workspacePath, whatsNew, bumpVersion, track, smokeTest, allowUntranslated });
       let started: { processId: string; warnings: string[] };
       try {
         started = await start(false);

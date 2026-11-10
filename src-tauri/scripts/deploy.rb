@@ -349,6 +349,18 @@ class Deployer
     test_track? ? 'beta' : 'release'
   end
 
+  # When the deploy dialog's smoke test box is ticked, runs the project's own smoke/<platform>.sh
+  # (if it has one) before anything is uploaded; a non-zero exit stops the deploy.
+  def self.smoke_test(platform)
+    return true unless ENV['SMOKE_TEST'] == 'true'
+    script = File.join(flutter_root, 'smoke', "#{platform}.sh")
+    unless File.exist?(script)
+      log("⏭️", "No smoke/#{platform}.sh in this project, skipping smoke test")
+      return true
+    end
+    run_command("bash #{script.shellescape}", "#{platform == :ios ? 'iOS' : 'Android'} smoke test")
+  end
+
   def self.deploy_ios
     log("🍎", "Starting iOS Deploy...")
     log("📍", "Project: #{flutter_root}")
@@ -367,6 +379,7 @@ class Deployer
       create_native_splash
 
       return false unless run_command("cd #{ios_path} && pod install", "CocoaPods")
+      return false unless smoke_test(:ios)
       return false unless run_command("cd #{ios_path} && fastlane #{fastlane_lane}", test_track? ? "TestFlight deploy" : "App Store deploy")
     end
 
@@ -392,6 +405,7 @@ class Deployer
       create_native_splash
 
       return false unless run_command("flutter build appbundle", "Build App Bundle")
+      return false unless smoke_test(:android)
       return false unless run_command("cd #{android_path} && fastlane #{fastlane_lane}", test_track? ? "Internal Testing deploy" : "Google Play deploy")
     end
 
@@ -425,6 +439,7 @@ class Deployer
 
       return false unless run_command("cd #{ios_path} && pod install", "CocoaPods")
       return false unless run_command("flutter build appbundle", "Build App Bundle")
+      return false unless smoke_test(:android) && smoke_test(:ios)
 
       # Android deploy
       log("🤖", "Uploading to #{test_track? ? 'Internal Testing' : 'Google Play'}...")
@@ -456,7 +471,7 @@ class Deployer
       dir = ENV[platform == :ios ? 'FASTLANE_IOS_DIR' : 'FASTLANE_ANDROID_DIR'].to_s
       name = platform == :ios ? 'iOS' : 'Android'
       log(platform == :ios ? "🍎" : "🤖", "Starting #{name} Deploy...")
-      run_command("cd #{dir.shellescape} && fastlane #{fastlane_lane}", "#{name} fastlane #{fastlane_lane}")
+      smoke_test(platform) && run_command("cd #{dir.shellescape} && fastlane #{fastlane_lane}", "#{name} fastlane #{fastlane_lane}")
     end
     results.all?
   end

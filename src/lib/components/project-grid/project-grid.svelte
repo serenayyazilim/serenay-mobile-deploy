@@ -198,7 +198,7 @@
     bind:open={deployState.whatsNewDialogOpen}
     project={deployState.pendingProject}
     workspacePath={workspaceState.path ?? ""}
-    onConfirm={(whatsNew, platform, bumpVersion, track) =>
+    onConfirm={(whatsNew, platform, bumpVersion, track, smokeTest) =>
       workspaceState.path &&
       deployState.confirmDeploy(
         workspaceState.path,
@@ -207,7 +207,8 @@
         whatsNew,
         platform,
         bumpVersion,
-        track
+        track,
+        smokeTest
       )}
     onCancel={() => deployState.cancelDeploy()}
   />

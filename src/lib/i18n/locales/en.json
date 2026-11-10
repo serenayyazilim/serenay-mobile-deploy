@@ -62,6 +62,8 @@
   "whatsNew.both": "Both",
   "whatsNew.startDeploy": "Start Deploy",
   "whatsNew.bumpVersion": "Increment version (+1)",
+  "whatsNew.smokeTest": "Smoke and Maestro tests",
+  "whatsNew.smokeTestHint": "crash check and order flow (places a real order) after the build, before the upload; adds a few minutes",
   "whatsNew.bumpVersionOffHint": "off — will deploy with {version}",
   "whatsNew.releaseTrack": "Target:",
   "whatsNew.trackProduction": "Production (App Store / Play Store)",

@@ -195,6 +195,7 @@ const TOOLS: &[(&str, &str, &[Param])] = &[
         ("track", "string", false, "production (App Store / Google Play, default) or test (TestFlight / internal testing)"),
         ("whats_new", "string", false, "Release notes in Turkish; they are translated to the store's other languages"),
         ("bump_version", "boolean", false, "Bump the patch version and build number first (default true)"),
+        ("smoke_test", "boolean", false, "Run the project's smoke/<platform>.sh (crash check + Maestro order flow, which places a real order) after the build and before the upload (default false)"),
     ]),
     ("list_devices", "Simulators, emulators and connected devices the app can run on.", &[("refresh", "boolean", false, "Look again instead of using the cached list")]),
     ("run_app", "Runs the app on a device in debug mode, the same as the start button. Follow it with status.", &[PROJECT, ("device", "string", false, "Device id or name from list_devices; left out = Flutter's default")]),
@@ -434,6 +435,7 @@ async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, S
                 "action": "deploy", "projectId": p.id, "platform": platform, "track": track,
                 "whatsNew": text(args, "whats_new").unwrap_or_default(),
                 "bumpVersion": args.get("bump_version").and_then(Value::as_bool).unwrap_or(true),
+                "smokeTest": args.get("smoke_test").and_then(Value::as_bool).unwrap_or(false),
             });
             ui(app, action, format!("Deploy of {} ({platform}, {track}) started. Follow it with status.", p.app_name))
         }

@@ -10,7 +10,7 @@ import { testsState } from "$lib/stores/tests.svelte";
 import { t } from "$lib/i18n/index.svelte";
 
 type McpAction =
-  | { action: "deploy"; projectId: string; platform: "ios" | "android" | "all"; track: "production" | "test"; whatsNew: string; bumpVersion: boolean }
+  | { action: "deploy"; projectId: string; platform: "ios" | "android" | "all"; track: "production" | "test"; whatsNew: string; bumpVersion: boolean; smokeTest: boolean }
   | { action: "run"; projectId: string; device: FlutterDevice | null }
   | { action: "hotReload" }
   | { action: "hotRestart" }
@@ -42,7 +42,8 @@ async function runAction(a: McpAction) {
       a.whatsNew.trim() || t("whatsNew.defaultText"),
       a.platform,
       a.bumpVersion,
-      a.track
+      a.track,
+      a.smokeTest
     );
   }
   if (a.action === "run") {

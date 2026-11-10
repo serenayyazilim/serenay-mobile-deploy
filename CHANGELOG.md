@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.14] - 2026-11-10
+
+- The deploy dialog has a "Smoke and Maestro tests" box, off by default. Ticked, the deploy runs the project's own `smoke/android.sh` or `smoke/ios.sh` after the build and before the upload, and stops if it fails. Projects without these scripts skip it and say so in the log. The MCP `deploy` tool takes the same option as `smoke_test`.
+
 ## [0.3.13] - 2026-11-06
 
 - The sidebar shows the workspace's git branch under its name and switches it: pick a branch and the app fetches, puts uncommitted changes aside in a git stash (they aren't deleted; `git stash pop` brings them back), switches, pulls the latest commits and runs `flutter pub get`. It shows how many commits the branch is behind, and waits while a deploy or run is going on.

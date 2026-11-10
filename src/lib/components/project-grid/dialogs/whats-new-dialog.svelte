@@ -14,7 +14,7 @@
     open: boolean;
     project: WorkspaceProject | null;
     workspacePath: string;
-    onConfirm: (whatsNew: string, platform: DeployPlatform, bumpVersion: boolean, track: ReleaseTrack) => void;
+    onConfirm: (whatsNew: string, platform: DeployPlatform, bumpVersion: boolean, track: ReleaseTrack, smokeTest: boolean) => void;
     onCancel: () => void;
   } = $props();
 
@@ -33,6 +33,7 @@
   let track = $state<ReleaseTrack>("production");
   let languages = $state<{ flag: string; labelKey: string }[]>([]);
   let bumpVersion = $state(true);
+  let smokeTest = $state(false);
   let currentVersion = $state("");
   let minVersion = $state("");
 
@@ -91,11 +92,12 @@
   }
 
   function handleConfirm() {
-    onConfirm(text.trim() || t("whatsNew.defaultText"), platform, bumpVersion, track);
+    onConfirm(text.trim() || t("whatsNew.defaultText"), platform, bumpVersion, track, smokeTest);
     text = "";
     platform = "all";
     track = "production";
     bumpVersion = true;
+    smokeTest = false;
   }
 
   function handleCancel() {
@@ -103,6 +105,7 @@
     platform = "all";
     track = "production";
     bumpVersion = true;
+    smokeTest = false;
     onCancel();
   }
 
@@ -187,6 +190,14 @@
               {" — "}{bumpVersion ? `${currentVersion} → ${nextVersion(currentVersion)}` : t("whatsNew.bumpVersionOffHint", { version: currentVersion })}
             </span>
           {/if}
+        </span>
+      </label>
+
+      <label class="flex items-center gap-2.5 rounded-md border border-input px-3 py-2.5 cursor-pointer">
+        <input type="checkbox" bind:checked={smokeTest} class="w-4 h-4 accent-primary shrink-0" />
+        <span class="flex-1 text-xs">
+          <span class="font-medium text-foreground">{t("whatsNew.smokeTest")}</span>
+          <span class="text-muted-foreground">{" — "}{t("whatsNew.smokeTestHint")}</span>
         </span>
       </label>
     </div>

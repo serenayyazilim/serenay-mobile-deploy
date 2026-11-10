@@ -62,6 +62,8 @@
   "whatsNew.both": "İkisi de",
   "whatsNew.startDeploy": "Deploy Başlat",
   "whatsNew.bumpVersion": "Versiyonu artır (+1)",
+  "whatsNew.smokeTest": "Smoke test ve Maestro testleri",
+  "whatsNew.smokeTestHint": "build'den sonra, yüklemeden önce çökme kontrolü ve sipariş akışı (gerçek sipariş verir); birkaç dakika ekler",
   "whatsNew.bumpVersionOffHint": "kapalı — {version} ile deploy edilecek",
   "whatsNew.releaseTrack": "Hedef:",
   "whatsNew.trackProduction": "Yayın (App Store / Play Store)",

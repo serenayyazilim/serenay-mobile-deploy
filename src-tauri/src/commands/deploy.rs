@@ -63,6 +63,7 @@ pub async fn deploy_start(
     whats_new: Option<String>,
     bump_version: Option<bool>,
     track: Option<String>,
+    smoke_test: Option<bool>,
     allow_untranslated: Option<bool>,
 ) -> Result<serde_json::Value, String> {
     if !["ios", "android", "huawei", "all"].contains(&platform.as_str()) {
@@ -179,7 +180,8 @@ pub async fn deploy_start(
         .env("PROJECT_KIND", if lanes_only { "lanes" } else { "flutter" })
         .env("FASTLANE_IOS_DIR", ios_dir.map(|d| d.to_string_lossy().to_string()).unwrap_or_default())
         .env("FASTLANE_ANDROID_DIR", android_dir.map(|d| d.to_string_lossy().to_string()).unwrap_or_default())
-        .env("RELEASE_TRACK", &track);
+        .env("RELEASE_TRACK", &track)
+        .env("SMOKE_TEST", if smoke_test.unwrap_or(false) { "true" } else { "false" });
 
     // Pass the App Store Connect API key through to fastlane so it authenticates
     // with a key instead of the legacy Apple ID/app-specific-password session flow,
