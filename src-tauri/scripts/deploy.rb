@@ -50,6 +50,42 @@ class Deployer
     success
   end
 
+  # Runs `fastlane <lane>` in dir. When Apple rejects an uploaded build (e.g. ITMS-90683, a missing
+  # Info.plist purpose string, which only comes by email), the build never shows up in App Store
+  # Connect and deliver waits for it forever. Stops fastlane after BUILD_WAIT_MINUTES (default 30)
+  # of "Waiting for the build to show up"; a build that shows up is waited for as long as it takes.
+  def self.run_fastlane(dir, description)
+    log("⚙️", description)
+    limit = (ENV['BUILD_WAIT_MINUTES'] || 30).to_i * 60
+    waiting_since = nil
+    timed_out = false
+    io = IO.popen(['fastlane', fastlane_lane], chdir: dir)
+    watchdog = Thread.new do
+      loop do
+        sleep 15
+        next unless waiting_since && Time.now - waiting_since > limit
+        timed_out = true
+        system('pkill', '-TERM', '-P', io.pid.to_s) # fastlane's own child processes keep the output open
+        Process.kill('TERM', io.pid) rescue nil
+        break
+      end
+    end
+    io.each_line do |line|
+      puts line
+      waiting_since ||= Time.now if line.include?('Waiting for the build to show up')
+      waiting_since = nil if line.include?('finish processing')
+    end
+    io.close
+    watchdog.kill
+    if timed_out
+      log_error("#{description} - Apple didn't show the uploaded build in #{limit / 60} minutes. It was most likely rejected: check the App Store Connect email (ITMS-...), fix it and deploy again.")
+      return false
+    end
+    success = $?.success?
+    success ? log("✅", "#{description} - Completed") : log_error("#{description} - Failed")
+    success
+  end
+
   # ============ DISK SPACE ============
 
   def self.free_gb
@@ -415,7 +451,7 @@ class Deployer
 
       return false unless run_command("cd #{ios_path} && pod install", "CocoaPods")
       return false unless smoke_test(:ios)
-      return false unless run_command("cd #{ios_path} && fastlane #{fastlane_lane}", test_track? ? "TestFlight deploy" : "App Store deploy")
+      return false unless run_fastlane(ios_path, test_track? ? "TestFlight deploy" : "App Store deploy")
     end
 
     log("✅", "iOS Deploy completed successfully!")
@@ -441,7 +477,7 @@ class Deployer
 
       return false unless run_command("flutter build appbundle", "Build App Bundle")
       return false unless smoke_test(:android)
-      return false unless run_command("cd #{android_path} && fastlane #{fastlane_lane}", test_track? ? "Internal Testing deploy" : "Google Play deploy")
+      return false unless run_fastlane(android_path, test_track? ? "Internal Testing deploy" : "Google Play deploy")
     end
 
     log("✅", "Android Deploy completed successfully!")
@@ -478,11 +514,11 @@ class Deployer
 
       # Android deploy
       log("🤖", "Uploading to #{test_track? ? 'Internal Testing' : 'Google Play'}...")
-      android_success = system("cd #{android_path} && fastlane #{fastlane_lane}")
+      android_success = run_fastlane(android_path, "Android fastlane #{fastlane_lane}")
 
       # iOS deploy
       log("🍎", "Uploading to #{test_track? ? 'TestFlight' : 'App Store'}...")
-      ios_success = system("cd #{ios_path} && fastlane #{fastlane_lane}")
+      ios_success = run_fastlane(ios_path, "iOS fastlane #{fastlane_lane}")
 
       if android_success && ios_success
         log("✅", "Deploy to all platforms completed successfully!")
@@ -506,7 +542,7 @@ class Deployer
       dir = ENV[platform == :ios ? 'FASTLANE_IOS_DIR' : 'FASTLANE_ANDROID_DIR'].to_s
       name = platform == :ios ? 'iOS' : 'Android'
       log(platform == :ios ? "🍎" : "🤖", "Starting #{name} Deploy...")
-      smoke_test(platform) && run_command("cd #{dir.shellescape} && fastlane #{fastlane_lane}", "#{name} fastlane #{fastlane_lane}")
+      smoke_test(platform) && run_fastlane(dir, "#{name} fastlane #{fastlane_lane}")
     end
     results.all?
   end

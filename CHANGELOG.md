@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.16] - 2026-11-10
+
+- A deploy no longer waits forever when Apple rejects the uploaded iOS build. Apple reports rejections like ITMS-90683 (a missing Info.plist purpose string) only by email, and the build never shows up in App Store Connect. The deploy now stops after 30 minutes of waiting for it to show up and says to check the email. A build that does show up is waited for until it's processed. Set `BUILD_WAIT_MINUTES` to change the limit.
+
 ## [0.3.15] - 2026-11-10
 
 - When less than 20 GB of disk space is free, a deploy first deletes caches that builds recreate: Xcode DerivedData, Xcode archives older than 30 days, and the Gradle caches and wrappers of Gradle versions the project doesn't use. The current Gradle version and the downloaded Android libraries are kept. The deploy log shows how much space was freed; set `MIN_FREE_GB` to change the limit.
