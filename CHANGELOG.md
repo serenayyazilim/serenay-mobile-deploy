@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.15] - 2026-11-10
+
+- When less than 20 GB of disk space is free, a deploy first deletes caches that builds recreate: Xcode DerivedData, Xcode archives older than 30 days, and the Gradle caches and wrappers of Gradle versions the project doesn't use. The current Gradle version and the downloaded Android libraries are kept. The deploy log shows how much space was freed; set `MIN_FREE_GB` to change the limit.
+
 ## [0.3.14] - 2026-11-10
 
 - The deploy dialog has a "Smoke and Maestro tests" box, off by default. Ticked, the deploy runs the project's own `smoke/android.sh` or `smoke/ios.sh` after the build and before the upload, and stops if it fails. Projects without these scripts skip it and say so in the log. The MCP `deploy` tool takes the same option as `smoke_test`.

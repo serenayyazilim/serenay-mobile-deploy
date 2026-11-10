@@ -50,6 +50,41 @@ class Deployer
     success
   end
 
+  # ============ DISK SPACE ============
+
+  def self.free_gb
+    `df -k #{Dir.home.shellescape}`.lines.last.split[3].to_i / 1024 / 1024
+  end
+
+  # A build needs ~10-15 GB. When less than MIN_FREE_GB (default 20) is free, deletes caches that
+  # builds recreate: Xcode DerivedData, Xcode archives older than 30 days, and the Gradle caches
+  # and wrappers of Gradle versions other than this project's (the current one is kept, so no
+  # running Gradle daemon is broken and the dependency downloads in modules-2 stay).
+  def self.free_disk_space
+    min = (ENV['MIN_FREE_GB'] || 20).to_i
+    before = free_gb
+    return if before >= min
+
+    log("🧹", "Only #{before} GB free (less than #{min} GB), deleting old Xcode and Gradle caches...")
+    xcode = File.join(Dir.home, 'Library/Developer/Xcode')
+    old = Dir.glob(File.join(xcode, 'DerivedData/*'))
+    old += Dir.glob(File.join(xcode, 'Archives/*')).select { |d| File.mtime(d) < Time.now - 30 * 86400 }
+
+    wrapper = Dir.glob(File.join(android_path, 'gradle/wrapper/gradle-wrapper.properties')) +
+              Dir.glob(File.join(ENV['FASTLANE_ANDROID_DIR'].to_s, '..', 'gradle/wrapper/gradle-wrapper.properties'))
+    current = wrapper.map { |f| File.read(f)[/gradle-([\d.]+)-(?:all|bin)\.zip/, 1] }.compact.first
+    if current
+      gradle = File.join(Dir.home, '.gradle')
+      old += Dir.glob(File.join(gradle, 'caches/*')).select { |d| File.basename(d) =~ /\A\d+(\.\d+)+\z/ && File.basename(d) != current }
+      old += Dir.glob(File.join(gradle, 'wrapper/dists/gradle-*')).reject { |d| File.basename(d).start_with?("gradle-#{current}-") }
+    end
+
+    old.each { |d| FileUtils.rm_rf(d) }
+    log("✅", "Deleted #{old.size} cache folders, #{free_gb} GB free now (was #{before} GB)")
+  rescue => e
+    log("⚠️", "Couldn't free disk space: #{e.message}")
+  end
+
   # ============ STORE LOCALES ============
 
   # The Fastfile writes release notes only for the app's store locales (STORE_LOCALES_*,
@@ -505,6 +540,7 @@ if __FILE__ == $0
   else
     Deployer.project_root = Dir.pwd
   end
+  Deployer.free_disk_space if %w[ios android huawei all].include?(platform)
 
   if Deployer.lanes_only? && %w[ios android all].include?(platform)
     platforms = platform == 'all' ? [:android, :ios] : [platform.to_sym]

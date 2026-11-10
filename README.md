@@ -20,6 +20,7 @@ A desktop app for running and deploying mobile apps — Flutter, React Native, E
 - **Multi-platform deploy from a single panel** — manage iOS (App Store Connect), Android (Google Play), and Huawei (AppGallery) build/upload flows from one interface.
 - **Fastlane integration** — a Ruby-based deploy script reads and uses the project's `fastlane` metadata (store descriptions, locales).
 - **Optional smoke test gate** — tick "Smoke and Maestro tests" in the deploy dialog (or pass `smoke_test` to the MCP `deploy` tool) and, if the project has `smoke/android.sh` or `smoke/ios.sh`, deploy runs it after the build and before the upload; a non-zero exit stops the deploy. Off by default.
+- **Disk space cleanup** — when less than 20 GB is free (`MIN_FREE_GB` changes it), deploy first deletes Xcode DerivedData, Xcode archives older than 30 days, and the Gradle caches and wrappers of Gradle versions other than the project's.
 - **App Store Connect management** — API key authentication, a dedicated screen to browse/search all your ASC apps, creating/editing/submitting In-App Events, uploading localizations and screenshots, listing territories.
 - **Version sync** — aligns the version/build number across `pubspec.yaml` (Flutter), `app.json` (Expo) and the iOS and Android project files with a single command.
 - **Multi-project / workspace support** — automatically detects and manages either multiple apps in one workspace (`sermobileboss` mode) or a single project (`generic` mode).
