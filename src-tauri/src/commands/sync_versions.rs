@@ -40,6 +40,8 @@ pub async fn sync_versions_start(app: AppHandle, registry: State<'_, DeployRegis
     let event_name = format!("sync-versions-event-{job_id}");
 
     let mut child = Command::new("ruby")
+        .env("LANG", "en_US.UTF-8")
+        .env("LC_ALL", "en_US.UTF-8")
         .arg(&script_path)
         .arg(&workspace_path)
         .stdin(Stdio::piped())

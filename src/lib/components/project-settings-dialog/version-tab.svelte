@@ -49,14 +49,16 @@
   let minor = $state("0");
   let patch = $state("0");
   let build = $state("");
+  let stores = $state<{ android?: string; ios?: string }>({});
 
   async function load() {
     loading = true;
     result = null;
     try {
-      const data = await invoke<{ versions: Record<string, string> }>("projects_versions", { workspace: workspacePath });
+      const data = await invoke<{ versions: Record<string, string>; storeVersions?: Record<string, { android?: string; ios?: string }> }>("projects_versions", { workspace: workspacePath });
       const v = data.versions?.[project.id] || "1.0.0+1";
       original = v;
+      stores = data.storeVersions?.[project.id] ?? {};
       const p = parseParts(v);
       major = p.major;
       minor = p.minor;
@@ -111,6 +113,15 @@
         <p class="text-xs text-muted-foreground">{t("versionTab.currentVersion")}</p>
         <p class="text-sm font-mono font-semibold">{original}</p>
       </div>
+    </div>
+
+    <div class="p-4 rounded-xl bg-secondary/30 ring-1 ring-border/30 grid grid-cols-2 gap-3">
+      {#each [["versionTab.android", stores.android], ["versionTab.ios", stores.ios]] as [label, v] (label)}
+        <div>
+          <p class="text-xs text-muted-foreground">{t(label as string)}</p>
+          <p class="text-sm font-mono font-semibold">{v ?? t("versionTab.notSynced")}</p>
+        </div>
+      {/each}
     </div>
 
     <div class="p-4 rounded-xl bg-secondary/30 ring-1 ring-border/30 space-y-4">

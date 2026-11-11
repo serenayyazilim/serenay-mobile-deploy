@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.17] - 2026-11-11
+
+- Fixed "Sync Store Versions" failing with `"\xC3" on US-ASCII` when the app started Ruby without a UTF-8 locale; the script and the app now force UTF-8.
+- Google Play and App Store versions are now kept separately, since they can differ. The sync writes `android` and `ios` next to `version` in each project's `version.json`. The project settings version tab and the sync result show both, and the MCP `list_projects` tool returns `androidStoreVersion` and `iosStoreVersion`.
+
 ## [0.3.16] - 2026-11-10
 
 - A deploy no longer waits forever when Apple rejects the uploaded iOS build. Apple reports rejections like ITMS-90683 (a missing Info.plist purpose string) only by email, and the build never shows up in App Store Connect. The deploy now stops after 30 minutes of waiting for it to show up and says to check the email. A build that does show up is waited for until it's processed. Set `BUILD_WAIT_MINUTES` to change the limit.

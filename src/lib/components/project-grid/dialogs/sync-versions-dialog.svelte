@@ -8,7 +8,7 @@
   import { t } from "$lib/i18n/index.svelte";
 
   interface SyncResult {
-    updated: { id: string; old: string | null; new: string }[];
+    updated: { id: string; old: string | null; new: string; android?: string | null; ios?: string | null }[];
     skipped: string[];
     failed: string[];
   }
@@ -139,9 +139,8 @@
             {#each result.updated as u (u.id)}
               <div class="flex items-center gap-2 text-xs text-muted-foreground">
                 <span class="font-medium text-foreground w-32 shrink-0">{u.id}</span>
-                <span class="text-muted-foreground/60">{u.old || "?"}</span>
-                <span>→</span>
-                <span class="text-green-500">{u.new}</span>
+                <span class="text-green-500">Android {u.android ?? "-"}</span>
+                <span class="text-sky-500">iOS {u.ios ?? "-"}</span>
               </div>
             {/each}
           </div>

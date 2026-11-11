@@ -157,6 +157,9 @@
   "assetsTab.firebaseConfig": "Firebase Yapılandırması",
   "assetsTab.firebaseConfigHint": "Push bildirim ve analytics için gerekli",
 
+  "versionTab.android": "Android (Google Play)",
+  "versionTab.ios": "iOS (App Store)",
+  "versionTab.notSynced": "Senkronize edilmedi",
   "versionTab.currentVersion": "Kayıtlı versiyon",
   "versionTab.editVersion": "Versiyon düzenle",
   "versionTab.versionNumber": "Sürüm numarası",

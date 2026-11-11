@@ -31,6 +31,9 @@ pub fn projects_rename(workspace: String, project_id: String, app_name: String) 
 #[derive(Debug, Serialize)]
 pub struct VersionsResult {
     pub versions: HashMap<String, String>,
+    /// projectId -> { "android": "x.y.z+b", "ios": "x.y.z+b" } from the last store sync.
+    #[serde(rename = "storeVersions")]
+    pub store_versions: HashMap<String, HashMap<String, String>>,
 }
 
 #[tauri::command]
@@ -42,14 +45,15 @@ pub fn projects_versions(workspace: String) -> VersionsResult {
             .unwrap_or_else(|| "1.0.0+1".to_string());
         let mut versions = HashMap::new();
         versions.insert(GENERIC_PROJECT_ID.to_string(), version);
-        return VersionsResult { versions };
+        return VersionsResult { versions, store_versions: HashMap::new() };
     }
 
     let projects_path = Path::new(&workspace).join("lib/conf/sermobplus-projects");
     let mut versions = HashMap::new();
+    let mut store_versions = HashMap::new();
 
     let Ok(entries) = std::fs::read_dir(&projects_path) else {
-        return VersionsResult { versions };
+        return VersionsResult { versions, store_versions };
     };
 
     for entry in entries.flatten() {
@@ -60,15 +64,17 @@ pub fn projects_versions(workspace: String) -> VersionsResult {
         let project_id = entry.file_name().to_string_lossy().to_string();
         let version_file = entry.path().join("version.json");
         if let Ok(content) = std::fs::read_to_string(&version_file) {
-            let version = serde_json::from_str::<serde_json::Value>(&content)
-                .ok()
-                .and_then(|v| v.get("version").and_then(|s| s.as_str()).map(String::from))
-                .unwrap_or_else(|| "1.0.0+1".to_string());
-            versions.insert(project_id, version);
+            let json = serde_json::from_str::<serde_json::Value>(&content).ok();
+            let get = |k: &str| json.as_ref().and_then(|v| v.get(k)?.as_str().map(String::from));
+            let stores: HashMap<String, String> = ["android", "ios"].iter().filter_map(|k| get(k).map(|v| (k.to_string(), v))).collect();
+            if !stores.is_empty() {
+                store_versions.insert(project_id.clone(), stores);
+            }
+            versions.insert(project_id, get("version").unwrap_or_else(|| "1.0.0+1".to_string()));
         }
     }
 
-    VersionsResult { versions }
+    VersionsResult { versions, store_versions }
 }
 
 /// Equivalent of `PUT /api/projects/versions` — writes the version, and also

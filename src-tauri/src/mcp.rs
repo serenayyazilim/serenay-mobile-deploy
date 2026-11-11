@@ -186,7 +186,7 @@ const TOOLS: &[(&str, &str, &[Param])] = &[
     ("open_workspace", "Switches the app to a workspace opened before (see list_workspaces).", &[("path", "string", true, "Workspace folder")]),
     ("git_status", "The workspace's git branch, its branches (local and remote), how many files have uncommitted changes, and commits ahead of / behind the remote as of the last fetch.", &[]),
     ("git_switch", "Switches the workspace to a branch with its latest commits: fetches, puts uncommitted changes aside in a git stash (the app's project setup changes many files; git stash pop brings them back), switches, pulls (fast-forward only) and runs flutter pub get. pod install runs on the next deploy. Takes up to a few minutes.", &[("branch", "string", true, "Branch name, e.g. main or develop")]),
-    ("list_projects", "Projects in the open workspace with their bundle ids and versions (x.y.z+build).", &[]),
+    ("list_projects", "Projects in the open workspace with their bundle ids, local version (x.y.z+build) and the latest Google Play (androidStoreVersion) and App Store (iosStoreVersion) versions from the last sync.", &[]),
 
     // Deploy, run, test (shown in the app)
     ("deploy", "Starts a store deploy, the same as the deploy button. Returns right away; follow it with status.", &[
@@ -403,10 +403,11 @@ async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, S
 
     match name {
         "list_projects" => {
-            let versions = projects::projects_versions(ws.clone()).versions;
+            let res = projects::projects_versions(ws.clone());
+            let (versions, stores) = (res.versions, res.store_versions);
             let list: Vec<Value> = projects::projects_list(ws.clone())?
                 .into_iter()
-                .map(|p| json!({ "id": p.id, "appName": p.app_name, "bundleId": p.bundle_id, "kind": p.kind, "version": versions.get(&p.id) }))
+                .map(|p| json!({ "id": p.id, "appName": p.app_name, "bundleId": p.bundle_id, "kind": p.kind, "version": versions.get(&p.id), "androidStoreVersion": stores.get(&p.id).and_then(|m| m.get("android")), "iosStoreVersion": stores.get(&p.id).and_then(|m| m.get("ios")) }))
                 .collect();
             Ok(json!({ "workspace": ws, "projects": list }))
         }

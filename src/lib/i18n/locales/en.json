@@ -157,6 +157,9 @@
   "assetsTab.firebaseConfig": "Firebase Configuration",
   "assetsTab.firebaseConfigHint": "Required for push notifications and analytics",
 
+  "versionTab.android": "Android (Google Play)",
+  "versionTab.ios": "iOS (App Store)",
+  "versionTab.notSynced": "Not synced",
   "versionTab.currentVersion": "Saved version",
   "versionTab.editVersion": "Edit version",
   "versionTab.versionNumber": "Version number",

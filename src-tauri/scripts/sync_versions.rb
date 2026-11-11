@@ -3,6 +3,9 @@
 # Fetches store versions for all projects and updates their version.json files.
 # Usage: ruby sync_versions.rb /path/to/sermobilepro
 
+Encoding.default_external = Encoding::UTF_8
+Encoding.default_internal = Encoding::UTF_8
+
 require 'json'
 require 'fileutils'
 require 'open3'
@@ -29,19 +32,23 @@ IOS_APPFILE    = File.join(workspace, 'ios/fastlane/Appfile')
 def log(emoji, msg)  = puts("#{emoji} #{msg}")
 def err(msg)         = STDERR.puts("❌ #{msg}")
 
-def save_version(project_id, version_str)
+# "version" stays the deploy source of truth (Android first, iOS fallback);
+# "android" / "ios" hold each store's own latest version.
+def save_version(project_id, fields)
   dir  = File.join(PROJECTS_PATH, project_id)
   return false unless File.directory?(dir)
 
   file = File.join(dir, 'version.json')
-  File.write(file, JSON.pretty_generate({ 'version' => version_str }))
+  data = (JSON.parse(File.read(file)) rescue {})
+  data = {} unless data.is_a?(Hash)
+  fields.each { |k, v| data[k] = v if v }
+  File.write(file, JSON.pretty_generate(data))
   true
 end
 
-def read_current_version(project_id)
+def read_stored(project_id)
   file = File.join(PROJECTS_PATH, project_id, 'version.json')
-  return nil unless File.exist?(file)
-  JSON.parse(File.read(file))['version'] rescue nil
+  JSON.parse(File.read(file)) rescue {}
 end
 
 # ─── Project list ───────────────────────────────────────────────────────────
@@ -176,25 +183,27 @@ end
 log("💾", "Updating version.json files...")
 
 projects.each_key do |project_id|
-  # Android takes priority (version_code is accurate), fallback to iOS
-  version_str = android_versions[project_id] || ios_versions[project_id]
+  android = android_versions[project_id]
+  ios     = ios_versions[project_id]
+  version_str = android || ios
 
   unless version_str
     results[:skipped] << project_id
     next
   end
 
-  current = read_current_version(project_id)
+  stored = read_stored(project_id)
+  fields = { 'version' => version_str, 'android' => android, 'ios' => ios }
 
-  if current == version_str
+  if fields.all? { |k, v| v.nil? || stored[k] == v }
     results[:skipped] << project_id
-    log("  ⏭️",  "#{project_id}: unchanged (#{version_str})")
+    log("  ⏭️",  "#{project_id}: unchanged (Android #{android || '-'}, iOS #{ios || '-'})")
     next
   end
 
-  if save_version(project_id, version_str)
-    results[:updated] << { id: project_id, old: current, new: version_str }
-    log("  💾", "#{project_id}: #{current || '?'} → #{version_str}")
+  if save_version(project_id, fields)
+    results[:updated] << { id: project_id, old: stored['version'], new: version_str, android: android, ios: ios }
+    log("  💾", "#{project_id}: Android #{android || '-'}, iOS #{ios || '-'}")
   else
     results[:failed] << project_id
     err("#{project_id}: folder not found")
