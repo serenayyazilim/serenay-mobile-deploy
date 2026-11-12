@@ -186,7 +186,7 @@ const TOOLS: &[(&str, &str, &[Param])] = &[
     ("open_workspace", "Switches the app to a workspace opened before (see list_workspaces).", &[("path", "string", true, "Workspace folder")]),
     ("git_status", "The workspace's git branch, its branches (local and remote), how many files have uncommitted changes, and commits ahead of / behind the remote as of the last fetch.", &[]),
     ("git_switch", "Switches the workspace to a branch with its latest commits: fetches, puts uncommitted changes aside in a git stash (the app's project setup changes many files; git stash pop brings them back), switches, pulls (fast-forward only) and runs flutter pub get. pod install runs on the next deploy. Takes up to a few minutes.", &[("branch", "string", true, "Branch name, e.g. main or develop")]),
-    ("list_projects", "Projects in the open workspace with their bundle ids, local version (x.y.z+build) and their store versions from the last sync: storeVersion when Google Play and the App Store have the same one, otherwise androidStoreVersion and iosStoreVersion.", &[]),
+    ("list_projects", "Projects in the open workspace with their bundle ids, local version (x.y.z+build) and their store versions from the last sync: storeVersion (x.y.z) when Google Play and the App Store have the same x.y.z, otherwise androidStoreVersion and iosStoreVersion.", &[]),
     ("sync_store_versions", "Fetches the latest versions from Google Play and the App Store for every project, saves them, and returns the updated list_projects. Takes a few minutes. Fails if Apple asks for a 2-step code; then run the sync from the app.", &[]),
 
     // Deploy, run, test (shown in the app)
@@ -369,8 +369,11 @@ fn list_projects(ws: String) -> Result<Value, String> {
         .map(|p| {
             let mut item = json!({ "id": p.id, "appName": p.app_name, "bundleId": p.bundle_id, "kind": p.kind, "version": versions.get(&p.id) });
             let store = |k: &str| stores.get(&p.id).and_then(|m| m.get(k)).cloned();
+            // Compared by x.y.z only: the App Store has no real build number here (the iOS lane
+            // derives one from x.y.z), so builds differ even when both stores have the same release.
+            let name = |v: &String| v.split('+').next().unwrap_or(v).to_string();
             match (store("android"), store("ios")) {
-                (Some(a), Some(i)) if a == i => item["storeVersion"] = json!(a),
+                (Some(a), Some(i)) if name(&a) == name(&i) => item["storeVersion"] = json!(name(&a)),
                 (a, i) => {
                     item["androidStoreVersion"] = json!(a);
                     item["iosStoreVersion"] = json!(i);

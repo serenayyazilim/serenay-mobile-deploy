@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.19] - 2026-11-12
+
+- MCP `list_projects` compares the Google Play and App Store versions by x.y.z only and returns one `storeVersion` (x.y.z) when they match. The App Store build number the sync saves is derived from x.y.z, so it never matched Android's real version code and nearly every project showed as different.
+
 ## [0.3.18] - 2026-11-12
 
 - "Sync Store Versions" now gets the App Store versions too. It ran fastlane through `bundle exec`, which fails when the Mac's bundler is broken, and it didn't pass the App Store Connect API key, so fastlane fell back to an Apple ID login that asks for a 6-digit code. It now runs `fastlane` the way deploys do and signs in with the workspace's API key, so no code is needed.
