@@ -23,7 +23,7 @@ A desktop app for running and deploying mobile apps — Flutter, React Native, E
 - **Disk space cleanup** — when less than 20 GB is free (`MIN_FREE_GB` changes it), deploy first deletes Xcode DerivedData, Xcode archives older than 30 days, and the Gradle caches and wrappers of Gradle versions other than the project's.
 - **Rejected build detection** — when Apple rejects an uploaded iOS build (e.g. ITMS-90683, reported only by email), the build never shows up in App Store Connect and fastlane would wait forever; the deploy stops after 30 minutes of waiting for it (`BUILD_WAIT_MINUTES` changes it) and says to check the email.
 - **App Store Connect management** — API key authentication, a dedicated screen to browse/search all your ASC apps, creating/editing/submitting In-App Events, uploading localizations and screenshots, listing territories.
-- **Per-store versions** — Google Play and App Store versions are synced and shown separately (version tab, sync result, MCP `list_projects`), because they can differ.
+- **Per-store versions** — Google Play and App Store versions are synced (also from MCP with `sync_store_versions`) and shown separately when they differ (version tab, sync result, MCP `list_projects`).
 - **Version sync** — aligns the version/build number across `pubspec.yaml` (Flutter), `app.json` (Expo) and the iOS and Android project files with a single command.
 - **Multi-project / workspace support** — automatically detects and manages either multiple apps in one workspace (`sermobileboss` mode) or a single project (`generic` mode).
 - **Firebase integration** — Firebase account management and project creation.

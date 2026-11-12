@@ -125,7 +125,7 @@ rescue => e
   err("Failed to initialize Google Play API: #{e.message}")
 end
 
-# ─── iOS — App Store Connect (bundle exec fastlane) ──────────────────────────
+# ─── iOS — App Store Connect (fastlane, the same way deploy.rb runs it) ──────────────────────────
 
 log("🍎", "iOS — fetching App Store Connect versions...")
 
@@ -140,7 +140,7 @@ if Dir.exist?(ios_dir)
     # user submits from the UI reach fastlane's Apple sign-in prompt while it's waiting.
     fastlane_lines = []
 
-    Open3.popen2e({ 'LANG' => 'en_US.UTF-8' }, 'bundle', 'exec', 'fastlane', 'fetch_all_versions', chdir: ios_dir) do |stdin, stdout_err, wait_thr|
+    Open3.popen2e({ 'LANG' => 'en_US.UTF-8' }, 'fastlane', 'fetch_all_versions', chdir: ios_dir) do |stdin, stdout_err, wait_thr|
       forwarder = Thread.new do
         loop { stdin.write(STDIN.readpartial(4096)) }
       rescue IOError, Errno::EPIPE, EOFError

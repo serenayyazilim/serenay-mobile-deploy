@@ -5,7 +5,7 @@
 //! frontend reports its state back through `mcp_status_set`, which is also where the open
 //! workspace comes from. Everything else calls the Tauri commands directly.
 
-use crate::commands::{appstoreconnect as asc, config, firebase, flutter, git, project, projects, sentry, setup, slack, store_locales, workspace};
+use crate::commands::{appstoreconnect as asc, config, firebase, flutter, git, project, projects, sentry, setup, slack, store_locales, sync_versions, workspace};
 use crate::workspace::types::WorkspaceProject;
 use serde::Serialize;
 use serde_json::{json, Map, Value};
@@ -186,7 +186,8 @@ const TOOLS: &[(&str, &str, &[Param])] = &[
     ("open_workspace", "Switches the app to a workspace opened before (see list_workspaces).", &[("path", "string", true, "Workspace folder")]),
     ("git_status", "The workspace's git branch, its branches (local and remote), how many files have uncommitted changes, and commits ahead of / behind the remote as of the last fetch.", &[]),
     ("git_switch", "Switches the workspace to a branch with its latest commits: fetches, puts uncommitted changes aside in a git stash (the app's project setup changes many files; git stash pop brings them back), switches, pulls (fast-forward only) and runs flutter pub get. pod install runs on the next deploy. Takes up to a few minutes.", &[("branch", "string", true, "Branch name, e.g. main or develop")]),
-    ("list_projects", "Projects in the open workspace with their bundle ids, local version (x.y.z+build) and the latest Google Play (androidStoreVersion) and App Store (iosStoreVersion) versions from the last sync.", &[]),
+    ("list_projects", "Projects in the open workspace with their bundle ids, local version (x.y.z+build) and their store versions from the last sync: storeVersion when Google Play and the App Store have the same one, otherwise androidStoreVersion and iosStoreVersion.", &[]),
+    ("sync_store_versions", "Fetches the latest versions from Google Play and the App Store for every project, saves them, and returns the updated list_projects. Takes a few minutes. Fails if Apple asks for a 2-step code; then run the sync from the app.", &[]),
 
     // Deploy, run, test (shown in the app)
     ("deploy", "Starts a store deploy, the same as the deploy button. Returns right away; follow it with status.", &[
@@ -360,6 +361,27 @@ fn pick_lines(lines: &[String], contains: Option<&str>, tail: Option<usize>) -> 
     format!("{} lines in all, {} matching, showing the last {}:\n{}", lines.len(), kept.len(), shown.len(), shown.join("\n"))
 }
 
+fn list_projects(ws: String) -> Result<Value, String> {
+    let res = projects::projects_versions(ws.clone());
+    let (versions, stores) = (res.versions, res.store_versions);
+    let list: Vec<Value> = projects::projects_list(ws.clone())?
+        .into_iter()
+        .map(|p| {
+            let mut item = json!({ "id": p.id, "appName": p.app_name, "bundleId": p.bundle_id, "kind": p.kind, "version": versions.get(&p.id) });
+            let store = |k: &str| stores.get(&p.id).and_then(|m| m.get(k)).cloned();
+            match (store("android"), store("ios")) {
+                (Some(a), Some(i)) if a == i => item["storeVersion"] = json!(a),
+                (a, i) => {
+                    item["androidStoreVersion"] = json!(a);
+                    item["iosStoreVersion"] = json!(i);
+                }
+            }
+            item
+        })
+        .collect();
+    Ok(json!({ "workspace": ws, "projects": list }))
+}
+
 fn running(status: &Value, job: &str) -> bool {
     matches!(status.pointer(&format!("/{job}/status")).and_then(Value::as_str), Some("activating" | "deploying" | "running"))
 }
@@ -402,14 +424,15 @@ async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, S
     };
 
     match name {
-        "list_projects" => {
-            let res = projects::projects_versions(ws.clone());
-            let (versions, stores) = (res.versions, res.store_versions);
-            let list: Vec<Value> = projects::projects_list(ws.clone())?
-                .into_iter()
-                .map(|p| json!({ "id": p.id, "appName": p.app_name, "bundleId": p.bundle_id, "kind": p.kind, "version": versions.get(&p.id), "androidStoreVersion": stores.get(&p.id).and_then(|m| m.get("android")), "iosStoreVersion": stores.get(&p.id).and_then(|m| m.get("ios")) }))
-                .collect();
-            Ok(json!({ "workspace": ws, "projects": list }))
+        "list_projects" => list_projects(ws),
+        "sync_store_versions" => {
+            if running(&status, "deploy") {
+                return Err("A deploy is running; sync the versions when it's done.".to_string());
+            }
+            let sync = sync_versions::sync_versions_run(app, &ws).await?;
+            let mut list = list_projects(ws)?;
+            list["sync"] = sync;
+            Ok(list)
         }
 
         "git_status" => out(git::git_status(ws).await?),

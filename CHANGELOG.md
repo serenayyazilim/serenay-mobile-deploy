@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.18] - 2026-11-12
+
+- "Sync Store Versions" now gets the App Store versions too. It ran fastlane through `bundle exec`, which fails when the Mac's bundler is broken, and it didn't pass the App Store Connect API key, so fastlane fell back to an Apple ID login that asks for a 6-digit code. It now runs `fastlane` the way deploys do and signs in with the workspace's API key, so no code is needed.
+- The MCP server has a new `sync_store_versions` tool: it fetches the latest Google Play and App Store versions of every project, saves them and returns the updated project list. It stops with a message if Apple still asks for a 2-step code.
+- MCP `list_projects` returns one `storeVersion` when Google Play and the App Store have the same version, and `androidStoreVersion` and `iosStoreVersion` only when they differ.
+
 ## [0.3.17] - 2026-11-11
 
 - Fixed "Sync Store Versions" failing with `"\xC3" on US-ASCII` when the app started Ruby without a UTF-8 locale; the script and the app now force UTF-8.
