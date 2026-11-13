@@ -154,6 +154,8 @@ async fn handle(app: &AppHandle, message: &Value) -> Option<Value> {
         "tools/call" => {
             let args = params.get("arguments").cloned().unwrap_or(json!({}));
             let (text, is_error) = match call_tool(app, params.get("name").and_then(Value::as_str).unwrap_or(""), &args).await {
+                // A tool that builds its own MCP content (e.g. images) passes it through as is.
+                Ok(value) if value.get("content").is_some_and(Value::is_array) => return Some(json!({ "jsonrpc": "2.0", "id": id, "result": value })),
                 Ok(Value::String(text)) => (text, false),
                 Ok(value) => (serde_json::to_string_pretty(&value).unwrap_or_default(), false),
                 Err(text) => (text, true),
@@ -204,6 +206,7 @@ const TOOLS: &[(&str, &str, &[Param])] = &[
     ("hot_restart", "Hot restarts the running app.", &[]),
     ("stop_app", "Stops the running app.", &[]),
     ("run_tests", "Runs the project's tests. Follow it with status for the results.", &[PROJECT]),
+    ("test_screenshots", "Screenshots Maestro saved in the last E2E/smoke run (build/maestro), e.g. the screen a flow failed on.", &[("limit", "integer", false, "How many of the newest images to return (default 3)")]),
 
     // Version and project settings
     ("set_version", "Writes the app version without deploying.", &[PROJECT, ("version", "string", true, "x.y.z+build, e.g. 3.0.2+44; the build number must stay above the stores' latest")]),
@@ -278,6 +281,35 @@ fn tools() -> Value {
             json!({ "name": name, "description": description, "inputSchema": { "type": "object", "properties": properties, "required": required } })
         })
         .collect()
+}
+
+/// The newest PNGs under <workspace>/build/maestro (smoke/*.sh passes it as Maestro's --debug-output) as MCP image content.
+fn test_screenshots(ws: &str, limit: usize) -> Result<Value, String> {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    fn pngs(dir: &std::path::Path, found: &mut Vec<(std::time::SystemTime, std::path::PathBuf)>) {
+        for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                pngs(&path, found);
+            } else if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("png")) {
+                found.push((entry.metadata().and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH), path));
+            }
+        }
+    }
+    let root = std::path::Path::new(ws).join("build/maestro");
+    let mut found = Vec::new();
+    pngs(&root, &mut found);
+    if found.is_empty() {
+        return Ok(Value::String(format!("No screenshots in {}. Maestro saves one when a flow fails, or on a takeScreenshot step; run the deploy with smoke_test or smoke/<platform>.sh.", root.display())));
+    }
+    found.sort_by(|a, b| b.0.cmp(&a.0));
+    let mut content = Vec::new();
+    for (_, path) in found.into_iter().take(limit.max(1)) {
+        let data = std::fs::read(&path).map_err(|e| e.to_string())?;
+        content.push(json!({ "type": "text", "text": path.display().to_string() }));
+        content.push(json!({ "type": "image", "data": STANDARD.encode(data), "mimeType": "image/png" }));
+    }
+    Ok(json!({ "content": content }))
 }
 
 fn out<T: Serialize>(value: T) -> Result<Value, String> {
@@ -437,6 +469,8 @@ async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, S
             list["sync"] = sync;
             Ok(list)
         }
+
+        "test_screenshots" => test_screenshots(&ws, args.get("limit").and_then(Value::as_u64).unwrap_or(3) as usize),
 
         "git_status" => out(git::git_status(ws).await?),
         "git_switch" => {

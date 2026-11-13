@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.20] - 2026-11-13
+
+- The MCP server has a new `test_screenshots` tool: it returns the newest screenshots Maestro saved in `build/maestro` during the last E2E/smoke run (e.g. the screen a flow failed on) as images, with their file paths.
+
 ## [0.3.19] - 2026-11-12
 
 - MCP `list_projects` compares the Google Play and App Store versions by x.y.z only and returns one `storeVersion` (x.y.z) when they match. The App Store build number the sync saves is derived from x.y.z, so it never matched Android's real version code and nearly every project showed as different.
