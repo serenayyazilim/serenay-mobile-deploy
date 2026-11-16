@@ -162,14 +162,14 @@ if Dir.exist?(ios_dir)
       end
     end
 
-    match = fastlane_lines.join("\n").match(/IOS_VERSIONS=(\{.+\})/)
-    if match
-      ios_versions = JSON.parse(match[1])
+    match = fastlane_lines.join("\n").match(/IOS_VERSIONS=(\{.*\})/)
+    ios_versions = JSON.parse(match[1]) if match
+    if ios_versions.any?
       log("  ✅", "#{ios_versions.size} apps found")
     else
-      # Summarize the error output
-      error_line = fastlane_lines.select { |l| l.include?('Error') || l.include?('error') || l.include?('[!]') }.first
-      log("  ⚠️", "Failed to fetch iOS versions: #{error_line&.strip || 'could not parse output'}")
+      # The lane prints IOS_VERSIONS={} when App Store Connect refuses it (e.g. an expired agreement)
+      error_line = fastlane_lines.find { |l| l =~ /error|kurulamadı|\[!\]/i }
+      err("Failed to fetch iOS versions: #{error_line&.gsub(/\e\[\d+m/, '')&.strip || 'could not parse output'}")
     end
   rescue => e
     err("Failed to run iOS fastlane: #{e.message}")

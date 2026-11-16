@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.21] - 2026-11-16
+
+- The store version sync shows why App Store versions could not be fetched (e.g. Apple's "A required agreement is missing or has expired") as an error, instead of quietly logging "0 apps found".
+
 ## [0.3.20] - 2026-11-13
 
 - The MCP server has a new `test_screenshots` tool: it returns the newest screenshots Maestro saved in `build/maestro` during the last E2E/smoke run (e.g. the screen a flow failed on) as images, with their file paths.
