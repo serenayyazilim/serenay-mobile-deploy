@@ -316,6 +316,9 @@
 
   "deploy.activatingProject": "Proje aktif ediliyor...",
   "deploy.starting": "Deploy başlatılıyor...",
+  "deploy.stop": "Deploy'u durdur",
+  "deploy.stopTriggered": "Deploy durduruluyor...",
+  "deploy.stopped": "Deploy durduruldu",
   "deploy.waitingForAppleAuth": "Apple kimlik doğrulaması bekleniyor...",
   "deploy.codeSubmitted": "Doğrulama kodu gönderildi...",
   "deploy.failed": "Deploy başarısız",

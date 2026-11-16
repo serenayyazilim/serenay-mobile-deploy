@@ -24,7 +24,10 @@ interface DeployEvent {
   message?: string;
   success?: boolean;
   exitCode?: number | null;
+  cancelled?: boolean;
 }
+
+class DeployCancelled extends Error {}
 
 class DeployState {
   deployingProjectId = $state<string | null>(null);
@@ -34,6 +37,7 @@ class DeployState {
   deployElapsed = $state(0);
   deployLogs = $state<string[]>([]);
   deployWarnings = $state<string[]>([]);
+  isStopping = $state(false);
   logsDialogOpen = $state(false);
   activeProject = $state<WorkspaceProject | null>(null);
 
@@ -50,6 +54,10 @@ class DeployState {
   errorTitle = $state("");
   errorLogs = $state<string[]>([]);
 
+  /** Set once the deploy process runs, so a stop can end it. */
+  private processId: string | null = null;
+  /** Set by a stop pressed before the process exists (project activating, or a question waiting). */
+  private stopRequested = false;
   private elapsedInterval: ReturnType<typeof setInterval> | null = null;
   private startTime = 0;
 
@@ -92,6 +100,19 @@ class DeployState {
     this.pendingProject = null;
   }
 
+  /** Stops the running deploy, whichever step it is in. */
+  async stopDeploy() {
+    if (this.isStopping || (this.deployStatus !== "activating" && this.deployStatus !== "deploying")) return;
+    this.isStopping = true;
+    this.stopRequested = true;
+    this.deployLogs = [...this.deployLogs, `⏹️ ${t("deploy.stopTriggered")}`];
+    this.deployMessage = t("deploy.stopTriggered");
+    // A question the deploy waits on is answered with "no".
+    if (this.twoFactorOpen) this.cancelTwoFactor();
+    if (confirmState.open) confirmState.cancel();
+    if (this.processId) await invoke("deploy_cancel", { processId: this.processId }).catch(() => {});
+  }
+
   openLogsDialog() {
     this.logsDialogOpen = true;
   }
@@ -130,6 +151,9 @@ class DeployState {
       if (!proceed) return;
     }
 
+    this.stopRequested = false;
+    this.isStopping = false;
+    this.processId = null;
     this.deployingProjectId = project.id;
     this.activeProject = project;
     this.deployProgress = 0;
@@ -147,6 +171,7 @@ class DeployState {
       this.deployProgress = 20;
 
       await invoke("project_activate", { workspacePath, projectId: project.id, backup: false });
+      if (this.stopRequested) throw new DeployCancelled();
 
       this.deployStatus = "deploying";
       this.deployMessage = t("deploy.starting");
@@ -163,6 +188,7 @@ class DeployState {
         this.deployMessage = t("deploy.translationFailedTitle");
         const proceed = await confirmState.ask(this.deployMessage, t("deploy.translationFailedDescription", { locales: locales.replaceAll(",", ", ") }));
         if (!proceed) {
+          if (this.stopRequested) throw new DeployCancelled();
           this.resetDeploy();
           return;
         }
@@ -170,8 +196,11 @@ class DeployState {
         started = await start(true);
       }
       const { processId, warnings } = started;
+      this.processId = processId;
       this.deployWarnings = warnings;
       this.deployLogs.push(...warnings.map((w) => `⚠️ ${w}`));
+      // A stop that came in while the process was starting.
+      if (this.stopRequested) await invoke("deploy_cancel", { processId }).catch(() => {});
 
       await new Promise<void>((resolve, reject) => {
         listen<DeployEvent>(`deploy-event-${processId}`, async (event) => {
@@ -204,7 +233,9 @@ class DeployState {
             lastError = msg;
             console.error("[Deploy Error]", msg);
           } else if (data.type === "done") {
-            if (data.success) {
+            if (data.cancelled) {
+              reject(new DeployCancelled());
+            } else if (data.success) {
               resolve();
             } else {
               reject(new Error(lastError || t("deploy.failed")));
@@ -222,6 +253,13 @@ class DeployState {
       await onVersionRefresh();
       sendSlackNotification(workspacePath, project, true, projectVersions[project.id] || "19.0.x", undefined, duration);
     } catch (error) {
+      if (error instanceof DeployCancelled) {
+        // Stopped on purpose: not a failure, so no error dialog and no failure notice in Slack.
+        this.stopElapsedTimer();
+        this.errorLogs = [...this.deployLogs, `⏹️ ${t("deploy.stopped")}`];
+        this.resetDeploy();
+        return;
+      }
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.stopElapsedTimer();
       const duration = Math.round((Date.now() - this.startTime) / 1000);
@@ -250,6 +288,9 @@ class DeployState {
   }
 
   resetDeploy() {
+    this.processId = null;
+    this.stopRequested = false;
+    this.isStopping = false;
     this.deployingProjectId = null;
     this.deployStatus = "idle";
     this.deployMessage = "";

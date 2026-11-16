@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.23] - 2026-11-16
+
+- A running deploy can be stopped: a "Stop deploy" button on the project card and in the deploy logs, and a new MCP `stop_deploy` tool. It ends ruby, fastlane, xcodebuild and gradle together (and answers a waiting 2FA or translation question with "no"). A stopped deploy is not reported as a failure. Nothing is rolled back; a build already uploaded stays in the store.
+- The release notes translation retries up to three times before a store language counts as failed, since the free translation endpoint now and then answers with an error or a rate limit.
+
 ## [0.3.22] - 2026-11-16
 
 - The MCP server has new `maestro_flows` and `maestro_flow_write` tools to read and edit the workspace's Maestro E2E flows in `.maestro/`.

@@ -250,6 +250,8 @@
     title={t("projectCard.deployLogsTitle", { name: deployState.activeProject?.appName ?? "" })}
     logs={deployState.deployLogs}
     isRunning={deployState.deployStatus === "activating" || deployState.deployStatus === "deploying"}
+    onStop={() => deployState.stopDeploy()}
+    isStopping={deployState.isStopping}
   />
 
   <ProductTour />

@@ -15,6 +15,7 @@ type McpAction =
   | { action: "hotReload" }
   | { action: "hotRestart" }
   | { action: "stop" }
+  | { action: "stopDeploy" }
   | { action: "tests"; projectId: string }
   | { action: "openWorkspace"; path: string; mode: WorkspaceMode };
 
@@ -28,6 +29,7 @@ async function runAction(a: McpAction) {
   if (a.action === "hotReload") return buildState.hotReload();
   if (a.action === "hotRestart") return buildState.hotRestart();
   if (a.action === "stop") return buildState.stopBuild();
+  if (a.action === "stopDeploy") return deployState.stopDeploy();
 
   const workspace = workspaceState.path;
   const project = projectsState.projects.find((p) => p.id === a.projectId);

@@ -398,7 +398,7 @@ fn runs() -> &'static Mutex<HashMap<String, Run>> {
     RUNS.get_or_init(Default::default)
 }
 
-fn kill_process_group(pgid: u32) {
+pub(crate) fn kill_process_group(pgid: u32) {
     let _ = std::process::Command::new("kill").args(["-TERM", &format!("-{pgid}")]).status();
 }
 

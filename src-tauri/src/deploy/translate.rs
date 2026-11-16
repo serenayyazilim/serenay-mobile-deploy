@@ -21,7 +21,21 @@ fn locale_to_lang(locale: &str) -> String {
     LOCALE_TO_LANG.iter().find(|(l, _)| *l == locale).map(|(_, lang)| lang.to_string()).unwrap_or_else(|| locale.to_string())
 }
 
+/// The free endpoint now and then answers with an error, a rate limit or a slow response; a
+/// few quick retries make one bad answer not cost a language its translation.
 async fn translate_text(text: &str, target_lang: &str) -> Option<String> {
+    for attempt in 0..3u64 {
+        if attempt > 0 {
+            tokio::time::sleep(Duration::from_millis(700 * attempt)).await;
+        }
+        if let Some(translated) = translate_once(text, target_lang).await {
+            return Some(translated);
+        }
+    }
+    None
+}
+
+async fn translate_once(text: &str, target_lang: &str) -> Option<String> {
     let url = format!(
         "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl={}&dt=t&q={}",
         target_lang,

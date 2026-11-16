@@ -16,7 +16,7 @@ use commands::appstoreconnect::{
     asc_screenshot_upload, asc_territories_list,
 };
 use commands::config::{config_colors_get, config_colors_save, config_serconf_get, config_serconf_save};
-use commands::deploy::{deploy_check_splash_image, deploy_start, deploy_submit_two_factor_code};
+use commands::deploy::{deploy_cancel, deploy_check_splash_image, deploy_start, deploy_submit_two_factor_code};
 use commands::firebase::{firebase_accounts, firebase_create_project, firebase_logout};
 use commands::flutter::{flutter_build_start, flutter_devices, flutter_run_hot_reload, flutter_run_stop};
 use commands::project::{project_activate, project_check_splash_image, project_create};
@@ -101,6 +101,7 @@ pub fn run() {
             project_check_splash_image,
             projects_version_set,
             deploy_start,
+            deploy_cancel,
             deploy_check_splash_image,
             deploy_submit_two_factor_code,
             sync_versions_start,

@@ -5,7 +5,7 @@
   import { t } from "$lib/i18n/index.svelte";
   import LogView from "./log-view.svelte";
 
-  let { open = $bindable(false), title, logs, isRunning }: { open: boolean; title: string; logs: string[]; isRunning: boolean } = $props();
+  let { open = $bindable(false), title, logs, isRunning, onStop, isStopping = false }: { open: boolean; title: string; logs: string[]; isRunning: boolean; onStop?: () => void; isStopping?: boolean } = $props();
 
   function copyLogs() {
     navigator.clipboard.writeText(logs.join("\n"));
@@ -32,6 +32,9 @@
     <LogView {logs} {logClass} />
 
     <div class="flex justify-end gap-2 pt-4">
+      {#if isRunning && onStop}
+        <Button variant="destructive" disabled={isStopping} onclick={onStop}>{t("deploy.stop")}</Button>
+      {/if}
       <Button variant="outline" onclick={copyLogs}>{t("common.copy")}</Button>
       <Button onclick={() => (open = false)}>{t("common.close")}</Button>
     </div>

@@ -154,6 +154,13 @@
       {/if}
 
       {#if isDeployProcessing}
+        <button
+          onclick={(e) => { e.stopPropagation(); deployState.stopDeploy(); }}
+          disabled={deployState.isStopping}
+          class="pressable flex w-full items-center justify-center gap-1.5 rounded-full bg-secondary hover:bg-accent text-red-600 py-1.5 transition-colors disabled:opacity-50"
+        >
+          <span class="text-[10px] font-medium">{t("deploy.stop")}</span>
+        </button>
         <p class="text-[10px] text-center text-amber-600 dark:text-amber-500">{t("projectCard.deployStopsOnClose")}</p>
       {/if}
     </div>

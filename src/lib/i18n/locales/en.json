@@ -316,6 +316,9 @@
 
   "deploy.activatingProject": "Activating project...",
   "deploy.starting": "Starting deploy...",
+  "deploy.stop": "Stop deploy",
+  "deploy.stopTriggered": "Stopping deploy...",
+  "deploy.stopped": "Deploy stopped",
   "deploy.waitingForAppleAuth": "Waiting for Apple authentication...",
   "deploy.codeSubmitted": "Verification code submitted...",
   "deploy.failed": "Deploy failed",

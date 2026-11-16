@@ -3,6 +3,7 @@ use crate::appstoreconnect::config::read_asc_config;
 use crate::deploy::registry::DeployRegistry;
 use crate::deploy::locales::{get_store_locales, APP_NOT_FOUND};
 use crate::setup::{self, ProjectKind};
+use crate::commands::flutter::kill_process_group;
 use crate::deploy::{find_script_path, is_two_factor_prompt, translate::{build_translations, TRANSLATION_FAILED}};
 use crate::workspace::sermobileboss_config::min_version;
 use serde_json::json;
@@ -165,6 +166,8 @@ pub async fn deploy_start(
     let event_name = format!("deploy-event-{process_id}");
 
     let mut command = Command::new("ruby");
+    // Its own process group, so a stop also ends fastlane, xcodebuild and gradle under ruby.
+    command.process_group(0);
     command
         .arg(&script_path)
         .arg(&platform)
@@ -205,6 +208,9 @@ pub async fn deploy_start(
 
     let stdin = child.stdin.take().ok_or("Failed to get stdin")?;
     registry.insert(process_id.clone(), stdin);
+    if let Some(pid) = child.id() {
+        registry.set_group(&process_id, pid);
+    }
 
     let stdout = child.stdout.take().ok_or("Failed to get stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to get stderr")?;
@@ -217,14 +223,34 @@ pub async fn deploy_start(
     let process_id_wait = process_id.clone();
     tokio::spawn(async move {
         let status = child.wait().await;
-        app_wait.state::<DeployRegistry>().remove(&process_id_wait);
+        let registry = app_wait.state::<DeployRegistry>();
+        registry.remove(&process_id_wait);
+        let cancelled = registry.take_group(&process_id_wait);
         let code = status.ok().and_then(|s| s.code());
-        let _ = app_wait.emit(&event_wait, json!({ "type": "done", "success": code == Some(0), "exitCode": code }));
+        let _ = app_wait.emit(&event_wait, json!({ "type": "done", "success": code == Some(0), "exitCode": code, "cancelled": cancelled }));
     });
 
     let _ = app.emit(&event_name, json!({ "type": "started", "processId": process_id }));
 
     Ok(json!({ "processId": process_id, "warnings": warnings }))
+}
+
+/// Stops a running deploy: terminates its whole process group (ruby, fastlane, xcodebuild, gradle).
+/// The `done` event then carries `cancelled: true`.
+#[tauri::command]
+pub async fn deploy_cancel(app: AppHandle, registry: State<'_, DeployRegistry>, process_id: String) -> Result<(), String> {
+    let pgid = registry.mark_cancelled(&process_id).ok_or("Process not found or already finished")?;
+    kill_process_group(pgid);
+    // Fastlane or gradle can ignore the first signal; a deploy that is still registered after a
+    // few seconds gets the one that can't be ignored.
+    let app_kill = app.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        if app_kill.state::<DeployRegistry>().1.lock().unwrap().contains_key(&process_id) {
+            let _ = std::process::Command::new("kill").args(["-KILL", &format!("-{pgid}")]).status();
+        }
+    });
+    Ok(())
 }
 
 /// Equivalent of `POST /api/deploy/input` — writes the 2FA code to the running process's stdin.

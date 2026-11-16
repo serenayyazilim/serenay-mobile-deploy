@@ -200,6 +200,7 @@ const TOOLS: &[(&str, &str, &[Param])] = &[
         ("bump_version", "boolean", false, "Bump the patch version and build number first (default true)"),
         ("smoke_test", "boolean", false, "Run the project's smoke/<platform>.sh (crash check + Maestro order flow, which places a real order) after the build and before the upload (default false)"),
     ]),
+    ("stop_deploy", "Stops the running deploy: ends the build and upload processes, and also answers a question the deploy is waiting on (a 2FA code or the release notes translation prompt) with \"no\". Nothing is rolled back; a build already uploaded to a store stays there.", &[]),
     ("list_devices", "Simulators, emulators and connected devices the app can run on.", &[("refresh", "boolean", false, "Look again instead of using the cached list")]),
     ("run_app", "Runs the app on a device in debug mode, the same as the start button. Follow it with status.", &[PROJECT, ("device", "string", false, "Device id or name from list_devices; left out = Flutter's default")]),
     ("hot_reload", "Hot reloads the running app.", &[]),
@@ -549,6 +550,12 @@ async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, S
                 "smokeTest": args.get("smoke_test").and_then(Value::as_bool).unwrap_or(false),
             });
             ui(app, action, format!("Deploy of {} ({platform}, {track}) started. Follow it with status.", p.app_name))
+        }
+        "stop_deploy" => {
+            if !running(&status, "deploy") {
+                return Err("No deploy is running.".to_string());
+            }
+            ui(app, json!({ "action": "stopDeploy" }), "Stopping the deploy. Check it with status.".to_string())
         }
         "run_app" => {
             if running(&status, "run") {
