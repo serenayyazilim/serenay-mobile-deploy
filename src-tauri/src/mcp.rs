@@ -207,6 +207,12 @@ const TOOLS: &[(&str, &str, &[Param])] = &[
     ("stop_app", "Stops the running app.", &[]),
     ("run_tests", "Runs the project's tests. Follow it with status for the results.", &[PROJECT]),
     ("test_screenshots", "Screenshots Maestro saved in the last E2E/smoke run (build/maestro), e.g. the screen a flow failed on.", &[("limit", "integer", false, "How many of the newest images to return (default 3)")]),
+    ("maestro_flows", "The workspace's Maestro E2E flows (.maestro/*.yaml) with their contents. smoke/<platform>.sh runs order.yaml, which calls login.yaml.", &[]),
+    ("maestro_flow_write", "Creates or replaces a Maestro flow in .maestro/. The next smoke test or deploy with smoke_test runs it (order.yaml places a real order).", &[
+        ("name", "string", true, "File name in .maestro, e.g. order.yaml"),
+        ("content", "string", true, "The whole flow YAML"),
+    ]),
+    ("remote_access", "How to see and use this Mac's simulators and emulators by hand from another computer on the same network: the Mac's IP and whether Screen Sharing (VNC) is on.", &[]),
 
     // Version and project settings
     ("set_version", "Writes the app version without deploying.", &[PROJECT, ("version", "string", true, "x.y.z+build, e.g. 3.0.2+44; the build number must stay above the stores' latest")]),
@@ -310,6 +316,35 @@ fn test_screenshots(ws: &str, limit: usize) -> Result<Value, String> {
         content.push(json!({ "type": "image", "data": STANDARD.encode(data), "mimeType": "image/png" }));
     }
     Ok(json!({ "content": content }))
+}
+
+/// .maestro/*.yaml file names and contents.
+fn maestro_flows(ws: &str) -> Result<Value, String> {
+    let dir = std::path::Path::new(ws).join(".maestro");
+    let mut flows: Vec<(String, String)> = std::fs::read_dir(&dir)
+        .map_err(|_| format!("No Maestro flows: {} does not exist.", dir.display()))?
+        .flatten()
+        .filter(|e| e.path().extension().is_some_and(|x| x == "yaml"))
+        .map(|e| (e.file_name().to_string_lossy().into_owned(), std::fs::read_to_string(e.path()).unwrap_or_default()))
+        .collect();
+    flows.sort();
+    Ok(Value::Array(flows.into_iter().map(|(name, content)| json!({ "name": name, "content": content })).collect()))
+}
+
+/// The Mac's LAN IP (the address a UDP socket would route out from; nothing is sent) and whether
+/// macOS Screen Sharing answers on the VNC port. Simulators and emulators are windows on this Mac,
+/// so Screen Sharing covers both.
+fn remote_access() -> Value {
+    use std::net::{TcpStream, UdpSocket};
+    let ip = UdpSocket::bind("0.0.0.0:0").and_then(|s| s.connect("8.8.8.8:80").and_then(|_| s.local_addr())).map(|a| a.ip().to_string()).ok();
+    let screen_sharing = TcpStream::connect_timeout(&"127.0.0.1:5900".parse().unwrap(), std::time::Duration::from_millis(500)).is_ok();
+    let address = ip.as_deref().map(|ip| format!("vnc://{ip}")).unwrap_or("vnc://<this Mac's IP>".to_string());
+    let steps = if screen_sharing {
+        format!("Screen Sharing is on. From another Mac: Finder > Go > Connect to Server (Cmd+K) > {address}. From Windows/Linux: a VNC viewer (e.g. RealVNC Viewer) to {}:5900. Sign in with this Mac's user name and password; the simulators and emulators are usable with the mouse and keyboard.", ip.as_deref().unwrap_or("<this Mac's IP>"))
+    } else {
+        format!("Screen Sharing is off. On this Mac: System Settings > General > Sharing > turn on Screen Sharing (for Windows/Linux VNC viewers also open its (i) and turn on \"VNC viewers may control screen with password\"). Then connect to {address}.")
+    };
+    json!({ "ip": ip, "screenSharing": screen_sharing, "steps": steps })
 }
 
 fn out<T: Serialize>(value: T) -> Result<Value, String> {
@@ -444,6 +479,7 @@ async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, S
         "list_devices" => return out(flutter::flutter_devices(args.get("refresh").and_then(Value::as_bool).unwrap_or(false)).await?),
         "firebase_accounts" => return out(firebase::firebase_accounts().await),
         "sentry_check" => return out(sentry::sentry_check().await),
+        "remote_access" => return Ok(remote_access()),
         _ => {}
     }
 
@@ -471,6 +507,20 @@ async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, S
         }
 
         "test_screenshots" => test_screenshots(&ws, args.get("limit").and_then(Value::as_u64).unwrap_or(3) as usize),
+        "maestro_flows" => maestro_flows(&ws),
+        "maestro_flow_write" => {
+            let name = required(args, "name")?;
+            if running(&status, "tests") || running(&status, "deploy") {
+                return Err("Tests or a deploy are running; change the flow when they're done.".to_string());
+            }
+            if !name.ends_with(".yaml") || !name.trim_end_matches(".yaml").chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+                return Err("name must be a plain file name like order.yaml (letters, digits, - and _).".to_string());
+            }
+            let dir = std::path::Path::new(&ws).join(".maestro");
+            std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+            std::fs::write(dir.join(&name), required(args, "content")?).map_err(|e| e.to_string())?;
+            Ok(Value::String(format!("Saved .maestro/{name}.")))
+        }
 
         "git_status" => out(git::git_status(ws).await?),
         "git_switch" => {

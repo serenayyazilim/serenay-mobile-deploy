@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.22] - 2026-11-16
+
+- The MCP server has new `maestro_flows` and `maestro_flow_write` tools to read and edit the workspace's Maestro E2E flows in `.maestro/`.
+- The MCP server has a new `remote_access` tool: this Mac's IP and whether Screen Sharing (VNC) is on, with the steps to use the simulators and emulators by hand from another computer on the same network. Screen Sharing gives access to the whole screen, not only the simulators.
+
 ## [0.3.21] - 2026-11-16
 
 - The store version sync shows why App Store versions could not be fetched (e.g. Apple's "A required agreement is missing or has expired") as an error, instead of quietly logging "0 apps found".
