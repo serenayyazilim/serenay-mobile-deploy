@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.27] - 2026-11-17
+
+- Live view, iOS: text is typed by putting it on the simulator's pasteboard (`simctl pbcopy`) and pressing Cmd+V, so it no longer depends on the keyboard layout and keeps Turkish characters. If the pasteboard does not hold the text afterwards (some simulator runtimes ignore `pbcopy`), it falls back to `idb ui text`, which follows the simulator's keyboard layout. A companion or idb client that died is started again on the next request.
+- Live view, Android: non-ASCII text (e.g. Turkish) is typed through ADB Keyboard (`com.android.adbkeyboard`) when it is the active keyboard; otherwise the viewer shows how to set it up. ASCII still uses `adb shell input text`.
+
 ## [0.3.26] - 2026-11-17
 
 - The live view of the simulator is much faster on iOS: the picture now comes from `idb video-stream` (MJPEG, frames about 500 px wide) instead of one `simctl` screenshot at a time, so it moves at roughly 13 frames per second while the screen is moving instead of about 2. Taps, swipes, text and keys go through one idb client kept open for the session (about 90 ms each instead of 0.5 to 0.9 s for a new `idb` process per tap). Both run on an `idb_companion` the app starts per session on a private unix socket (not reachable from the network) and stops at `stop_app`. If the stream does not start, the old screenshot loop takes over.
