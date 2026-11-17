@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.24] - 2026-11-17
+
+- The app checks for a newer version of itself at start and then once a day while it is open. The result is part of the MCP `status` (under `app`), and new MCP tools `app_version`, `app_check_update` and `app_update` read the app's own version, check now, and install the update and restart (refused while a deploy, app run or test is running).
+- The MCP `deploy` tool has a new `allow_untranslated` option (default true): if the release notes can't be translated for some store languages, the deploy continues with the notes as written instead of waiting for the confirmation dialog in the app, which an MCP client could not answer.
+
 ## [0.3.23] - 2026-11-16
 
 - A running deploy can be stopped: a "Stop deploy" button on the project card and in the deploy logs, and a new MCP `stop_deploy` tool. It ends ruby, fastlane, xcodebuild and gradle together (and answers a waiting 2FA or translation question with "no"). A stopped deploy is not reported as a failure. Nothing is rolled back; a build already uploaded stays in the store.

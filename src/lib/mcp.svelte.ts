@@ -7,15 +7,18 @@ import { projectsState } from "$lib/stores/projects.svelte";
 import { deployState } from "$lib/stores/deploy.svelte";
 import { buildState, type FlutterDevice } from "$lib/stores/build.svelte";
 import { testsState } from "$lib/stores/tests.svelte";
+import { appUpdateState } from "$lib/stores/app-update.svelte";
 import { t } from "$lib/i18n/index.svelte";
 
 type McpAction =
-  | { action: "deploy"; projectId: string; platform: "ios" | "android" | "all"; track: "production" | "test"; whatsNew: string; bumpVersion: boolean; smokeTest: boolean }
+  | { action: "deploy"; projectId: string; platform: "ios" | "android" | "all"; track: "production" | "test"; whatsNew: string; bumpVersion: boolean; smokeTest: boolean; allowUntranslated: boolean }
   | { action: "run"; projectId: string; device: FlutterDevice | null }
   | { action: "hotReload" }
   | { action: "hotRestart" }
   | { action: "stop" }
   | { action: "stopDeploy" }
+  | { action: "appCheckUpdate" }
+  | { action: "appInstallUpdate" }
   | { action: "tests"; projectId: string }
   | { action: "openWorkspace"; path: string; mode: WorkspaceMode };
 
@@ -30,6 +33,8 @@ async function runAction(a: McpAction) {
   if (a.action === "hotRestart") return buildState.hotRestart();
   if (a.action === "stop") return buildState.stopBuild();
   if (a.action === "stopDeploy") return deployState.stopDeploy();
+  if (a.action === "appCheckUpdate") return appUpdateState.checkNow();
+  if (a.action === "appInstallUpdate") return appUpdateState.install();
 
   const workspace = workspaceState.path;
   const project = projectsState.projects.find((p) => p.id === a.projectId);
@@ -45,7 +50,8 @@ async function runAction(a: McpAction) {
       a.platform,
       a.bumpVersion,
       a.track,
-      a.smokeTest
+      a.smokeTest,
+      a.allowUntranslated
     );
   }
   if (a.action === "run") {
@@ -56,10 +62,20 @@ async function runAction(a: McpAction) {
 }
 
 export function connectMcp() {
+  appUpdateState.startDailyCheck();
   const stopEffect = $effect.root(() => {
     $effect(() => {
       const status = {
         workspace: workspaceState.path,
+        app: {
+          version: appUpdateState.version,
+          updateAvailable: appUpdateState.status === "available",
+          latestVersion: appUpdateState.latestVersion,
+          releaseNotes: appUpdateState.notes,
+          updateStatus: appUpdateState.status,
+          lastChecked: appUpdateState.lastChecked,
+          error: appUpdateState.error,
+        },
         deploy: {
           project: deployState.activeProject?.appName ?? null,
           status: deployState.deployStatus,
@@ -98,6 +114,7 @@ export function connectMcp() {
 
   return () => {
     stopEffect();
+    appUpdateState.stopDailyCheck();
     unlisten.then((fn) => fn());
     unlistenLogs.then((fn) => fn());
     invoke("mcp_status_set", { status: null }).catch(() => {});

@@ -137,7 +137,8 @@ class DeployState {
     platform: DeployPlatform = "all",
     bumpVersion: boolean = true,
     track: ReleaseTrack = "production",
-    smokeTest: boolean = false
+    smokeTest: boolean = false,
+    allowUntranslatedAuto: boolean = false
   ) {
     const project = this.pendingProject;
     if (!project || !workspacePath) return;
@@ -186,7 +187,7 @@ class DeployState {
         if (!locales) throw error;
         // Also shown in the MCP status, since the question can only be answered in the app.
         this.deployMessage = t("deploy.translationFailedTitle");
-        const proceed = await confirmState.ask(this.deployMessage, t("deploy.translationFailedDescription", { locales: locales.replaceAll(",", ", ") }));
+        const proceed = allowUntranslatedAuto || (await confirmState.ask(this.deployMessage, t("deploy.translationFailedDescription", { locales: locales.replaceAll(",", ", ") })));
         if (!proceed) {
           if (this.stopRequested) throw new DeployCancelled();
           this.resetDeploy();

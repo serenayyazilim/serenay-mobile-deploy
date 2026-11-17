@@ -199,8 +199,12 @@ const TOOLS: &[(&str, &str, &[Param])] = &[
         ("whats_new", "string", false, "Release notes in Turkish; they are translated to the store's other languages"),
         ("bump_version", "boolean", false, "Bump the patch version and build number first (default true)"),
         ("smoke_test", "boolean", false, "Run the project's smoke/<platform>.sh (crash check + Maestro order flow, which places a real order) after the build and before the upload (default false)"),
+        ("allow_untranslated", "boolean", false, "If the release notes can't be translated for some store languages, continue and send them the notes as written instead of waiting for the app's confirmation dialog (default true)"),
     ]),
     ("stop_deploy", "Stops the running deploy: ends the build and upload processes, and also answers a question the deploy is waiting on (a 2FA code or the release notes translation prompt) with \"no\". Nothing is rolled back; a build already uploaded to a store stays there.", &[]),
+    ("app_version", "This deploy app's own version and whether a newer one is published: version, updateAvailable, latestVersion, releaseNotes, lastChecked. The app checks by itself at start and then once a day while it is open; status carries the same data under \"app\".", &[]),
+    ("app_check_update", "Checks for a newer version of this deploy app now instead of waiting for the daily check. Returns right away; read the result with app_version.", &[]),
+    ("app_update", "Downloads and installs the newer version of this deploy app and restarts it (the MCP server is unreachable for a moment). Only when app_version says updateAvailable, and not while a deploy, app run or test is running.", &[]),
     ("list_devices", "Simulators, emulators and connected devices the app can run on.", &[("refresh", "boolean", false, "Look again instead of using the cached list")]),
     ("run_app", "Runs the app on a device in debug mode, the same as the start button. Follow it with status.", &[PROJECT, ("device", "string", false, "Device id or name from list_devices; left out = Flutter's default")]),
     ("hot_reload", "Hot reloads the running app.", &[]),
@@ -481,6 +485,17 @@ async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, S
         "firebase_accounts" => return out(firebase::firebase_accounts().await),
         "sentry_check" => return out(sentry::sentry_check().await),
         "remote_access" => return Ok(remote_access()),
+        "app_version" => return Ok(status.get("app").cloned().unwrap_or(Value::Null)),
+        "app_check_update" => return ui(app, json!({ "action": "appCheckUpdate" }), "Checking for an update. Read the result with app_version.".to_string()),
+        "app_update" => {
+            if status.pointer("/app/updateAvailable").and_then(Value::as_bool) != Some(true) {
+                return Err("No update available; check with app_check_update, then app_version.".to_string());
+            }
+            if ["deploy", "run", "tests"].iter().any(|job| running(&status, job)) {
+                return Err("A deploy, app run or test is running; restarting now would kill it. Wait or stop it first.".to_string());
+            }
+            return ui(app, json!({ "action": "appInstallUpdate" }), "Installing the update; the app restarts.".to_string());
+        }
         _ => {}
     }
 
@@ -548,6 +563,7 @@ async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, S
                 "whatsNew": text(args, "whats_new").unwrap_or_default(),
                 "bumpVersion": args.get("bump_version").and_then(Value::as_bool).unwrap_or(true),
                 "smokeTest": args.get("smoke_test").and_then(Value::as_bool).unwrap_or(false),
+                "allowUntranslated": args.get("allow_untranslated").and_then(Value::as_bool).unwrap_or(true),
             });
             ui(app, action, format!("Deploy of {} ({platform}, {track}) started. Follow it with status.", p.app_name))
         }
