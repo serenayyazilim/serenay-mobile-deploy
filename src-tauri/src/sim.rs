@@ -9,9 +9,10 @@ use std::process::Stdio;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use std::sync::Arc;
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
-use tokio::process::Command;
+use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 
 #[derive(Clone)]
 struct Session {
@@ -33,6 +34,7 @@ pub fn start_session(device: Option<(String, String)>) -> String {
 
 pub fn stop_session() {
     *SESSION.lock().unwrap() = None;
+    *IOS.lock().unwrap() = None;
 }
 
 /// The live session's token: the run must be running, or just started (its status shows up a moment later).
@@ -146,6 +148,220 @@ fn idb_path() -> Result<String, String> {
         .ok_or("idb not found: install it with `pipx install fb-idb` (and idb_companion with brew)".to_string())
 }
 
+/// iOS: one idb_companion per session on a private unix socket (not reachable from the network), a
+/// persistent Python idb client for input (about 90 ms per tap instead of a new process each time),
+/// and an MJPEG stream from the same companion. Dropping it kills both processes.
+struct Ios {
+    udid: String,
+    sock: std::path::PathBuf,
+    points: (f64, f64),
+    scale: f64,
+    helper: Arc<tokio::sync::Mutex<(ChildStdin, BufReader<ChildStdout>)>>,
+    _companion: Child,
+    _helper: Child,
+}
+
+impl Drop for Ios {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.sock);
+    }
+}
+
+static IOS: Mutex<Option<Arc<Ios>>> = Mutex::new(None);
+static IOS_START: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+const HELPER: &str = r#"
+import asyncio, json, sys
+from idb.common.types import DomainSocketAddress, HIDButtonType
+from idb.grpc.client import Client
+import logging
+async def main():
+    async with Client.build(address=DomainSocketAddress(path=sys.argv[1]), logger=logging.getLogger()) as c:
+        print("ready", flush=True)
+        loop = asyncio.get_running_loop()
+        while True:
+            line = await loop.run_in_executor(None, sys.stdin.readline)
+            if not line: return
+            try:
+                o = json.loads(line)
+                op = o["op"]
+                if op == "tap": await c.tap(o["x"], o["y"])
+                elif op == "swipe": await c.swipe((o["x"], o["y"]), (o["x2"], o["y2"]), o["s"])
+                elif op == "text": await c.text(o["text"])
+                elif op == "key": await c.key(o["code"])
+                elif op == "home": await c.button(HIDButtonType.HOME)
+                print("ok", flush=True)
+            except Exception as e:
+                print("err " + str(e).replace("\n", " "), flush=True)
+asyncio.run(main())
+"#;
+
+/// The Python of the pipx environment idb lives in: it sits next to the idb script.
+fn idb_python() -> Result<String, String> {
+    let idb = idb_path()?;
+    let real = std::fs::canonicalize(&idb).map_err(|e| e.to_string())?;
+    let py = real.with_file_name("python");
+    py.is_file().then(|| py.to_string_lossy().to_string()).ok_or("could not find idb's Python".to_string())
+}
+
+async fn start_ios(id: &str) -> Result<Arc<Ios>, String> {
+    let sock = std::env::temp_dir().join(format!("sermobile-idb-{}.sock", &uuid::Uuid::new_v4().simple().to_string()[..12]));
+    let _ = std::fs::remove_file(&sock);
+    let sock_s = sock.to_string_lossy().to_string();
+    let mut companion = Command::new("idb_companion")
+        .args(["--udid", id, "--grpc-domain-sock", &sock_s])
+        .env("PATH", format!("/opt/homebrew/bin:/usr/local/bin:{}", std::env::var("PATH").unwrap_or_default()))
+        .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).kill_on_drop(true)
+        .spawn()
+        .map_err(|e| if e.kind() == std::io::ErrorKind::NotFound { "idb_companion not found: brew install idb-companion".to_string() } else { e.to_string() })?;
+    let mut waited = 0;
+    while !sock.exists() {
+        if companion.try_wait().ok().flatten().is_some() || waited > 100 {
+            return Err("idb_companion did not start".to_string());
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        waited += 1;
+    }
+    let out = run(&idb_path()?, &["--companion", &sock_s, "describe", "--udid", id, "--json"]).await?;
+    let d: Value = serde_json::from_slice(&out).map_err(|e| e.to_string())?;
+    let dim = &d["screen_dimensions"];
+    let (pw, ph, px) = (dim["width_points"].as_f64(), dim["height_points"].as_f64(), dim["width"].as_f64());
+    let (Some(pw), Some(ph)) = (pw, ph) else { return Err("idb describe gave no screen size".to_string()) };
+    let mut helper = Command::new(idb_python()?)
+        .args(["-c", HELPER, &sock_s])
+        .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).kill_on_drop(true)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    let stdin = helper.stdin.take().ok_or("no helper stdin")?;
+    let mut stdout = BufReader::new(helper.stdout.take().ok_or("no helper stdout")?);
+    let mut line = String::new();
+    tokio::time::timeout(Duration::from_secs(10), stdout.read_line(&mut line)).await.map_err(|_| "idb client timed out")?.map_err(|e| e.to_string())?;
+    if line.trim() != "ready" {
+        return Err("idb client did not start".to_string());
+    }
+    // Frames about 500 px wide are plenty for a phone browser.
+    let scale = px.filter(|w| *w > 0.0).map(|w| (500.0 / w).min(1.0)).unwrap_or(0.4);
+    Ok(Arc::new(Ios { udid: id.to_string(), sock, points: (pw, ph), scale, helper: Arc::new(tokio::sync::Mutex::new((stdin, stdout))), _companion: companion, _helper: helper }))
+}
+
+async fn ios_session(id: &str) -> Result<Arc<Ios>, String> {
+    let _guard = IOS_START.lock().await;
+    if let Some(i) = IOS.lock().unwrap().clone().filter(|i| i.udid == id) {
+        return Ok(i);
+    }
+    *IOS.lock().unwrap() = None;
+    let ios = start_ios(id).await?;
+    *IOS.lock().unwrap() = Some(ios.clone());
+    Ok(ios)
+}
+
+impl Ios {
+    async fn send(&self, op: Value) -> Result<(), String> {
+        let mut h = self.helper.lock().await;
+        let mut line = op.to_string();
+        line.push('\n');
+        h.0.write_all(line.as_bytes()).await.map_err(|e| e.to_string())?;
+        let mut reply = String::new();
+        let n = tokio::time::timeout(Duration::from_secs(10), h.1.read_line(&mut reply)).await.map_err(|_| "idb client timed out")?.map_err(|e| e.to_string())?;
+        match reply.trim() {
+            "ok" => Ok(()),
+            _ if n == 0 => Err("idb client stopped".to_string()),
+            e => Err(e.trim_start_matches("err ").to_string()),
+        }
+    }
+}
+
+/// Pulls whole JPEGs (start FFD8, end FFD9) out of the raw MJPEG stream of `idb video-stream`.
+fn next_jpeg(buf: &mut Vec<u8>) -> Option<Vec<u8>> {
+    let start = buf.windows(2).position(|w| w == [0xff, 0xd8])?;
+    let end = buf[start..].windows(2).position(|w| w == [0xff, 0xd9])? + start + 2;
+    let frame = buf[start..end].to_vec();
+    buf.drain(..end);
+    Some(frame)
+}
+
+/// Forwards the JPEGs of a raw MJPEG pipe as multipart parts. Ok(frames) when the pipe ended (or the viewer left,
+/// then `gone` is set); Err when no frame ever came.
+async fn pump(stream: &mut TcpStream, s: &Session, status: &impl Fn() -> Value, out: &mut (impl AsyncReadExt + Unpin), gone: &mut bool) -> Result<u32, String> {
+    let (mut buf, mut chunk, mut frames) = (Vec::new(), vec![0u8; 65536], 0u32);
+    loop {
+        if live(&s.token, &status()).is_none() {
+            *gone = true;
+            return Ok(frames);
+        }
+        // A still screen sends nothing, so a quiet few seconds are normal once frames have flowed.
+        let wait = if frames == 0 { Duration::from_secs(15) } else { Duration::from_secs(3) };
+        match tokio::time::timeout(wait, out.read(&mut chunk)).await {
+            Ok(Ok(n)) if n > 0 => buf.extend_from_slice(&chunk[..n]),
+            Ok(_) if frames > 0 => return Ok(frames),
+            Ok(_) => return Err("stream ended".to_string()),
+            Err(_) if frames == 0 => return Err("no frames".to_string()),
+            Err(_) => continue,
+        }
+        // Only the newest frame matters if the browser is slower than the stream.
+        let mut last = None;
+        while let Some(f) = next_jpeg(&mut buf) {
+            last = Some(f);
+        }
+        if let Some(f) = last {
+            frames += 1;
+            let part = format!("--frame\r\nContent-Type: image/jpeg\r\nContent-Length: {}\r\n\r\n", f.len());
+            if stream.write_all(part.as_bytes()).await.is_err() || stream.write_all(&f).await.is_err() || stream.write_all(b"\r\n").await.is_err() {
+                *gone = true;
+                return Ok(frames);
+            }
+        }
+        if buf.len() > 8_000_000 {
+            return Err("stream garbled".to_string());
+        }
+    }
+}
+
+/// Ok(()) when the viewer left; Err means the stream failed before any frame (fall back to screenshots).
+async fn stream_ios(stream: &mut TcpStream, s: &Session, ios: &Ios, status: &impl Fn() -> Value) -> Result<(), String> {
+    let mut child = Command::new(idb_path()?)
+        .args(["--companion", &ios.sock.to_string_lossy(), "video-stream", "--udid", &ios.udid, "--format", "mjpeg", "--fps", "30", "--compression-quality", "0.6", "--scale-factor", &format!("{:.3}", ios.scale)])
+        .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).kill_on_drop(true)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    let mut out = child.stdout.take().ok_or("no stream")?;
+    let mut gone = false;
+    pump(stream, s, status, &mut out, &mut gone).await.map(drop)
+}
+
+/// Android: `screenrecord` (H.264, only sends when the screen changes, stops after 3 minutes) decoded to MJPEG by ffmpeg.
+/// There is no scrcpy dependency; both tools are optional and the screencap loop takes over without them.
+async fn stream_android(stream: &mut TcpStream, s: &Session, id: &str, status: &impl Fn() -> Value) -> Result<(), String> {
+    let (w, h) = screen(s, id, false).await?;
+    let width = 540.0_f64.min(w);
+    let size = format!("{}x{}", (width / 2.0).round() as u32 * 2, (width * h / w / 2.0).round() as u32 * 2);
+    let ffmpeg = ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"].into_iter().find(|p| std::path::Path::new(p).is_file()).unwrap_or("ffmpeg");
+    let mut total = 0;
+    loop {
+        let mut rec = Command::new("adb")
+            .args(["-s", id, "exec-out", "screenrecord", "--output-format=h264", "--size", &size, "--bit-rate", "3000000", "-"])
+            .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).kill_on_drop(true)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        let input: Stdio = rec.stdout.take().ok_or("no screenrecord")?.try_into().map_err(|e: std::io::Error| e.to_string())?;
+        let mut ff = Command::new(ffmpeg)
+            .args(["-loglevel", "quiet", "-probesize", "20000", "-analyzeduration", "0", "-f", "h264", "-i", "-", "-pix_fmt", "yuvj420p", "-f", "mjpeg", "-q:v", "6", "-"])
+            .stdin(input).stdout(Stdio::piped()).stderr(Stdio::null()).kill_on_drop(true)
+            .spawn()
+            .map_err(|e| if e.kind() == std::io::ErrorKind::NotFound { "ffmpeg not found".to_string() } else { e.to_string() })?;
+        let mut out = ff.stdout.take().ok_or("no ffmpeg output")?;
+        let mut gone = false;
+        match pump(stream, s, status, &mut out, &mut gone).await {
+            Ok(n) => total += n,
+            Err(e) if total == 0 => return Err(e),
+            Err(_) => {}
+        }
+        if gone {
+            return Ok(());
+        }
+    }
+}
+
 /// The session's device, or the first Android emulator / booted iOS simulator.
 async fn device(s: &Session) -> Result<(String, bool), String> {
     if let Some((id, platform)) = &s.device {
@@ -183,6 +399,21 @@ async fn stream_frames(mut stream: TcpStream, s: Session, status: impl Fn() -> V
     let head = "HTTP/1.1 200 OK\r\nContent-Type: multipart/x-mixed-replace; boundary=frame\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n";
     if stream.write_all(head.as_bytes()).await.is_err() {
         return;
+    }
+    if let Ok((id, false)) = device(&s).await {
+        match stream_android(&mut stream, &s, &id, &status).await {
+            Ok(()) => return,
+            Err(e) => eprintln!("sim: Android stream failed ({e}), using screencap"),
+        }
+    }
+    if let Ok((id, true)) = device(&s).await {
+        match ios_session(&id).await {
+            Ok(ios) => match stream_ios(&mut stream, &s, &ios, &status).await {
+                Ok(()) => return,
+                Err(e) => eprintln!("sim: iOS stream failed ({e}), using screenshots"),
+            },
+            Err(e) => eprintln!("sim: idb companion failed ({e}), using screenshots"),
+        }
     }
     let (mut last, mut sent) = (0u64, Instant::now());
     let mut errors = 0;
@@ -226,13 +457,7 @@ async fn stream_frames(mut stream: TcpStream, s: Session, status: impl Fn() -> V
 /// The screen size input is sent in: Android pixels, iOS points.
 async fn screen(s: &Session, id: &str, ios: bool) -> Result<(f64, f64), String> {
     if ios {
-        let out = run(&idb_path()?, &["describe", "--udid", id, "--json"]).await?;
-        let d: Value = serde_json::from_slice(&out).map_err(|e| e.to_string())?;
-        let dim = &d["screen_dimensions"];
-        return match (dim["width_points"].as_f64(), dim["height_points"].as_f64()) {
-            (Some(w), Some(h)) => Ok((w, h)),
-            _ => Err("idb describe gave no screen size".to_string()),
-        };
+        return Ok(ios_session(id).await?.points);
     }
     if let Some((w, h)) = SESSION.lock().unwrap().as_ref().filter(|c| c.token == s.token).and_then(|c| c.size) {
         return Ok((w as f64, h as f64));
@@ -267,13 +492,14 @@ async fn input_event(app: &AppHandle, s: &Session, input: &Value) -> Result<(), 
         }
         ("tap", true) => {
             let (x, y) = pos("x", "y")?;
-            run(&idb_path()?, &["ui", "tap", "--udid", &id, &x, &y]).await.map(drop)
+            ios_session(&id).await?.send(json!({"op": "tap", "x": x.parse::<f64>().unwrap_or(0.0), "y": y.parse::<f64>().unwrap_or(0.0)})).await
         }
         ("swipe", _) => {
             let ((x, y), (x2, y2)) = (pos("x", "y")?, pos("x2", "y2")?);
             let ms = input["ms"].as_u64().unwrap_or(300).clamp(50, 2000);
             if ios {
-                run(&idb_path()?, &["ui", "swipe", "--udid", &id, "--duration", &format!("{}", ms as f64 / 1000.0), &x, &y, &x2, &y2]).await.map(drop)
+                let n = |v: &str| v.parse::<f64>().unwrap_or(0.0);
+                ios_session(&id).await?.send(json!({"op": "swipe", "x": n(&x), "y": n(&y), "x2": n(&x2), "y2": n(&y2), "s": ms as f64 / 1000.0})).await
             } else {
                 run("adb", &["-s", &id, "shell", "input", "swipe", &x, &y, &x2, &y2, &ms.to_string()]).await.map(drop)
             }
@@ -281,7 +507,7 @@ async fn input_event(app: &AppHandle, s: &Session, input: &Value) -> Result<(), 
         ("text", _) => {
             let text = input["text"].as_str().filter(|t| !t.is_empty() && t.len() <= 500).ok_or("text must be 1 to 500 characters")?;
             if ios {
-                run(&idb_path()?, &["ui", "text", "--udid", &id, text]).await.map(drop)
+                ios_session(&id).await?.send(json!({"op": "text", "text": text})).await
             } else {
                 run("adb", &["-s", &id, "shell", "input", "text", &android_text(text)?]).await.map(drop)
             }
@@ -290,9 +516,9 @@ async fn input_event(app: &AppHandle, s: &Session, input: &Value) -> Result<(), 
             let key = input["key"].as_str().unwrap_or("");
             // idb: HID usage codes for enter (40) and backspace (42).
             match (key, ios) {
-                ("home", true) => run(&idb_path()?, &["ui", "button", "--udid", &id, "HOME"]).await.map(drop),
-                ("enter", true) => run(&idb_path()?, &["ui", "key", "--udid", &id, "40"]).await.map(drop),
-                ("backspace", true) => run(&idb_path()?, &["ui", "key", "--udid", &id, "42"]).await.map(drop),
+                ("home", true) => ios_session(&id).await?.send(json!({"op": "home"})).await,
+                ("enter", true) => ios_session(&id).await?.send(json!({"op": "key", "code": 40})).await,
+                ("backspace", true) => ios_session(&id).await?.send(json!({"op": "key", "code": 42})).await,
                 ("back" | "app_switch", true) => Err(format!("{key} does not exist on iOS")),
                 ("home" | "back" | "enter" | "backspace" | "app_switch", false) => {
                     let code = match key { "home" => "KEYCODE_HOME", "back" => "KEYCODE_BACK", "enter" => "KEYCODE_ENTER", "app_switch" => "KEYCODE_APP_SWITCH", _ => "KEYCODE_DEL" };
@@ -343,6 +569,14 @@ mod tests {
     }
 
     #[test]
+    fn jpegs_are_cut_from_a_raw_stream() {
+        let mut b = vec![1, 2, 0xff, 0xd8, 9, 9, 0xff, 0xd9, 0xff, 0xd8, 7];
+        assert_eq!(next_jpeg(&mut b).unwrap(), vec![0xff, 0xd8, 9, 9, 0xff, 0xd9]);
+        assert!(next_jpeg(&mut b).is_none());
+        assert_eq!(b, vec![0xff, 0xd8, 7]);
+    }
+
+    #[test]
     fn session_dies_with_stop() {
         let t = start_session(None);
         assert!(live(&t, &Value::Null).is_some());
@@ -359,6 +593,82 @@ mod tests {
         println!("frame {} {k}", b.len());
         let s = Session { token: "x".into(), device: None, started: Instant::now(), size: None };
         println!("screen {:?}", screen(&s, id, true).await);
-        println!("tap {:?}", run(&idb_path().unwrap(), &["ui", "tap", "--udid", id, "200", "800"]).await.map(drop));
+        let t = Instant::now();
+        println!("tap {:?} in {:?}", ios_session(id).await.unwrap().send(json!({"op": "tap", "x": 200.0, "y": 800.0})).await, t.elapsed());
+        stop_session();
+    }
+
+    #[tokio::test]
+    #[ignore] // needs a booted iOS simulator + idb: measures frames per second while the screen moves, and tap latency
+    async fn ios_fps() {
+        let id = "04F12959-54BB-45D2-86E0-17B781D0399B";
+        let token = start_session(Some((id.to_string(), "ios".to_string())));
+        let session = SESSION.lock().unwrap().clone().unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut sock, _) = listener.accept().await.unwrap();
+            let ios = ios_session(id).await.unwrap();
+            let _ = stream_ios(&mut sock, &session, &ios, &|| json!({"run": {"status": "running"}})).await;
+        });
+        let mut client = TcpStream::connect(addr).await.unwrap();
+        let mover = tokio::spawn(async move {
+            let mut lat = vec![];
+            for i in 0..12 {
+                let ios = ios_session(id).await.unwrap();
+                let t = Instant::now();
+                let (y1, y2) = if i % 2 == 0 { (700.0, 300.0) } else { (300.0, 700.0) };
+                let _ = ios.send(json!({"op": "swipe", "x": 200.0, "y": y1, "x2": 200.0, "y2": y2, "s": 0.3})).await;
+                lat.push(t.elapsed());
+                let t = Instant::now();
+                let _ = ios.send(json!({"op": "tap", "x": 5.0, "y": 5.0})).await;
+                println!("tap {:?}", t.elapsed());
+            }
+            lat
+        });
+        let (mut bytes, mut chunk, start) = (Vec::new(), vec![0u8; 65536], Instant::now());
+        while start.elapsed() < Duration::from_secs(8) {
+            if let Ok(Ok(n)) = tokio::time::timeout(Duration::from_secs(1), client.read(&mut chunk)).await {
+                bytes.extend_from_slice(&chunk[..n]);
+            }
+        }
+        let frames = bytes.windows(8).filter(|w| w == b"--frame\r").count();
+        println!("{token:.4} frames {frames} in 8s, {} bytes, first frame {:?}", bytes.len(), start.elapsed());
+        let _ = mover.await;
+        stop_session();
+        server.abort();
+    }
+
+    #[tokio::test]
+    #[ignore] // needs a running Android emulator + ffmpeg: counts frames of the screenrecord stream while the screen scrolls
+    async fn android_fps() {
+        let id = "emulator-5554";
+        start_session(Some((id.to_string(), "android".to_string())));
+        let session = SESSION.lock().unwrap().clone().unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut sock, _) = listener.accept().await.unwrap();
+            println!("stream result {:?}", stream_android(&mut sock, &session, id, &|| json!({"run": {"status": "running"}})).await);
+        });
+        let mut client = TcpStream::connect(addr).await.unwrap();
+        let mover = tokio::spawn(async move {
+            for i in 0..10 {
+                let (a, b) = if i % 2 == 0 { ("1500", "500") } else { ("500", "1500") };
+                let t = Instant::now();
+                let _ = run("adb", &["-s", id, "shell", "input", "swipe", "500", a, "500", b, "300"]).await;
+                println!("adb swipe round trip {:?}", t.elapsed());
+            }
+        });
+        let (mut bytes, mut chunk, start) = (Vec::new(), vec![0u8; 65536], Instant::now());
+        while start.elapsed() < Duration::from_secs(24) {
+            if let Ok(Ok(n)) = tokio::time::timeout(Duration::from_secs(1), client.read(&mut chunk)).await {
+                bytes.extend_from_slice(&chunk[..n]);
+            }
+        }
+        println!("frames {} in 24s, {} bytes", bytes.windows(8).filter(|w| w == b"--frame\r").count(), bytes.len());
+        let _ = mover.await;
+        stop_session();
+        server.abort();
     }
 }

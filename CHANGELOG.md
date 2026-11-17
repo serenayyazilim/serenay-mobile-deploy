@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.26] - 2026-11-17
+
+- The live view of the simulator is much faster on iOS: the picture now comes from `idb video-stream` (MJPEG, frames about 500 px wide) instead of one `simctl` screenshot at a time, so it moves at roughly 13 frames per second while the screen is moving instead of about 2. Taps, swipes, text and keys go through one idb client kept open for the session (about 90 ms each instead of 0.5 to 0.9 s for a new `idb` process per tap). Both run on an `idb_companion` the app starts per session on a private unix socket (not reachable from the network) and stops at `stop_app`. If the stream does not start, the old screenshot loop takes over.
+- Android now streams with `adb screenrecord` decoded to MJPEG by `ffmpeg` (both optional, the `screencap` loop is the fallback). Android taps and swipes still use `adb shell input`, which is slow to start on some emulators (0.5 to 1.5 s measured on an arm64 emulator).
+
 ## [0.3.25] - 2026-11-17
 
 - MCP `run_app` now also returns a link (`http://<Mac IP>:47321/sim/<token>`) to a live view of the running simulator or emulator. Opened in a browser on the same network it shows the screen and passes taps, swipes, typed text and Back/Home/Enter/⌫ keys to it, plus hot reload and hot restart buttons; nothing is installed on the viewing device. Android uses `adb` (screencap, `input`), iOS uses `simctl` and `idb` (found on PATH or in `~/.local/bin`). Android's `input text` types ASCII only.
