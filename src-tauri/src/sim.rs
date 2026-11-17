@@ -157,8 +157,7 @@ struct Ios {
     points: (f64, f64),
     scale: f64,
     helper: Arc<tokio::sync::Mutex<(ChildStdin, BufReader<ChildStdout>)>>,
-    _companion: Child,
-    _helper: Child,
+    children: Mutex<(Child, Child)>, // companion, helper; dropping them kills both
 }
 
 impl Drop for Ios {
@@ -172,7 +171,7 @@ static IOS_START: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 const HELPER: &str = r#"
 import asyncio, json, sys
-from idb.common.types import DomainSocketAddress, HIDButtonType
+from idb.common.types import DomainSocketAddress, HIDButtonType, HIDDelay, HIDDirection, HIDKey, HIDPress
 from idb.grpc.client import Client
 import logging
 async def main():
@@ -189,6 +188,13 @@ async def main():
                 elif op == "swipe": await c.swipe((o["x"], o["y"]), (o["x2"], o["y2"]), o["s"])
                 elif op == "text": await c.text(o["text"])
                 elif op == "key": await c.key(o["code"])
+                elif op == "paste":
+                    # Left Cmd (227) + V (25), layout independent
+                    async def ev():
+                        for k, d in ((227, HIDDirection.DOWN), (25, HIDDirection.DOWN), (25, HIDDirection.UP), (227, HIDDirection.UP)):
+                            yield HIDPress(action=HIDKey(keycode=k), direction=d)
+                            yield HIDDelay(duration=0.25)
+                    await c.hid(ev())
                 elif op == "home": await c.button(HIDButtonType.HOME)
                 print("ok", flush=True)
             except Exception as e:
@@ -241,13 +247,18 @@ async fn start_ios(id: &str) -> Result<Arc<Ios>, String> {
     }
     // Frames about 500 px wide are plenty for a phone browser.
     let scale = px.filter(|w| *w > 0.0).map(|w| (500.0 / w).min(1.0)).unwrap_or(0.4);
-    Ok(Arc::new(Ios { udid: id.to_string(), sock, points: (pw, ph), scale, helper: Arc::new(tokio::sync::Mutex::new((stdin, stdout))), _companion: companion, _helper: helper }))
+    Ok(Arc::new(Ios { udid: id.to_string(), sock, points: (pw, ph), scale, helper: Arc::new(tokio::sync::Mutex::new((stdin, stdout))), children: Mutex::new((companion, helper)) }))
 }
 
 async fn ios_session(id: &str) -> Result<Arc<Ios>, String> {
     let _guard = IOS_START.lock().await;
+    // A companion or client that died is dropped and started again.
     if let Some(i) = IOS.lock().unwrap().clone().filter(|i| i.udid == id) {
-        return Ok(i);
+        let mut c = i.children.lock().unwrap();
+        if matches!(c.0.try_wait(), Ok(None)) && matches!(c.1.try_wait(), Ok(None)) {
+            drop(c);
+            return Ok(i);
+        }
     }
     *IOS.lock().unwrap() = None;
     let ios = start_ios(id).await?;
@@ -467,6 +478,18 @@ async fn screen(s: &Session, id: &str, ios: bool) -> Result<(f64, f64), String> 
     size.ok_or("Could not read the screen size".to_string())
 }
 
+/// Non-ASCII text on Android needs ADB Keyboard (com.android.adbkeyboard) as the active keyboard: `input text` cannot
+/// type it and `cmd clipboard` does not exist on the emulators tried (Android 14), so there is no built-in way.
+async fn android_paste(id: &str, text: &str) -> Result<(), String> {
+    use base64::Engine;
+    let ime = String::from_utf8_lossy(&run("adb", &["-s", id, "shell", "settings", "get", "secure", "default_input_method"]).await?).to_string();
+    if !ime.contains("adbkeyboard") {
+        return Err("Typing Turkish or other non-ASCII text on Android needs ADB Keyboard: install it (github.com/senzhk/ADBKeyBoard) and pick it with `adb shell ime set com.android.adbkeyboard/.AdbIME`".to_string());
+    }
+    let b64 = base64::engine::general_purpose::STANDARD.encode(text);
+    run("adb", &["-s", id, "shell", "am", "broadcast", "-a", "ADB_INPUT_B64", "--es", "msg", &b64]).await.map(drop)
+}
+
 /// `input text` takes `%s` for a space and runs through the device's shell, so quote it; it cannot type non-ASCII.
 fn android_text(text: &str) -> Result<String, String> {
     if !text.is_ascii() {
@@ -507,9 +530,17 @@ async fn input_event(app: &AppHandle, s: &Session, input: &Value) -> Result<(), 
         ("text", _) => {
             let text = input["text"].as_str().filter(|t| !t.is_empty() && t.len() <= 500).ok_or("text must be 1 to 500 characters")?;
             if ios {
-                ios_session(&id).await?.send(json!({"op": "text", "text": text})).await
-            } else {
+                // Typing goes through the pasteboard: `idb ui text` follows the simulator's keyboard layout.
+                let mut pb = Command::new("xcrun").args(["simctl", "pbcopy", &id]).stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::null()).kill_on_drop(true).spawn().map_err(|e| e.to_string())?;
+                pb.stdin.take().ok_or("no pbcopy stdin")?.write_all(text.as_bytes()).await.map_err(|e| e.to_string())?;
+                pb.wait().await.map_err(|e| e.to_string())?;
+                // Some simulator runtimes ignore pbcopy (nothing comes back); then fall back to typing keys, which follows the keyboard layout.
+                let back = run("xcrun", &["simctl", "pbpaste", &id]).await.unwrap_or_default();
+                ios_session(&id).await?.send(if back == text.as_bytes() { json!({"op": "paste"}) } else { json!({"op": "text", "text": text}) }).await
+            } else if text.is_ascii() {
                 run("adb", &["-s", &id, "shell", "input", "text", &android_text(text)?]).await.map(drop)
+            } else {
+                android_paste(&id, text).await
             }
         }
         ("key", _) => {
@@ -670,5 +701,16 @@ mod tests {
         let _ = mover.await;
         stop_session();
         server.abort();
+    }
+
+    #[tokio::test]
+    #[ignore] // needs a booted iOS simulator with a focused text field: pastes Turkish text
+    async fn ios_paste() {
+        let id = "04F12959-54BB-45D2-86E0-17B781D0399B";
+        let mut pb = Command::new("xcrun").args(["simctl", "pbcopy", id]).stdin(Stdio::piped()).spawn().unwrap();
+        pb.stdin.take().unwrap().write_all("a@b.com şeker ğüöç".as_bytes()).await.unwrap();
+        pb.wait().await.unwrap();
+        println!("paste {:?}", ios_session(id).await.unwrap().send(json!({"op": "paste"})).await);
+        stop_session();
     }
 }
