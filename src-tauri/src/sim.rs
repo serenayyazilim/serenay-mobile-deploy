@@ -169,11 +169,35 @@ impl Drop for Ios {
 static IOS: Mutex<Option<Arc<Ios>>> = Mutex::new(None);
 static IOS_START: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
-const HELPER: &str = r#"
+const HELPER: &str = r##"
 import asyncio, json, sys
 from idb.common.types import DomainSocketAddress, HIDButtonType, HIDDelay, HIDDirection, HIDKey, HIDPress
 from idb.grpc.client import Client
 import logging
+# Turkish QWERTY (PC) as the simulator sees it: char -> (US HID usage, modifiers). 225 = shift, 230 = AltGr.
+def tr_map():
+    m = {}
+    for i, ch in enumerate("abcdefghijklmnopqrstuvwxyz"):
+        m[ch] = (4 + i, []); m[ch.upper()] = (4 + i, [225])
+    m["i"] = (52, []); m["İ"] = (52, [225]); m["ı"] = (12, []); m["I"] = (12, [225])
+    for ch, up, k in (("ğ", "Ğ", 47), ("ü", "Ü", 48), ("ş", "Ş", 51), ("ö", "Ö", 54), ("ç", "Ç", 55)):
+        m[ch] = (k, []); m[up] = (k, [225])
+    for i, (d, sh) in enumerate(zip("1234567890", "!'^+%&/()=")):
+        m[d] = (30 + i, []); m[sh] = (30 + i, [225])
+    for k, plain, shifted in ((45, "*", "?"), (46, "-", "_"), (49, ",", ";"), (56, ".", ":"), (53, "<", ">")):
+        m[plain] = (k, []); m[shifted] = (k, [225])
+    m['"'] = (100, []); m[" "] = (44, []); m["\n"] = (40, [])
+    for ch, k in (("@", 20), ("#", 32), ("$", 33), ("{", 36), ("[", 37), ("]", 38), ("}", 39), ("\\", 45), ("~", 48), ("|", 53)):
+        m[ch] = (k, [230])
+    return m
+TR = tr_map()
+async def events(text, layout):
+    for ch in text:
+        k, mods = TR[ch] if layout == "tr" else (None, None)
+        for x in mods: yield HIDPress(action=HIDKey(keycode=x), direction=HIDDirection.DOWN)
+        yield HIDPress(action=HIDKey(keycode=k), direction=HIDDirection.DOWN)
+        yield HIDPress(action=HIDKey(keycode=k), direction=HIDDirection.UP)
+        for x in reversed(mods): yield HIDPress(action=HIDKey(keycode=x), direction=HIDDirection.UP)
 async def main():
     async with Client.build(address=DomainSocketAddress(path=sys.argv[1]), logger=logging.getLogger()) as c:
         print("ready", flush=True)
@@ -188,6 +212,10 @@ async def main():
                 elif op == "swipe": await c.swipe((o["x"], o["y"]), (o["x2"], o["y2"]), o["s"])
                 elif op == "text": await c.text(o["text"])
                 elif op == "key": await c.key(o["code"])
+                elif op == "type":
+                    missing = [ch for ch in o["text"] if ch not in TR]
+                    if missing: raise Exception("no key for " + "".join(missing))
+                    await c.hid(events(o["text"], "tr"))
                 elif op == "paste":
                     # Left Cmd (227) + V (25), layout independent
                     async def ev():
@@ -200,7 +228,16 @@ async def main():
             except Exception as e:
                 print("err " + str(e).replace("\n", " "), flush=True)
 asyncio.run(main())
-"#;
+"##;
+
+/// Characters the helper's Turkish layout table knows besides letters.
+const TR_CHARS: &str = "ığüşöçİĞÜŞÖÇ 0123456789!'^+%&/()=*?-_,;.:<>\"@#${[]}~|\n\\";
+
+/// The simulator follows the Mac's keyboard layout, and idb sends US key positions.
+async fn host_layout_is_turkish() -> bool {
+    let out = run("defaults", &["read", "com.apple.HIToolbox", "AppleCurrentKeyboardLayoutInputSourceID"]).await.unwrap_or_default();
+    String::from_utf8_lossy(&out).contains("Turkish")
+}
 
 /// The Python of the pipx environment idb lives in: it sits next to the idb script.
 fn idb_python() -> Result<String, String> {
@@ -536,7 +573,14 @@ async fn input_event(app: &AppHandle, s: &Session, input: &Value) -> Result<(), 
                 pb.wait().await.map_err(|e| e.to_string())?;
                 // Some simulator runtimes ignore pbcopy (nothing comes back); then fall back to typing keys, which follows the keyboard layout.
                 let back = run("xcrun", &["simctl", "pbpaste", &id]).await.unwrap_or_default();
-                ios_session(&id).await?.send(if back == text.as_bytes() { json!({"op": "paste"}) } else { json!({"op": "text", "text": text}) }).await
+                let op = if back == text.as_bytes() {
+                    json!({"op": "paste"})
+                } else if host_layout_is_turkish().await && text.chars().all(|c| TR_CHARS.contains(c) || c.is_ascii_alphabetic()) {
+                    json!({"op": "type", "text": text})
+                } else {
+                    json!({"op": "text", "text": text})
+                };
+                ios_session(&id).await?.send(op).await
             } else if text.is_ascii() {
                 run("adb", &["-s", &id, "shell", "input", "text", &android_text(text)?]).await.map(drop)
             } else {
@@ -708,9 +752,23 @@ mod tests {
     async fn ios_paste() {
         let id = "04F12959-54BB-45D2-86E0-17B781D0399B";
         let mut pb = Command::new("xcrun").args(["simctl", "pbcopy", id]).stdin(Stdio::piped()).spawn().unwrap();
-        pb.stdin.take().unwrap().write_all("a@b.com şeker ğüöç".as_bytes()).await.unwrap();
+        pb.stdin.take().unwrap().write_all("x@y.com şğ".as_bytes()).await.unwrap();
         pb.wait().await.unwrap();
         println!("paste {:?}", ios_session(id).await.unwrap().send(json!({"op": "paste"})).await);
+        stop_session();
+    }
+
+    #[tokio::test]
+    #[ignore] // needs a booted iOS simulator with a focused text field and a Turkish Mac keyboard layout
+    async fn ios_type() {
+        let id = "04F12959-54BB-45D2-86E0-17B781D0399B";
+        let ios = ios_session(id).await.unwrap();
+        for chunk in std::env::var("CHUNKS").unwrap().split('|') {
+            println!("type {chunk} {:?}", ios.send(json!({"op": "type", "text": chunk})).await);
+            tokio::time::sleep(Duration::from_millis(800)).await;
+            let _ = run("xcrun", &["simctl", "io", id, "screenshot", "--type=jpeg", &format!("{}/chunk-{}.jpg", std::env::var("OUT").unwrap(), chunk.chars().next().map(|c| c as u32).unwrap_or(0))]).await;
+            ios.send(json!({"op": "key", "code": 42})).await.ok();
+        }
         stop_session();
     }
 }
