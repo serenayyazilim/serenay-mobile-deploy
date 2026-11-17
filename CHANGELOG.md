@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.25] - 2026-11-17
+
+- MCP `run_app` now also returns a link (`http://<Mac IP>:47321/sim/<token>`) to a live view of the running simulator or emulator. Opened in a browser on the same network it shows the screen and passes taps, swipes, typed text and Back/Home/Enter/⌫ keys to it, plus hot reload and hot restart buttons; nothing is installed on the viewing device. Android uses `adb` (screencap, `input`), iOS uses `simctl` and `idb` (found on PATH or in `~/.local/bin`). Android's `input text` types ASCII only.
+- The link carries its own random session token, separate from the MCP bearer token, works only from the local network and stops working (404) at `stop_app`. It is also in `status` under `run.viewUrl` and from the new `sim_link` tool.
+
 ## [0.3.24] - 2026-11-17
 
 - The app checks for a newer version of itself at start and then once a day while it is open. The result is part of the MCP `status` (under `app`), and new MCP tools `app_version`, `app_check_update` and `app_update` read the app's own version, check now, and install the update and restart (refused while a deploy, app run or test is running).

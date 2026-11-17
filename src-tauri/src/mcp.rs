@@ -15,6 +15,10 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
 pub const PORT: u16 = 47321;
+
+pub fn status() -> Value {
+    STATUS.lock().unwrap().clone()
+}
 const MAX_REQUEST: usize = 1 << 20;
 
 static STATUS: Mutex<Value> = Mutex::new(Value::Null);
@@ -58,12 +62,18 @@ pub fn start(app: AppHandle) {
         };
         while let Ok((stream, peer)) = listener.accept().await {
             let needed = if peer.ip().is_loopback() { None } else { token.clone() };
-            tokio::spawn(serve(stream, app.clone(), needed));
+            tokio::spawn(serve(stream, app.clone(), needed, peer));
         }
     });
 }
 
-async fn serve(mut stream: TcpStream, app: AppHandle, token: Option<String>) {
+async fn serve(mut stream: TcpStream, app: AppHandle, token: Option<String>, peer: std::net::SocketAddr) {
+    // The simulator viewer has its own session token in the URL; everything else is the JSON-RPC endpoint.
+    let mut head = [0u8; 10];
+    let n = stream.peek(&mut head).await.unwrap_or(0);
+    if head[..n].starts_with(b"GET /sim/") || head[..n].starts_with(b"POST /sim/") {
+        return crate::sim::serve(stream, app, peer, status).await;
+    }
     let (status, body) = match read_request(&mut stream, token.as_deref()).await {
         Ok(body) => match serde_json::from_slice::<Value>(&body) {
             Ok(message) => match handle(&app, &message).await {
@@ -206,7 +216,8 @@ const TOOLS: &[(&str, &str, &[Param])] = &[
     ("app_check_update", "Checks for a newer version of this deploy app now instead of waiting for the daily check. Returns right away; read the result with app_version.", &[]),
     ("app_update", "Downloads and installs the newer version of this deploy app and restarts it (the MCP server is unreachable for a moment). Only when app_version says updateAvailable, and not while a deploy, app run or test is running.", &[]),
     ("list_devices", "Simulators, emulators and connected devices the app can run on.", &[("refresh", "boolean", false, "Look again instead of using the cached list")]),
-    ("run_app", "Runs the app on a device in debug mode, the same as the start button. Follow it with status.", &[PROJECT, ("device", "string", false, "Device id or name from list_devices; left out = Flutter's default")]),
+    ("run_app", "Runs the app on a device in debug mode, the same as the start button. Follow it with status. The answer carries a link to a live view of the simulator/emulator that works from a browser on the same network.", &[PROJECT, ("device", "string", false, "Device id or name from list_devices; left out = Flutter's default")]),
+    ("sim_link", "The browser link of the running app's live simulator/emulator view (tap, swipe, type from any device on the same network; valid until stop_app). Also in run_app's answer and status run.viewUrl.", &[]),
     ("hot_reload", "Hot reloads the running app.", &[]),
     ("hot_restart", "Hot restarts the running app.", &[]),
     ("stop_app", "Stops the running app.", &[]),
@@ -339,9 +350,14 @@ fn maestro_flows(ws: &str) -> Result<Value, String> {
 /// The Mac's LAN IP (the address a UDP socket would route out from; nothing is sent) and whether
 /// macOS Screen Sharing answers on the VNC port. Simulators and emulators are windows on this Mac,
 /// so Screen Sharing covers both.
+fn lan_ip() -> Option<String> {
+    use std::net::UdpSocket;
+    UdpSocket::bind("0.0.0.0:0").and_then(|s| s.connect("8.8.8.8:80").and_then(|_| s.local_addr())).map(|a| a.ip().to_string()).ok()
+}
+
 fn remote_access() -> Value {
-    use std::net::{TcpStream, UdpSocket};
-    let ip = UdpSocket::bind("0.0.0.0:0").and_then(|s| s.connect("8.8.8.8:80").and_then(|_| s.local_addr())).map(|a| a.ip().to_string()).ok();
+    use std::net::TcpStream;
+    let ip = lan_ip();
     let screen_sharing = TcpStream::connect_timeout(&"127.0.0.1:5900".parse().unwrap(), std::time::Duration::from_millis(500)).is_ok();
     let address = ip.as_deref().map(|ip| format!("vnc://{ip}")).unwrap_or("vnc://<this Mac's IP>".to_string());
     let steps = if screen_sharing {
@@ -470,7 +486,14 @@ fn ui(app: &AppHandle, action: Value, started: String) -> Result<Value, String> 
 async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, String> {
     let status = STATUS.lock().unwrap().clone();
     match name {
-        "status" => return Ok(status),
+        "status" => {
+            let mut status = status;
+            if let (Some(url), Some(run)) = (crate::sim::view_url(lan_ip().as_deref(), &status), status.get_mut("run").and_then(Value::as_object_mut)) {
+                run.insert("viewUrl".to_string(), Value::String(url));
+            }
+            return Ok(status);
+        }
+        "sim_link" => return crate::sim::view_url(lan_ip().as_deref(), &status).ok_or("No app is running; start one with run_app.".to_string()).map(Value::String),
         "logs" => return logs(app, args).await.map(Value::String),
         "list_workspaces" => return out(workspace::workspace_recent_get()),
         "open_workspace" => {
@@ -589,13 +612,18 @@ async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, S
                 None => None,
             };
             let on = device.as_ref().map(|d| format!(" on {}", d.name)).unwrap_or_default();
-            ui(app, json!({ "action": "run", "projectId": p.id, "device": device }), format!("Starting {}{on}. Follow it with status.", p.app_name))
+            // Without a device the viewer shows the first running emulator / booted simulator.
+            let token = crate::sim::start_session(device.as_ref().map(|d| (d.id.clone(), d.platform.clone())));
+            ui(app, json!({ "action": "run", "projectId": p.id, "device": device }), format!("Starting {}{on}. Follow it with status. Live view, usable from a browser on the same network: {}", p.app_name, crate::sim::view_url(lan_ip().as_deref(), &json!(null)).unwrap_or_else(|| token.clone())))
         }
         "hot_reload" | "hot_restart" | "stop_app" => {
             if !running(&status, "run") {
                 return Err("No app is running.".to_string());
             }
             let action = match name { "hot_reload" => "hotReload", "hot_restart" => "hotRestart", _ => "stop" };
+            if name == "stop_app" {
+                crate::sim::stop_session();
+            }
             ui(app, json!({ "action": action }), format!("{name} sent."))
         }
         "run_tests" => {
