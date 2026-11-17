@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.28] - 2026-11-17
+
+- Live view, iOS: typing now follows the Mac's keyboard layout. When the simulator's pasteboard is not available, the app reads the active layout (`UCKeyTranslate`) and presses the keys (with Shift or AltGr) that produce each character, so `@`, `$`, `{`, `<`, `"` and the Turkish letters come out right on a Turkish keyboard instead of coming out as `'`, `ç` and so on. With a US layout, or for a character the layout cannot reach, it falls back to `idb ui text`. The layout is read once per run, so restart the run after changing the Mac's keyboard.
+
 ## [0.3.27] - 2026-11-17
 
 - Live view, iOS: text is typed by putting it on the simulator's pasteboard (`simctl pbcopy`) and pressing Cmd+V, so it no longer depends on the keyboard layout and keeps Turkish characters. If the pasteboard does not hold the text afterwards (some simulator runtimes ignore `pbcopy`), it falls back to `idb ui text`, which follows the simulator's keyboard layout. A companion or idb client that died is started again on the next request.
