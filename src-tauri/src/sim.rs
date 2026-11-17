@@ -174,26 +174,45 @@ import asyncio, json, sys
 from idb.common.types import DomainSocketAddress, HIDButtonType, HIDDelay, HIDDirection, HIDKey, HIDPress
 from idb.grpc.client import Client
 import logging
-# Turkish QWERTY (PC) as the simulator sees it: char -> (US HID usage, modifiers). 225 = shift, 230 = AltGr.
-def tr_map():
+# The simulator follows the Mac's keyboard layout while idb sends US key positions, so build char -> (HID usage,
+# modifiers) from the active layout with UCKeyTranslate. 225 = shift, 230 = AltGr/Option.
+import ctypes, ctypes.util
+MAC_TO_HID = {0:4,11:5,8:6,2:7,14:8,3:9,5:10,4:11,34:12,38:13,40:14,37:15,46:16,45:17,31:18,35:19,12:20,15:21,1:22,17:23,32:24,9:25,13:26,7:27,16:28,6:29,
+              18:30,19:31,20:32,21:33,23:34,22:35,26:36,28:37,25:38,29:39,27:45,24:46,33:47,30:48,42:49,41:51,39:52,50:53,43:54,47:55,44:56,10:100,49:44}
+def layout_map():
+    cf = ctypes.cdll.LoadLibrary(ctypes.util.find_library("CoreFoundation"))
+    carbon = ctypes.cdll.LoadLibrary(ctypes.util.find_library("Carbon"))
+    carbon.TISCopyCurrentKeyboardLayoutInputSource.restype = ctypes.c_void_p
+    carbon.TISGetInputSourceProperty.restype = ctypes.c_void_p
+    carbon.TISGetInputSourceProperty.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    cf.CFDataGetBytePtr.restype = ctypes.c_void_p
+    cf.CFDataGetBytePtr.argtypes = [ctypes.c_void_p]
+    src = carbon.TISCopyCurrentKeyboardLayoutInputSource()
+    ident = ctypes.c_void_p.in_dll(carbon, "kTISPropertyInputSourceID")
+    data = carbon.TISGetInputSourceProperty(src, ctypes.c_void_p.in_dll(carbon, "kTISPropertyUnicodeKeyLayoutData"))
+    if not data: raise Exception("no keyboard layout data")
+    name = carbon.TISGetInputSourceProperty(src, ident)
+    buf = ctypes.create_string_buffer(256)
+    cf.CFStringGetCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_long, ctypes.c_uint32]
+    cf.CFStringGetCString(name, buf, 256, 0x08000100)
+    layout = buf.value.decode()
+    if layout.endswith(".US") or layout.endswith(".ABC") or layout.endswith(".USExtended"): raise Exception("US layout: " + layout)
+    ptr = cf.CFDataGetBytePtr(data)
+    carbon.UCKeyTranslate.argtypes = [ctypes.c_void_p, ctypes.c_uint16, ctypes.c_uint16, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32), ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong), ctypes.c_void_p]
     m = {}
-    for i, ch in enumerate("abcdefghijklmnopqrstuvwxyz"):
-        m[ch] = (4 + i, []); m[ch.upper()] = (4 + i, [225])
-    m["i"] = (52, []); m["İ"] = (52, [225]); m["ı"] = (12, []); m["I"] = (12, [225])
-    for ch, up, k in (("ğ", "Ğ", 47), ("ü", "Ü", 48), ("ş", "Ş", 51), ("ö", "Ö", 54), ("ç", "Ç", 55)):
-        m[ch] = (k, []); m[up] = (k, [225])
-    for i, (d, sh) in enumerate(zip("1234567890", "!'^+%&/()=")):
-        m[d] = (30 + i, []); m[sh] = (30 + i, [225])
-    for k, plain, shifted in ((45, "*", "?"), (46, "-", "_"), (49, ",", ";"), (56, ".", ":"), (53, "<", ">")):
-        m[plain] = (k, []); m[shifted] = (k, [225])
-    m['"'] = (100, []); m[" "] = (44, []); m["\n"] = (40, [])
-    for ch, k in (("@", 20), ("#", 32), ("$", 33), ("{", 36), ("[", 37), ("]", 38), ("}", 39), ("\\", 45), ("~", 48), ("|", 53)):
-        m[ch] = (k, [230])
+    # shortest modifier combination wins: none, shift, AltGr, shift + AltGr
+    for state, mods in ((0, []), (2, [225]), (8, [230]), (10, [225, 230])):
+        for mac, hid in MAC_TO_HID.items():
+            dead, n, out = ctypes.c_uint32(0), ctypes.c_ulong(0), (ctypes.c_uint16 * 4)()
+            if carbon.UCKeyTranslate(ptr, mac, 3, state, 41, 1, ctypes.byref(dead), 4, ctypes.byref(n), out) != 0 or n.value != 1: continue
+            ch = chr(out[0])
+            if ch.isprintable() or ch == " ": m.setdefault(ch, (hid, mods))
+    m["\n"] = (40, [])
     return m
-TR = tr_map()
+TR = None
 async def events(text, layout):
     for ch in text:
-        k, mods = TR[ch] if layout == "tr" else (None, None)
+        k, mods = TR[ch]
         for x in mods: yield HIDPress(action=HIDKey(keycode=x), direction=HIDDirection.DOWN)
         yield HIDPress(action=HIDKey(keycode=k), direction=HIDDirection.DOWN)
         yield HIDPress(action=HIDKey(keycode=k), direction=HIDDirection.UP)
@@ -213,9 +232,11 @@ async def main():
                 elif op == "text": await c.text(o["text"])
                 elif op == "key": await c.key(o["code"])
                 elif op == "type":
+                    global TR
+                    if TR is None: TR = layout_map()
                     missing = [ch for ch in o["text"] if ch not in TR]
                     if missing: raise Exception("no key for " + "".join(missing))
-                    await c.hid(events(o["text"], "tr"))
+                    await c.hid(events(o["text"], ""))
                 elif op == "paste":
                     # Left Cmd (227) + V (25), layout independent
                     async def ev():
@@ -229,15 +250,6 @@ async def main():
                 print("err " + str(e).replace("\n", " "), flush=True)
 asyncio.run(main())
 "##;
-
-/// Characters the helper's Turkish layout table knows besides letters.
-const TR_CHARS: &str = "ığüşöçİĞÜŞÖÇ 0123456789!'^+%&/()=*?-_,;.:<>\"@#${[]}~|\n\\";
-
-/// The simulator follows the Mac's keyboard layout, and idb sends US key positions.
-async fn host_layout_is_turkish() -> bool {
-    let out = run("defaults", &["read", "com.apple.HIToolbox", "AppleCurrentKeyboardLayoutInputSourceID"]).await.unwrap_or_default();
-    String::from_utf8_lossy(&out).contains("Turkish")
-}
 
 /// The Python of the pipx environment idb lives in: it sits next to the idb script.
 fn idb_python() -> Result<String, String> {
@@ -575,12 +587,15 @@ async fn input_event(app: &AppHandle, s: &Session, input: &Value) -> Result<(), 
                 let back = run("xcrun", &["simctl", "pbpaste", &id]).await.unwrap_or_default();
                 let op = if back == text.as_bytes() {
                     json!({"op": "paste"})
-                } else if host_layout_is_turkish().await && text.chars().all(|c| TR_CHARS.contains(c) || c.is_ascii_alphabetic()) {
-                    json!({"op": "type", "text": text})
                 } else {
-                    json!({"op": "text", "text": text})
+                    json!({"op": "type", "text": text})
                 };
-                ios_session(&id).await?.send(op).await
+                let ios = ios_session(&id).await?;
+                // "type" follows the Mac's keyboard layout; with a US layout or a character that layout cannot reach, idb's own typing is as good as it gets.
+                match ios.send(op.clone()).await {
+                    Err(_) if op["op"] == "type" => ios.send(json!({"op": "text", "text": text})).await,
+                    r => r,
+                }
             } else if text.is_ascii() {
                 run("adb", &["-s", &id, "shell", "input", "text", &android_text(text)?]).await.map(drop)
             } else {
@@ -759,7 +774,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // needs a booted iOS simulator with a focused text field and a Turkish Mac keyboard layout
+    #[ignore] // needs a booted iOS simulator with a focused text field and a non-US Mac keyboard layout
     async fn ios_type() {
         let id = "04F12959-54BB-45D2-86E0-17B781D0399B";
         let ios = ios_session(id).await.unwrap();
