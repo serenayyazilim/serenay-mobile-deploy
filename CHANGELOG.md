@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.30] - 2026-11-19
+
+- MCP `sync_store_versions` for all projects now runs in the background and returns at once. It outlasts the MCP client's timeout, and a call that timed out used to kill the sync before it saved anything (all `syncedAt` stayed null). `list_projects` returns `lastSync` (`running`, `done` or `failed` with the error) to follow it.
+- MCP `sync_store_versions` with `project` is now quick on the App Store side too: the iOS lane only looks up that app (`SYNC_PROJECT`) instead of every app.
+
 ## [0.3.29] - 2026-11-19
 
 - Deploy history: every deploy appends one entry per store (date and time, app, version, `apple` or `google_play`, track, `success` or `failed`) to `sermobileboss_deploy_history.json` in the workspace, also when the build fails or the deploy is stopped. The MCP `deploy_history` tool reads it (filter by `project`, `limit`).

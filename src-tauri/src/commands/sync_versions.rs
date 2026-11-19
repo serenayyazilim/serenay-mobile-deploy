@@ -13,7 +13,7 @@ fn sync_command(script_path: &std::path::Path, workspace_path: &str, project: Op
     let mut command = Command::new("ruby");
     command.env("LANG", "en_US.UTF-8").env("LC_ALL", "en_US.UTF-8").arg(script_path).arg(workspace_path);
     if let Some(project) = project {
-        command.arg(project);
+        command.arg(project).env("SYNC_PROJECT", project); // the iOS lane reads the env var
     }
     if let Some(asc) = read_asc_config(workspace_path) {
         command.env("ASC_KEY_ID", asc.key_id).env("ASC_ISSUER_ID", asc.issuer_id).env("ASC_PRIVATE_KEY", asc.private_key);

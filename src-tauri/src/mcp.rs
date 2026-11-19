@@ -22,6 +22,9 @@ pub fn status() -> Value {
 const MAX_REQUEST: usize = 1 << 20;
 
 static STATUS: Mutex<Value> = Mutex::new(Value::Null);
+/// The last all-projects store sync started over MCP: it runs on after the call returns, because it
+/// outlasts the MCP client's timeout (and a dropped call would kill it before anything is saved).
+static SYNC: Mutex<Option<Value>> = Mutex::new(None);
 static LOGS_REPLY: Mutex<Option<tokio::sync::oneshot::Sender<Value>>> = Mutex::new(None);
 
 /// The frontend's open workspace and the state of its deploy, run and test jobs, pushed on every change.
@@ -199,7 +202,7 @@ const TOOLS: &[(&str, &str, &[Param])] = &[
     ("git_status", "The workspace's git branch, its branches (local and remote), how many files have uncommitted changes, and commits ahead of / behind the remote as of the last fetch.", &[]),
     ("git_switch", "Switches the workspace to a branch with its latest commits: fetches, puts uncommitted changes aside in a git stash (the app's project setup changes many files; git stash pop brings them back), switches, pulls (fast-forward only) and runs flutter pub get. pod install runs on the next deploy. Takes up to a few minutes.", &[("branch", "string", true, "Branch name, e.g. main or develop")]),
     ("list_projects", "Projects in the open workspace with their bundle ids, local version (x.y.z+build) and their store versions from the last sync: storeVersion (x.y.z) when Google Play and the App Store have the same x.y.z, otherwise androidStoreVersion and iosStoreVersion. syncedAt is when the project's store versions were last synced (null if never). androidReleasedAt and iosReleasedAt are the dates of the store versions: App Store Connect's release (or creation) date, and for Google Play, which gives none, the day a sync first saw that version.", &[]),
-    ("sync_store_versions", "Fetches the latest versions from Google Play and the App Store, saves them, and returns the updated list_projects. With project only that app's Google Play version is fetched (quick); without it every project is synced, which takes a few minutes. The App Store lookup still reads every app. Fails if Apple asks for a 2-step code; then run the sync from the app.", &[("project", "string", false, "Project id or app name from list_projects; leave out to sync all projects")]),
+    ("sync_store_versions", "Fetches the latest versions from Google Play and the App Store, saves them, and returns the updated list_projects. With project only that app is synced (quick). Without it every project is synced in the background and the call returns at once; follow it with list_projects (lastSync, syncedAt). Fails if Apple asks for a 2-step code; then run the sync from the app.", &[("project", "string", false, "Project id or app name from list_projects; leave out to sync all projects")]),
     ("deploy_history", "The deploys that ran in this workspace, newest first: at (date and time), app, version, store (apple or google_play), track (production or test) and status (success or failed). A deploy to both stores adds one entry per store.", &[
         ("project", "string", false, "Only this project's deploys (id or app name from list_projects)"),
         ("limit", "integer", false, "How many entries to return (default 20)"),
@@ -479,7 +482,7 @@ fn list_projects(ws: String) -> Result<Value, String> {
             item
         })
         .collect();
-    Ok(json!({ "workspace": ws, "projects": list }))
+    Ok(json!({ "workspace": ws, "lastSync": SYNC.lock().unwrap().clone(), "projects": list }))
 }
 
 fn running(status: &Value, job: &str) -> bool {
@@ -548,11 +551,26 @@ async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, S
             if running(&status, "deploy") {
                 return Err("A deploy is running; sync the versions when it's done.".to_string());
             }
-            let only = if args.get("project").is_some() { Some(project()?.id) } else { None };
-            let sync = sync_versions::sync_versions_run(app, &ws, only.as_deref()).await?;
-            let mut list = list_projects(ws)?;
-            list["sync"] = sync;
-            Ok(list)
+            let now = || chrono::Local::now().to_rfc3339();
+            if SYNC.lock().unwrap().as_ref().is_some_and(|s| s["state"] == "running") {
+                return Err("A sync of all projects is already running; follow it with list_projects (lastSync, syncedAt).".to_string());
+            }
+            if args.get("project").is_some() {
+                let sync = sync_versions::sync_versions_run(app, &ws, Some(&project()?.id)).await?;
+                let mut list = list_projects(ws)?;
+                list["sync"] = sync;
+                return Ok(list);
+            }
+            *SYNC.lock().unwrap() = Some(json!({ "state": "running", "startedAt": now() }));
+            let (app, started) = (app.clone(), now());
+            tauri::async_runtime::spawn(async move {
+                let done = match sync_versions::sync_versions_run(&app, &ws, None).await {
+                    Ok(sync) => json!({ "state": "done", "startedAt": started, "finishedAt": now(), "sync": sync }),
+                    Err(e) => json!({ "state": "failed", "startedAt": started, "finishedAt": now(), "error": e }),
+                };
+                *SYNC.lock().unwrap() = Some(done);
+            });
+            Ok(Value::String("Sync of all projects started; it takes a few minutes and keeps running by itself. Follow it with list_projects: lastSync.state is running, done or failed, and syncedAt of each project is set as it finishes.".to_string()))
         }
 
         "deploy_history" => {
