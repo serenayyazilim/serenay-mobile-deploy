@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+- Deploy history: every deploy appends one entry per store (date and time, app, version, `apple` or `google_play`, track, `success` or `failed`) to `sermobileboss_deploy_history.json` in the workspace, also when the build fails or the deploy is stopped. The MCP `deploy_history` tool reads it (filter by `project`, `limit`).
+- MCP `list_projects` returns `syncedAt`, when the project's store versions were last synced. The sync writes it to each project's `version.json`, also when the versions did not change.
+- MCP `list_projects` returns `androidReleasedAt` and `iosReleasedAt`. The iOS date comes from App Store Connect (the version's release date, else its creation date; the `fetch_all_versions` lane prints it as `IOS_DATES=`). Google Play gives no release date, so it is the day a sync first saw that version: versions already live before the first sync show that day.
+- MCP `sync_store_versions` takes an optional `project` to sync one app. The App Store lookup still reads every app, so only the Google Play side gets quicker.
+
 ## [0.3.28] - 2026-11-17
 
 - Live view, iOS: typing now follows the Mac's keyboard layout. When the simulator's pasteboard is not available, the app reads the active layout (`UCKeyTranslate`) and presses the keys (with Shift or AltGr) that produce each character, so `@`, `$`, `{`, `<`, `"` and the Turkish letters come out right on a Turkish keyboard instead of coming out as `'`, `ç` and so on. With a US layout, or for a character the layout cannot reach, it falls back to `idb ui text`. The layout is read once per run, so restart the run after changing the Mac's keyboard.

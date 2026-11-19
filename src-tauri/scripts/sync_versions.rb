@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 # Fetches store versions for all projects and updates their version.json files.
-# Usage: ruby sync_versions.rb /path/to/sermobilepro
+# Usage: ruby sync_versions.rb /path/to/sermobilepro [project_id]
 
 Encoding.default_external = Encoding::UTF_8
 Encoding.default_internal = Encoding::UTF_8
@@ -14,6 +14,7 @@ STDOUT.sync = true
 STDERR.sync = true
 
 workspace = ARGV[0] || Dir.pwd
+ONLY_PROJECT = ARGV[1].to_s.empty? ? nil : ARGV[1]
 
 CONFIG_FILE = File.join(workspace, 'sermobileboss_config.json')
 BUNDLE_ID_PREFIX = if File.exist?(CONFIG_FILE)
@@ -59,6 +60,13 @@ unless File.exist?(PROJECTS_FILE)
 end
 
 projects = JSON.parse(File.read(PROJECTS_FILE))
+if ONLY_PROJECT
+  projects = projects.select { |id, _| id == ONLY_PROJECT }
+  if projects.empty?
+    err("#{ONLY_PROJECT} not found in #{PROJECTS_FILE}")
+    exit 1
+  end
+end
 log("📋", "#{projects.size} projects found")
 
 results = { updated: [], skipped: [], failed: [] }
@@ -130,6 +138,7 @@ end
 log("🍎", "iOS — fetching App Store Connect versions...")
 
 ios_versions = {}
+ios_dates = {}
 ios_dir = File.join(workspace, 'ios')
 
 if Dir.exist?(ios_dir)
@@ -164,6 +173,8 @@ if Dir.exist?(ios_dir)
 
     match = fastlane_lines.join("\n").match(/IOS_VERSIONS=(\{.*\})/)
     ios_versions = JSON.parse(match[1]) if match
+    dates = fastlane_lines.join("\n").match(/IOS_DATES=(\{.*\})/)
+    ios_dates = JSON.parse(dates[1]) if dates
     if ios_versions.any?
       log("  ✅", "#{ios_versions.size} apps found")
     else
@@ -194,14 +205,20 @@ projects.each_key do |project_id|
 
   stored = read_stored(project_id)
   fields = { 'version' => version_str, 'android' => android, 'ios' => ios }
+  synced_at = Time.now.strftime('%Y-%m-%dT%H:%M:%S%:z')
+  # Google Play gives no release date, so it is the day the sync first saw this version.
+  # App Store Connect gives the version's release (or creation) date.
+  fields['androidReleasedAt'] = (stored['android'] == android && stored['androidReleasedAt']) || synced_at if android
+  fields['iosReleasedAt'] = ios_dates[project_id] || ((stored['ios'] == ios && stored['iosReleasedAt']) || synced_at) if ios
 
-  if fields.all? { |k, v| v.nil? || stored[k] == v }
+  if fields.slice('version', 'android', 'ios').all? { |k, v| v.nil? || stored[k] == v }
+    save_version(project_id, fields.slice('androidReleasedAt', 'iosReleasedAt').merge('syncedAt' => synced_at))
     results[:skipped] << project_id
     log("  ⏭️",  "#{project_id}: unchanged (Android #{android || '-'}, iOS #{ios || '-'})")
     next
   end
 
-  if save_version(project_id, fields)
+  if save_version(project_id, fields.merge('syncedAt' => synced_at))
     results[:updated] << { id: project_id, old: stored['version'], new: version_str, android: android, ios: ios }
     log("  💾", "#{project_id}: Android #{android || '-'}, iOS #{ios || '-'}")
   else

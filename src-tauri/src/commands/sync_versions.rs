@@ -9,9 +9,12 @@ use tokio::process::Command;
 
 /// `ruby sync_versions.rb <workspace>`, with the App Store Connect API key (when set) so the iOS
 /// lane signs in with it, as deploys do, instead of an Apple ID session that wants a 2-step code.
-fn sync_command(script_path: &std::path::Path, workspace_path: &str) -> Command {
+fn sync_command(script_path: &std::path::Path, workspace_path: &str, project: Option<&str>) -> Command {
     let mut command = Command::new("ruby");
     command.env("LANG", "en_US.UTF-8").env("LC_ALL", "en_US.UTF-8").arg(script_path).arg(workspace_path);
+    if let Some(project) = project {
+        command.arg(project);
+    }
     if let Some(asc) = read_asc_config(workspace_path) {
         command.env("ASC_KEY_ID", asc.key_id).env("ASC_ISSUER_ID", asc.issuer_id).env("ASC_PRIVATE_KEY", asc.private_key);
     }
@@ -51,7 +54,7 @@ pub async fn sync_versions_start(app: AppHandle, registry: State<'_, DeployRegis
     let job_id = uuid::Uuid::new_v4().to_string();
     let event_name = format!("sync-versions-event-{job_id}");
 
-    let mut child = sync_command(&script_path, &workspace_path)
+    let mut child = sync_command(&script_path, &workspace_path, None)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -92,9 +95,9 @@ pub async fn sync_versions_submit_two_factor_code(registry: State<'_, DeployRegi
 
 /// Runs the same sync without a screen (for MCP) and returns its SYNC_RESULT plus the error
 /// lines. Stops with an error if Apple asks for a 2-step code, since nobody can type it here.
-pub async fn sync_versions_run(app: &AppHandle, workspace_path: &str) -> Result<serde_json::Value, String> {
+pub async fn sync_versions_run(app: &AppHandle, workspace_path: &str, project: Option<&str>) -> Result<serde_json::Value, String> {
     let script_path = find_script_path(app, "sync_versions.rb").ok_or("sync_versions.rb not found")?;
-    let mut child = sync_command(&script_path, workspace_path)
+    let mut child = sync_command(&script_path, workspace_path, project)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

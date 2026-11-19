@@ -162,6 +162,9 @@ pub async fn deploy_start(
         }
     }
 
+    // Non-Flutter projects have no pubspec.yaml for deploy.rb to read the version from (deploy history).
+    let lanes_version = if lanes_only { setup::read_version(root, kind) } else { None };
+
     let process_id = uuid::Uuid::new_v4().to_string();
     let event_name = format!("deploy-event-{process_id}");
 
@@ -183,6 +186,7 @@ pub async fn deploy_start(
         .env("PROJECT_KIND", if lanes_only { "lanes" } else { "flutter" })
         .env("FASTLANE_IOS_DIR", ios_dir.map(|d| d.to_string_lossy().to_string()).unwrap_or_default())
         .env("FASTLANE_ANDROID_DIR", android_dir.map(|d| d.to_string_lossy().to_string()).unwrap_or_default())
+        .env("DEPLOY_VERSION", lanes_version.unwrap_or_default())
         .env("RELEASE_TRACK", &track)
         .env("SMOKE_TEST", if smoke_test.unwrap_or(false) { "true" } else { "false" });
 

@@ -34,6 +34,12 @@ pub struct VersionsResult {
     /// projectId -> { "android": "x.y.z+b", "ios": "x.y.z+b" } from the last store sync.
     #[serde(rename = "storeVersions")]
     pub store_versions: HashMap<String, HashMap<String, String>>,
+    /// projectId -> when the last store sync wrote its versions (ISO 8601).
+    #[serde(rename = "syncedAt")]
+    pub synced_at: HashMap<String, String>,
+    /// projectId -> { "android": date, "ios": date } of the stores' latest versions (ISO 8601).
+    #[serde(rename = "releasedAt")]
+    pub released_at: HashMap<String, HashMap<String, String>>,
 }
 
 #[tauri::command]
@@ -45,15 +51,17 @@ pub fn projects_versions(workspace: String) -> VersionsResult {
             .unwrap_or_else(|| "1.0.0+1".to_string());
         let mut versions = HashMap::new();
         versions.insert(GENERIC_PROJECT_ID.to_string(), version);
-        return VersionsResult { versions, store_versions: HashMap::new() };
+        return VersionsResult { versions, store_versions: HashMap::new(), synced_at: HashMap::new(), released_at: HashMap::new() };
     }
 
     let projects_path = Path::new(&workspace).join("lib/conf/sermobplus-projects");
     let mut versions = HashMap::new();
     let mut store_versions = HashMap::new();
+    let mut synced_at = HashMap::new();
+    let mut released_at = HashMap::new();
 
     let Ok(entries) = std::fs::read_dir(&projects_path) else {
-        return VersionsResult { versions, store_versions };
+        return VersionsResult { versions, store_versions, synced_at, released_at };
     };
 
     for entry in entries.flatten() {
@@ -70,11 +78,18 @@ pub fn projects_versions(workspace: String) -> VersionsResult {
             if !stores.is_empty() {
                 store_versions.insert(project_id.clone(), stores);
             }
+            let released: HashMap<String, String> = [("android", "androidReleasedAt"), ("ios", "iosReleasedAt")].iter().filter_map(|(k, f)| get(f).map(|v| (k.to_string(), v))).collect();
+            if !released.is_empty() {
+                released_at.insert(project_id.clone(), released);
+            }
+            if let Some(at) = get("syncedAt") {
+                synced_at.insert(project_id.clone(), at);
+            }
             versions.insert(project_id, get("version").unwrap_or_else(|| "1.0.0+1".to_string()));
         }
     }
 
-    VersionsResult { versions, store_versions }
+    VersionsResult { versions, store_versions, synced_at, released_at }
 }
 
 /// Equivalent of `PUT /api/projects/versions` — writes the version, and also

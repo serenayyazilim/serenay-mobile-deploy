@@ -86,6 +86,37 @@ class Deployer
     success
   end
 
+  # Fastlane upload of one store, remembered for the deploy history.
+  def self.upload(platform, dir, description)
+    (@results ||= {})[platform] = run_fastlane(dir, description)
+  end
+
+  # ============ DEPLOY HISTORY ============
+  HISTORY_FILE = 'sermobileboss_deploy_history.json'
+
+  # Appends one entry per store the deploy was meant for (a platform that never got to its upload
+  # counts as failed). Runs when the script ends, so a build that fails or is stopped is recorded too.
+  def self.record_history(platforms)
+    project = get_current_project || File.basename(flutter_root)
+    version = (get_project_version(project) rescue nil) || get_current_version || ENV['DEPLOY_VERSION']
+    file = File.join(flutter_root, HISTORY_FILE)
+    history = (JSON.parse(File.read(file)) rescue [])
+    history = [] unless history.is_a?(Array)
+    platforms.each do |platform|
+      history << {
+        'at' => Time.now.strftime('%Y-%m-%dT%H:%M:%S%:z'),
+        'app' => project,
+        'version' => version,
+        'store' => platform == :ios ? 'apple' : 'google_play',
+        'track' => test_track? ? 'test' : 'production',
+        'status' => (@results || {})[platform] ? 'success' : 'failed',
+      }
+    end
+    File.write(file, JSON.pretty_generate(history))
+  rescue => e
+    log_error("Could not save the deploy history: #{e.message}")
+  end
+
   # ============ DISK SPACE ============
 
   def self.free_gb
@@ -451,7 +482,7 @@ class Deployer
 
       return false unless run_command("cd #{ios_path} && pod install", "CocoaPods")
       return false unless smoke_test(:ios)
-      return false unless run_fastlane(ios_path, test_track? ? "TestFlight deploy" : "App Store deploy")
+      return false unless upload(:ios, ios_path, test_track? ? "TestFlight deploy" : "App Store deploy")
     end
 
     log("✅", "iOS Deploy completed successfully!")
@@ -477,7 +508,7 @@ class Deployer
 
       return false unless run_command("flutter build appbundle", "Build App Bundle")
       return false unless smoke_test(:android)
-      return false unless run_fastlane(android_path, test_track? ? "Internal Testing deploy" : "Google Play deploy")
+      return false unless upload(:android, android_path, test_track? ? "Internal Testing deploy" : "Google Play deploy")
     end
 
     log("✅", "Android Deploy completed successfully!")
@@ -514,11 +545,11 @@ class Deployer
 
       # Android deploy
       log("🤖", "Uploading to #{test_track? ? 'Internal Testing' : 'Google Play'}...")
-      android_success = run_fastlane(android_path, "Android fastlane #{fastlane_lane}")
+      android_success = upload(:android, android_path, "Android fastlane #{fastlane_lane}")
 
       # iOS deploy
       log("🍎", "Uploading to #{test_track? ? 'TestFlight' : 'App Store'}...")
-      ios_success = run_fastlane(ios_path, "iOS fastlane #{fastlane_lane}")
+      ios_success = upload(:ios, ios_path, "iOS fastlane #{fastlane_lane}")
 
       if android_success && ios_success
         log("✅", "Deploy to all platforms completed successfully!")
@@ -542,7 +573,7 @@ class Deployer
       dir = ENV[platform == :ios ? 'FASTLANE_IOS_DIR' : 'FASTLANE_ANDROID_DIR'].to_s
       name = platform == :ios ? 'iOS' : 'Android'
       log(platform == :ios ? "🍎" : "🤖", "Starting #{name} Deploy...")
-      smoke_test(platform) && run_fastlane(dir, "#{name} fastlane #{fastlane_lane}")
+      smoke_test(platform) && upload(platform, dir, "#{name} fastlane #{fastlane_lane}")
     end
     results.all?
   end
@@ -576,6 +607,8 @@ if __FILE__ == $0
   else
     Deployer.project_root = Dir.pwd
   end
+  history_platforms = { 'ios' => [:ios], 'android' => [:android], 'all' => [:android, :ios] }[platform]
+  at_exit { Deployer.record_history(history_platforms) } if history_platforms
   Deployer.free_disk_space if %w[ios android huawei all].include?(platform)
 
   if Deployer.lanes_only? && %w[ios android all].include?(platform)

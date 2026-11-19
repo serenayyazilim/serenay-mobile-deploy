@@ -198,8 +198,12 @@ const TOOLS: &[(&str, &str, &[Param])] = &[
     ("open_workspace", "Switches the app to a workspace opened before (see list_workspaces).", &[("path", "string", true, "Workspace folder")]),
     ("git_status", "The workspace's git branch, its branches (local and remote), how many files have uncommitted changes, and commits ahead of / behind the remote as of the last fetch.", &[]),
     ("git_switch", "Switches the workspace to a branch with its latest commits: fetches, puts uncommitted changes aside in a git stash (the app's project setup changes many files; git stash pop brings them back), switches, pulls (fast-forward only) and runs flutter pub get. pod install runs on the next deploy. Takes up to a few minutes.", &[("branch", "string", true, "Branch name, e.g. main or develop")]),
-    ("list_projects", "Projects in the open workspace with their bundle ids, local version (x.y.z+build) and their store versions from the last sync: storeVersion (x.y.z) when Google Play and the App Store have the same x.y.z, otherwise androidStoreVersion and iosStoreVersion.", &[]),
-    ("sync_store_versions", "Fetches the latest versions from Google Play and the App Store for every project, saves them, and returns the updated list_projects. Takes a few minutes. Fails if Apple asks for a 2-step code; then run the sync from the app.", &[]),
+    ("list_projects", "Projects in the open workspace with their bundle ids, local version (x.y.z+build) and their store versions from the last sync: storeVersion (x.y.z) when Google Play and the App Store have the same x.y.z, otherwise androidStoreVersion and iosStoreVersion. syncedAt is when the project's store versions were last synced (null if never). androidReleasedAt and iosReleasedAt are the dates of the store versions: App Store Connect's release (or creation) date, and for Google Play, which gives none, the day a sync first saw that version.", &[]),
+    ("sync_store_versions", "Fetches the latest versions from Google Play and the App Store, saves them, and returns the updated list_projects. With project only that app's Google Play version is fetched (quick); without it every project is synced, which takes a few minutes. The App Store lookup still reads every app. Fails if Apple asks for a 2-step code; then run the sync from the app.", &[("project", "string", false, "Project id or app name from list_projects; leave out to sync all projects")]),
+    ("deploy_history", "The deploys that ran in this workspace, newest first: at (date and time), app, version, store (apple or google_play), track (production or test) and status (success or failed). A deploy to both stores adds one entry per store.", &[
+        ("project", "string", false, "Only this project's deploys (id or app name from list_projects)"),
+        ("limit", "integer", false, "How many entries to return (default 20)"),
+    ]),
 
     // Deploy, run, test (shown in the app)
     ("deploy", "Starts a store deploy, the same as the deploy button. Returns right away; follow it with status.", &[
@@ -451,11 +455,11 @@ fn pick_lines(lines: &[String], contains: Option<&str>, tail: Option<usize>) -> 
 
 fn list_projects(ws: String) -> Result<Value, String> {
     let res = projects::projects_versions(ws.clone());
-    let (versions, stores) = (res.versions, res.store_versions);
+    let (versions, stores) = (res.versions.clone(), res.store_versions.clone());
     let list: Vec<Value> = projects::projects_list(ws.clone())?
         .into_iter()
         .map(|p| {
-            let mut item = json!({ "id": p.id, "appName": p.app_name, "bundleId": p.bundle_id, "kind": p.kind, "version": versions.get(&p.id) });
+            let mut item = json!({ "id": p.id, "appName": p.app_name, "bundleId": p.bundle_id, "kind": p.kind, "version": versions.get(&p.id), "syncedAt": res.synced_at.get(&p.id) });
             let store = |k: &str| stores.get(&p.id).and_then(|m| m.get(k)).cloned();
             // Compared by x.y.z only: the App Store has no real build number here (the iOS lane
             // derives one from x.y.z), so builds differ even when both stores have the same release.
@@ -465,6 +469,11 @@ fn list_projects(ws: String) -> Result<Value, String> {
                 (a, i) => {
                     item["androidStoreVersion"] = json!(a);
                     item["iosStoreVersion"] = json!(i);
+                }
+            }
+            for (k, field) in [("android", "androidReleasedAt"), ("ios", "iosReleasedAt")] {
+                if let Some(at) = res.released_at.get(&p.id).and_then(|m| m.get(k)) {
+                    item[field] = json!(at);
                 }
             }
             item
@@ -539,12 +548,26 @@ async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, S
             if running(&status, "deploy") {
                 return Err("A deploy is running; sync the versions when it's done.".to_string());
             }
-            let sync = sync_versions::sync_versions_run(app, &ws).await?;
+            let only = if args.get("project").is_some() { Some(project()?.id) } else { None };
+            let sync = sync_versions::sync_versions_run(app, &ws, only.as_deref()).await?;
             let mut list = list_projects(ws)?;
             list["sync"] = sync;
             Ok(list)
         }
 
+        "deploy_history" => {
+            let only = if args.get("project").is_some() { Some(project()?) } else { None };
+            let file = std::path::Path::new(&ws).join("sermobileboss_deploy_history.json");
+            let all: Vec<Value> = std::fs::read_to_string(file).ok().and_then(|c| serde_json::from_str(&c).ok()).unwrap_or_default();
+            let limit = args.get("limit").and_then(Value::as_u64).unwrap_or(20) as usize;
+            let list: Vec<&Value> = all
+                .iter()
+                .rev()
+                .filter(|e| only.as_ref().map_or(true, |p| e["app"] == p.id.as_str()))
+                .take(limit)
+                .collect();
+            Ok(json!({ "workspace": ws, "deploys": list }))
+        }
         "test_screenshots" => test_screenshots(&ws, args.get("limit").and_then(Value::as_u64).unwrap_or(3) as usize),
         "maestro_flows" => maestro_flows(&ws),
         "maestro_flow_write" => {
