@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased]
+## [0.3.29] - 2026-11-19
 
 - Deploy history: every deploy appends one entry per store (date and time, app, version, `apple` or `google_play`, track, `success` or `failed`) to `sermobileboss_deploy_history.json` in the workspace, also when the build fails or the deploy is stopped. The MCP `deploy_history` tool reads it (filter by `project`, `limit`).
 - MCP `list_projects` returns `syncedAt`, when the project's store versions were last synced. The sync writes it to each project's `version.json`, also when the versions did not change.
