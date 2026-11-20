@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+- MCP access by permission. Every request now needs a bearer token, also from this Mac, and the permissions switched on for the token decide which tools it may use: `read`, `run` (app and tests), `deploy`, `store` (App Store Connect changes), `project` (version, config, colors, setup) and `system` (git branch, workspace, app update, new Firebase/Sentry projects). Tokens and their permissions are in `mcp-tokens.json`, read on every request, so a permission is switched on or off by editing the list, with no restart; the old `mcp-token` becomes a token named `default` with every permission on the first start. A tool without the permission is left out of `tools/list` and refused with the permission it needs; a tool nobody classified needs `system` (a test checks that every tool is classified). **Claude Code on this Mac must send the token now**: `claude mcp add --transport http --scope user serenay-deploy http://127.0.0.1:47321/mcp --header "Authorization: Bearer <token>"`.
+
 ## [0.3.30] - 2026-11-19
 
 - MCP `sync_store_versions` for all projects now runs in the background and returns at once. It outlasts the MCP client's timeout, and a call that timed out used to kill the sync before it saved anything (all `syncedAt` stayed null). `list_projects` returns `lastSync` (`running`, `done` or `failed` with the error) to follow it.

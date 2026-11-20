@@ -7,6 +7,7 @@
 
 use crate::commands::{appstoreconnect as asc, config, firebase, flutter, git, project, projects, sentry, setup, slack, store_locales, sync_versions, workspace};
 use crate::workspace::types::WorkspaceProject;
+use crate::mcp_access::{self, Access};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 use std::sync::Mutex;
@@ -33,19 +34,6 @@ pub fn mcp_status_set(status: Value) {
     *STATUS.lock().unwrap() = status;
 }
 
-/// The bearer token other devices on the network must send, made once and kept in
-/// `~/Library/Application Support/com.serenaymobiledeploy.app/mcp-token`. This Mac needs none.
-fn lan_token() -> Option<String> {
-    let path = dirs::config_dir()?.join("com.serenaymobiledeploy.app").join("mcp-token");
-    if let Ok(token) = std::fs::read_to_string(&path) {
-        return Some(token.trim().to_string()).filter(|t| !t.is_empty());
-    }
-    let token = format!("{}{}", uuid::Uuid::new_v4().simple(), uuid::Uuid::new_v4().simple());
-    std::fs::create_dir_all(path.parent()?).ok()?;
-    std::fs::write(&path, &token).ok()?;
-    Some(token)
-}
-
 /// The frontend's answer to `mcp-logs-request`: every log line of the deploy, run and tests.
 #[tauri::command]
 pub fn mcp_logs_reply(logs: Value) {
@@ -56,30 +44,28 @@ pub fn mcp_logs_reply(logs: Value) {
 
 pub fn start(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
-        // Without a token, stay on this Mac only.
-        let token = lan_token();
-        let host = if token.is_some() { "0.0.0.0" } else { "127.0.0.1" };
+        // Every request needs a token, this Mac's too (see mcp_access). Without any token, stay on this Mac.
+        let host = if mcp_access::has_tokens() { "0.0.0.0" } else { "127.0.0.1" };
         let listener = match TcpListener::bind((host, PORT)).await {
             Ok(l) => l,
             Err(e) => return eprintln!("MCP server could not listen on {PORT}: {e}"),
         };
         while let Ok((stream, peer)) = listener.accept().await {
-            let needed = if peer.ip().is_loopback() { None } else { token.clone() };
-            tokio::spawn(serve(stream, app.clone(), needed, peer));
+            tokio::spawn(serve(stream, app.clone(), peer));
         }
     });
 }
 
-async fn serve(mut stream: TcpStream, app: AppHandle, token: Option<String>, peer: std::net::SocketAddr) {
+async fn serve(mut stream: TcpStream, app: AppHandle, peer: std::net::SocketAddr) {
     // The simulator viewer has its own session token in the URL; everything else is the JSON-RPC endpoint.
     let mut head = [0u8; 10];
     let n = stream.peek(&mut head).await.unwrap_or(0);
     if head[..n].starts_with(b"GET /sim/") || head[..n].starts_with(b"POST /sim/") {
         return crate::sim::serve(stream, app, peer, status).await;
     }
-    let (status, body) = match read_request(&mut stream, token.as_deref()).await {
-        Ok(body) => match serde_json::from_slice::<Value>(&body) {
-            Ok(message) => match handle(&app, &message).await {
+    let (status, body) = match read_request(&mut stream, &mcp_access::access_for).await {
+        Ok((body, access)) => match serde_json::from_slice::<Value>(&body) {
+            Ok(message) => match handle(&app, &message, access).await {
                 Some(response) => ("200 OK", response.to_string()),
                 None => ("202 Accepted", String::new()),
             },
@@ -98,7 +84,7 @@ async fn serve(mut stream: TcpStream, app: AppHandle, token: Option<String>, pee
 /// pages out: a browser always sends `Origin` on such a request, and a JSON content type would
 /// need a CORS preflight this server never answers. With a `token`, it must also come as
 /// `Authorization: Bearer <token>`.
-async fn read_request(stream: &mut TcpStream, token: Option<&str>) -> Result<Vec<u8>, &'static str> {
+async fn read_request(stream: &mut TcpStream, access_of: &(dyn Fn(&str) -> Option<Access> + Sync)) -> Result<(Vec<u8>, Access), &'static str> {
     let mut buf = Vec::new();
     let mut chunk = [0u8; 8192];
     let header_end = loop {
@@ -123,11 +109,10 @@ async fn read_request(stream: &mut TcpStream, token: Option<&str>) -> Result<Vec
     if header("origin:").is_some() {
         return Err("403 Forbidden");
     }
-    if let Some(token) = token {
-        if header("authorization:").as_deref() != Some(&format!("bearer {}", token.to_lowercase())) {
-            return Err("401 Unauthorized");
-        }
-    }
+    let access = header("authorization:")
+        .and_then(|v| v.strip_prefix("bearer ").map(str::to_string))
+        .and_then(|token| access_of(token.trim()))
+        .ok_or("401 Unauthorized")?;
     if !header("content-type:").is_some_and(|t| t.starts_with("application/json")) {
         return Err("415 Unsupported Media Type");
     }
@@ -145,7 +130,7 @@ async fn read_request(stream: &mut TcpStream, token: Option<&str>) -> Result<Vec
         body.extend_from_slice(&chunk[..n]);
     }
     body.truncate(length);
-    Ok(body)
+    Ok((body, access))
 }
 
 fn rpc_error(id: Value, code: i64, message: &str) -> Value {
@@ -153,7 +138,7 @@ fn rpc_error(id: Value, code: i64, message: &str) -> Value {
 }
 
 /// Answers one JSON-RPC message; notifications (no `id`) get no answer.
-async fn handle(app: &AppHandle, message: &Value) -> Option<Value> {
+async fn handle(app: &AppHandle, message: &Value, access: Access) -> Option<Value> {
     let id = message.get("id")?.clone();
     let params = message.get("params").cloned().unwrap_or(Value::Null);
     let result = match message.get("method").and_then(Value::as_str).unwrap_or("") {
@@ -163,10 +148,16 @@ async fn handle(app: &AppHandle, message: &Value) -> Option<Value> {
             "serverInfo": { "name": "serenay-mobile-deploy", "version": env!("CARGO_PKG_VERSION") },
         }),
         "ping" => json!({}),
-        "tools/list" => json!({ "tools": tools() }),
+        "tools/list" => json!({ "tools": tools(access) }),
         "tools/call" => {
             let args = params.get("arguments").cloned().unwrap_or(json!({}));
-            let (text, is_error) = match call_tool(app, params.get("name").and_then(Value::as_str).unwrap_or(""), &args).await {
+            let name = params.get("name").and_then(Value::as_str).unwrap_or("");
+            let allowed = if access.allows(mcp_access::required(name)) {
+                call_tool(app, name, &args).await
+            } else {
+                Err(format!("This token has no {} permission, which {name} needs.", mcp_access::required(name).name()))
+            };
+            let (text, is_error) = match allowed {
                 // A tool that builds its own MCP content (e.g. images) passes it through as is.
                 Ok(value) if value.get("content").is_some_and(Value::is_array) => return Some(json!({ "jsonrpc": "2.0", "id": id, "result": value })),
                 Ok(Value::String(text)) => (text, false),
@@ -188,7 +179,7 @@ type Param = (&'static str, &'static str, bool, &'static str);
 const PROJECT: Param = ("project", "string", false, "Project id or app name from list_projects; may be left out when the workspace has one app");
 
 #[rustfmt::skip]
-const TOOLS: &[(&str, &str, &[Param])] = &[
+pub const TOOLS: &[(&str, &str, &[Param])] = &[
     // Workspace
     ("status", "The open workspace and the state of the deploy, the app run and the tests: status, progress, message, latest log lines, test results, and whether a 2FA code is awaited.", &[]),
     ("logs", "Every log line of the deploy, the app run or the tests (the last failed one's, once the app has cleared them), to find out why something failed. Lines are numbered; without contains or tail, the last 500 come back. With path it reads a log file under ~/Library/Logs instead, such as the gym log fastlane names when an iOS build fails, which holds the full xcodebuild output.", &[
@@ -301,9 +292,11 @@ const TOOLS: &[(&str, &str, &[Param])] = &[
     ("slack_test", "Sends a test message to the workspace's Slack webhook.", &[]),
 ];
 
-fn tools() -> Value {
+/// The tools the token's permissions allow.
+fn tools(access: Access) -> Value {
     TOOLS
         .iter()
+        .filter(|t| access.allows(mcp_access::required(t.0)))
         .map(|(name, description, params)| {
             let properties: Map<String, Value> = params.iter().map(|(n, t, _, d)| (n.to_string(), json!({ "type": t, "description": d }))).collect();
             let required: Vec<&str> = params.iter().filter(|p| p.2).map(|p| p.0).collect();
@@ -745,7 +738,7 @@ mod tests {
     use super::*;
 
     async fn send(raw: &str) -> Result<Vec<u8>, &'static str> {
-        send_with(raw, None).await
+        send_with(raw, Some("abc")).await
     }
 
     async fn send_with(raw: &str, token: Option<&str>) -> Result<Vec<u8>, &'static str> {
@@ -753,20 +746,20 @@ mod tests {
         let mut client = TcpStream::connect(listener.local_addr().unwrap()).await.unwrap();
         client.write_all(raw.as_bytes()).await.unwrap();
         let (mut server, _) = listener.accept().await.unwrap();
-        read_request(&mut server, token).await
+        let access_of = |sent: &str| (Some(sent) == token).then(Access::all);
+        read_request(&mut server, &access_of).await.map(|(body, _)| body)
     }
 
     #[tokio::test]
     async fn only_takes_json_posts_without_origin() {
         let body = r#"{"jsonrpc":"2.0","id":1,"method":"ping"}"#;
-        let post = |extra: &str, kind: &str| format!("POST /mcp HTTP/1.1\r\nContent-Type: {kind}\r\n{extra}Content-Length: {}\r\n\r\n{body}", body.len());
+        let post = |extra: &str, kind: &str| format!("POST /mcp HTTP/1.1\r\nContent-Type: {kind}\r\nAuthorization: Bearer abc\r\n{extra}Content-Length: {}\r\n\r\n{body}", body.len());
         assert_eq!(send(&post("", "application/json")).await.unwrap(), body.as_bytes());
         assert_eq!(send(&post("Origin: https://evil.example\r\n", "application/json")).await, Err("403 Forbidden"));
         assert_eq!(send(&post("", "text/plain")).await, Err("415 Unsupported Media Type"));
         assert_eq!(send("GET /mcp HTTP/1.1\r\n\r\n").await, Err("405 Method Not Allowed"));
-        assert_eq!(send_with(&post("", "application/json"), Some("abc")).await, Err("401 Unauthorized"));
-        assert_eq!(send_with(&post("Authorization: Bearer xyz\r\n", "application/json"), Some("abc")).await, Err("401 Unauthorized"));
-        assert_eq!(send_with(&post("Authorization: Bearer abc\r\n", "application/json"), Some("abc")).await.unwrap(), body.as_bytes());
+        assert_eq!(send_with(&post("", "application/json"), Some("other")).await, Err("401 Unauthorized"));
+        assert_eq!(send_with("POST /mcp HTTP/1.1\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}", Some("abc")).await, Err("401 Unauthorized"));
     }
 
     #[test]

@@ -4,6 +4,7 @@ mod config;
 mod deploy;
 mod firebase;
 mod mcp;
+mod mcp_access;
 mod sim;
 mod setup;
 mod slack;

@@ -106,10 +106,10 @@ The following integrations are optional and enabled via environment variables in
 
 ## AI control (MCP)
 
-While the app is open with a workspace, it serves an MCP server on `http://127.0.0.1:47321/mcp` (other devices on the network need a token, see below). Add it to Claude Code once:
+While the app is open with a workspace, it serves an MCP server on `http://127.0.0.1:47321/mcp` (every request needs a token, see below). Add it to Claude Code once, with a token from `mcp-tokens.json`:
 
 ```sh
-claude mcp add --transport http --scope user serenay-deploy http://127.0.0.1:47321/mcp
+claude mcp add --transport http --scope user serenay-deploy http://127.0.0.1:47321/mcp --header "Authorization: Bearer <token>"
 ```
 
 Then ask in plain words, e.g. *"deploy sellerapp to TestFlight with the notes: login fixes"*, *"run it on the iPhone simulator"* or *"make the primary color red"*. The tools:
@@ -123,7 +123,26 @@ Then ask in plain words, e.g. *"deploy sellerapp to TestFlight with the notes: l
 | App Store Connect | `asc_status`, `asc_apps`, `asc_territories`, `asc_events_list`, `asc_event_get`/`create`/`update`/`delete`/`submit`, `asc_localization_create`/`update`/`delete`, `asc_screenshots`, `asc_screenshot_upload`/`delete` |
 | Integrations | `firebase_accounts`, `firebase_create_project`, `sentry_check`, `sentry_create_project`, `slack_test` |
 
-**From another device on the same network:** the server also listens on the local network, but only answers there with the token in `~/Library/Application Support/com.serenaymobiledeploy.app/mcp-token` (made on first start; delete it and restart the app to change it). On the other device, with this Mac's IP (`ipconfig getifaddr en0`):
+**Tokens and permissions:** the tokens live in `~/Library/Application Support/com.serenaymobiledeploy.app/mcp-tokens.json`, one entry per person or device, each with the permissions switched on for it. The file is read on every request, so adding or removing a permission applies at once, without a restart.
+
+| Permission | Allows |
+|------------|--------|
+| `read` | `status`, `logs`, `list_projects`, `deploy_history`, `list_devices`, `git_status`, `get_*`, `store_check`, `store_locales`, `setup_readiness`, `test_screenshots`, `maestro_flows`, and the `asc_*` reads |
+| `run` | `run_app`, `sim_link`, `hot_reload`, `hot_restart`, `stop_app`, `run_tests`, `maestro_flow_write`, `remote_access`, `slack_test` |
+| `deploy` | `deploy`, `stop_deploy`, `sync_store_versions`, `build_aab`, `complete_fastlane` |
+| `store` | `asc_event_*`, `asc_localization_*`, `asc_screenshot_upload`/`delete` (changes to the store listings) |
+| `project` | `set_version`, `rename_project`, `update_project_config`, `update_colors`, `set_splash_color`, `set_project_asset`, `create_project`, `setup_apply`, `set_team_id`, `set_play_key` |
+| `system` | `open_workspace`, `git_switch`, `app_check_update`, `app_update`, `firebase_create_project`, `sentry_create_project` |
+
+```json
+[
+  { "name": "default", "token": "…", "permissions": ["read", "run", "deploy", "store", "project", "system"] },
+  { "name": "qa-phone", "token": "…", "permissions": ["read", "run"] },
+  { "name": "dashboard", "token": "…", "permissions": ["read"] }
+]
+```
+
+A request without a valid token gets 401, also from this Mac. A tool the token has no permission for is left out of `tools/list` and refused with the permission it needs. A permission with a misspelled name grants nothing, and a tool not yet classified in `src-tauri/src/mcp_access.rs` needs `system` (a test checks that every tool is classified). The first start after an update turns the old `mcp-token` into a token named `default` with every permission. Make another token with `uuidgen | tr -d - | tr A-Z a-z` and revoke one by deleting its entry. Other devices connect with this Mac's IP (`ipconfig getifaddr en0`):
 
 ```sh
 claude mcp add --transport http serenay-deploy http://<mac-ip>:47321/mcp --header "Authorization: Bearer <token>"
