@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased]
+## [0.3.31] - 2026-11-20
 
 - MCP access by permission. Every request now needs a bearer token, also from this Mac, and the permissions switched on for the token decide which tools it may use: `read`, `run` (app and tests), `deploy`, `store` (App Store Connect changes), `project` (version, config, colors, setup) and `system` (git branch, workspace, app update, new Firebase/Sentry projects). Tokens and their permissions are in `mcp-tokens.json`, read on every request, so a permission is switched on or off by editing the list, with no restart; the old `mcp-token` becomes a token named `default` with every permission on the first start. A tool without the permission is left out of `tools/list` and refused with the permission it needs; a tool nobody classified needs `system` (a test checks that every tool is classified). **Claude Code on this Mac must send the token now**: `claude mcp add --transport http --scope user serenay-deploy http://127.0.0.1:47321/mcp --header "Authorization: Bearer <token>"`.
 
