@@ -180,7 +180,12 @@ class BuildState {
   }
 
   async stopBuild() {
-    if (this.buildStatus !== "running" || this.isStopping || this.stopRequested) return;
+    if (this.buildStatus !== "running" || this.isStopping) return;
+    if (this.stopRequested) {
+      // A second stop while no job ever started (activation hung): force-clear instead of waiting.
+      if (!this.jobId) this.resetBuild();
+      return;
+    }
     this.stopRequested = true;
     this.buildLogs = [...this.buildLogs, `⏹️ ${t("build.stopTriggered")}`];
     if (!this.jobId) return; // still activating: handled once `project_activate` returns
@@ -190,6 +195,11 @@ class BuildState {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.buildLogs = [...this.buildLogs, `❌ ${errorMsg}`];
+      // The backend no longer knows this job (it died before reporting "done"): nothing is left to
+      // stop, and staying "running" would block every next run, so clear the stuck state.
+      // Any other failure may leave the app running, so let the stop be pressed again.
+      if (errorMsg.includes("App is not running")) this.resetBuild();
+      else this.stopRequested = false;
     } finally {
       this.isStopping = false;
     }
