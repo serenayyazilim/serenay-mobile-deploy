@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased]
+## [0.3.32] - 2026-11-23
 
 - Token manager: Settings has an MCP tab to create tokens, switch their permissions on and off, give a new secret and delete (show/copy the secret too). The same screen opens in a browser on the local network from the MCP tool `token_manager_link` (new `admin` permission; the link is valid 15 minutes and a new one replaces it). The browser page asks for the main password, `MCP_MAIN_PASSWORD` in `.env` next to `mcp-tokens.json` (made with a random value the first time, shown in Settings, MCP; 5 wrong passwords close the link). Settings, MCP also has an on/off switch for the whole MCP server (file `mcp-off`; off = every connection is refused, tokens are kept). The last token, and the last one with `admin`, cannot be deleted or lose it. Existing tokens do not have `admin` yet: switch it on in the app.
 
