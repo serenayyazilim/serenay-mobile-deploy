@@ -148,7 +148,7 @@ A request without a valid token gets 401, also from this Mac. A tool the token h
 claude mcp add --transport http serenay-deploy http://<mac-ip>:47321/mcp --header "Authorization: Bearer <token>"
 ```
 
-Deploys, runs and tests show in the app as usual (a 2FA code, if asked, is entered there); `status` follows them. Keys and webhooks are only set in the app, never through MCP.
+Deploys, runs and tests show in the app as usual; `status` follows them. Keys and webhooks are only set in the app, never through MCP. Tokens are managed in Settings, MCP, or in a browser: `token_manager_link` (needs the `admin` permission) returns a link valid for 15 minutes on the local network. The tokens themselves cannot be changed through MCP calls.
 
 ## Project structure
 

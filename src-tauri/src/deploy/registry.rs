@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use tokio::process::ChildStdin;
 use tokio::sync::Mutex as AsyncMutex;
 
-/// Holds stdin handles of running processes waiting for 2FA code input.
+/// Holds stdin handles of running app runs (hot reload / restart keys are written to them).
 /// Replaces the module-level global `Map` hack from the Next.js version —
 /// here it lives as Tauri managed state for the lifetime of the app process.
 #[derive(Default)]

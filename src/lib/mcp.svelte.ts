@@ -83,7 +83,6 @@ export function connectMcp() {
           warnings: deployState.deployWarnings,
           progress: deployState.deployProgress,
           elapsedSeconds: deployState.deployElapsed,
-          waitingForTwoFactorCode: deployState.twoFactorOpen,
           lastLogs: deployState.deployLogs.slice(-30),
         },
         run: {

@@ -18,7 +18,7 @@ type DeployPlatform = "ios" | "android" | "all";
 type ReleaseTrack = "production" | "test";
 
 interface DeployEvent {
-  type: "started" | "input_required" | "log" | "error" | "done";
+  type: "started" | "log" | "error" | "done";
   processId?: string;
   prompt?: string;
   message?: string;
@@ -43,10 +43,6 @@ class DeployState {
 
   whatsNewDialogOpen = $state(false);
   pendingProject = $state<WorkspaceProject | null>(null);
-
-  twoFactorOpen = $state(false);
-  twoFactorPrompt = $state("");
-  private twoFactorResolve: ((code: string | null) => void) | null = null;
 
   errorDialogOpen = $state(false);
   firstReleaseOpen = $state(false);
@@ -108,25 +104,12 @@ class DeployState {
     this.deployLogs = [...this.deployLogs, `⏹️ ${t("deploy.stopTriggered")}`];
     this.deployMessage = t("deploy.stopTriggered");
     // A question the deploy waits on is answered with "no".
-    if (this.twoFactorOpen) this.cancelTwoFactor();
     if (confirmState.open) confirmState.cancel();
     if (this.processId) await invoke("deploy_cancel", { processId: this.processId }).catch(() => {});
   }
 
   openLogsDialog() {
     this.logsDialogOpen = true;
-  }
-
-  submitTwoFactor(code: string) {
-    this.twoFactorOpen = false;
-    this.twoFactorResolve?.(code);
-    this.twoFactorResolve = null;
-  }
-
-  cancelTwoFactor() {
-    this.twoFactorOpen = false;
-    this.twoFactorResolve?.(null);
-    this.twoFactorResolve = null;
   }
 
   async confirmDeploy(
@@ -207,21 +190,7 @@ class DeployState {
         listen<DeployEvent>(`deploy-event-${processId}`, async (event) => {
           const data = event.payload;
 
-          if (data.type === "input_required") {
-            this.twoFactorPrompt = data.prompt || "";
-            this.twoFactorOpen = true;
-            this.deployStatus = "deploying";
-            this.deployMessage = t("deploy.waitingForAppleAuth");
-
-            const code = await new Promise<string | null>((r) => {
-              this.twoFactorResolve = r;
-            });
-
-            if (code) {
-              await invoke("deploy_submit_two_factor_code", { processId, code }).catch(() => {});
-              this.deployMessage = t("deploy.codeSubmitted");
-            }
-          } else if (data.type === "log") {
+          if (data.type === "log") {
             const msg = data.message || "";
             this.deployLogs.push(msg);
             this.deployStatus = "deploying";

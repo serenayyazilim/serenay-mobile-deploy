@@ -6,6 +6,7 @@ mod firebase;
 mod mcp;
 mod mcp_access;
 mod sim;
+mod token_page;
 mod setup;
 mod slack;
 mod workspace;
@@ -18,7 +19,7 @@ use commands::appstoreconnect::{
     asc_screenshot_upload, asc_territories_list,
 };
 use commands::config::{config_colors_get, config_colors_save, config_serconf_get, config_serconf_save};
-use commands::deploy::{deploy_cancel, deploy_check_splash_image, deploy_start, deploy_submit_two_factor_code};
+use commands::deploy::{deploy_cancel, deploy_check_splash_image, deploy_start};
 use commands::firebase::{firebase_accounts, firebase_create_project, firebase_logout};
 use commands::flutter::{flutter_build_start, flutter_devices, flutter_run_hot_reload, flutter_run_stop};
 use commands::project::{project_activate, project_check_splash_image, project_create};
@@ -35,7 +36,7 @@ use commands::slack::{slack_config_delete, slack_config_get, slack_config_save, 
 use commands::store_locales::store_locales_fetch;
 use commands::tests::tests_run_start;
 use commands::video::video_player_port;
-use commands::sync_versions::{sync_versions_start, sync_versions_submit_two_factor_code};
+use commands::sync_versions::{sync_versions_start};
 use commands::workspace::{
     workspace_browse, workspace_config_get, workspace_config_save, workspace_min_version, workspace_recent_add,
     workspace_recent_get, workspace_validate,
@@ -46,8 +47,7 @@ use deploy::registry::DeployRegistry;
 pub fn run() {
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     let _ = fix_path_env::fix();
-    // Inherited by every fastlane run: its update banner prints release notes, and lines like
-    // "...two-factor authentication..." in them were mistaken for a 2FA code prompt.
+    // Inherited by every fastlane run: keeps its update banner (release notes) out of the logs.
     std::env::set_var("FASTLANE_SKIP_UPDATE_CHECK", "1");
 
     tauri::Builder::default()
@@ -105,9 +105,7 @@ pub fn run() {
             deploy_start,
             deploy_cancel,
             deploy_check_splash_image,
-            deploy_submit_two_factor_code,
             sync_versions_start,
-            sync_versions_submit_two_factor_code,
             flutter_devices,
             flutter_build_start,
             flutter_run_hot_reload,
@@ -137,6 +135,12 @@ pub fn run() {
             commands::git::git_status,
             commands::git::git_switch,
             mcp::mcp_status_set,
+            mcp::mcp_enabled_get,
+            mcp::mcp_enabled_set,
+            mcp::mcp_tokens_list,
+            mcp::mcp_tokens_apply,
+            mcp::mcp_tokens_link,
+            mcp::mcp_main_password,
             mcp::mcp_logs_reply,
         ])
         .run(tauri::generate_context!())

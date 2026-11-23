@@ -51,14 +51,14 @@ pub fn view_url(ip: Option<&str>, status: &Value) -> Option<String> {
     Some(format!("http://{}:{}/sim/{token}", ip.unwrap_or("<this Mac's IP>"), crate::mcp::PORT))
 }
 
-fn is_lan(ip: IpAddr) -> bool {
+pub(crate) fn is_lan(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(a) => a.is_loopback() || a.is_private() || a.is_link_local(),
         IpAddr::V6(a) => a.is_loopback() || (a.segments()[0] & 0xfe00) == 0xfc00 || (a.segments()[0] & 0xffc0) == 0xfe80,
     }
 }
 
-async fn reply(stream: &mut TcpStream, status: &str, kind: &str, body: &[u8]) {
+pub(crate) async fn reply(stream: &mut TcpStream, status: &str, kind: &str, body: &[u8]) {
     let head = format!("HTTP/1.1 {status}\r\nContent-Type: {kind}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n", body.len());
     let _ = stream.write_all(head.as_bytes()).await;
     let _ = stream.write_all(body).await;
@@ -94,7 +94,7 @@ pub async fn serve(mut stream: TcpStream, app: AppHandle, peer: SocketAddr, stat
 }
 
 /// Method, path and body of one request (headers only as far as Content-Length is concerned).
-async fn read(stream: &mut TcpStream) -> Option<(String, String, Vec<u8>)> {
+pub(crate) async fn read(stream: &mut TcpStream) -> Option<(String, String, Vec<u8>)> {
     let mut buf = Vec::new();
     let mut chunk = [0u8; 4096];
     let end = loop {

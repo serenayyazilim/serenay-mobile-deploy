@@ -217,7 +217,10 @@ class Deployer
   def self.save_project_version(project, version)
     version_file = File.join(flutter_root, PROJECTS_PATH, project, 'version.json')
     FileUtils.mkdir_p(File.dirname(version_file))
-    File.write(version_file, JSON.pretty_generate({ "version" => version }))
+    # Keep the other keys (store versions, syncedAt, release dates) the store sync wrote.
+    data = (JSON.parse(File.read(version_file)) rescue {})
+    data = {} unless data.is_a?(Hash)
+    File.write(version_file, JSON.pretty_generate(data.merge("version" => version)))
     log("💾", "Project version saved: #{project} -> #{version}")
   end
 

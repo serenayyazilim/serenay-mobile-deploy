@@ -20,7 +20,6 @@
   import CreateProjectDialog from "$lib/components/create-project-dialog";
   import DeviceSelectorDialog from "$lib/components/device-selector-dialog.svelte";
   import WhatsNewDialog from "./dialogs/whats-new-dialog.svelte";
-  import TwoFactorDialog from "./dialogs/two-factor-dialog.svelte";
   import ErrorDialog from "./dialogs/error-dialog.svelte";
   import BuildLogsDialog from "./dialogs/build-logs-dialog.svelte";
   import TestResultsDialog from "./dialogs/test-results-dialog.svelte";
@@ -211,13 +210,6 @@
         smokeTest
       )}
     onCancel={() => deployState.cancelDeploy()}
-  />
-
-  <TwoFactorDialog
-    bind:open={deployState.twoFactorOpen}
-    prompt={deployState.twoFactorPrompt}
-    onSubmit={(code) => deployState.submitTwoFactor(code)}
-    onCancel={() => deployState.cancelTwoFactor()}
   />
 
   {#if deployState.setupKind && workspaceState.path}

@@ -4,13 +4,13 @@ use crate::deploy::registry::DeployRegistry;
 use crate::deploy::locales::{get_store_locales, APP_NOT_FOUND};
 use crate::setup::{self, ProjectKind};
 use crate::commands::flutter::kill_process_group;
-use crate::deploy::{find_script_path, is_two_factor_prompt, translate::{build_translations, TRANSLATION_FAILED}};
+use crate::deploy::{find_script_path, translate::{build_translations, TRANSLATION_FAILED}};
 use crate::workspace::sermobileboss_config::min_version;
 use serde_json::json;
 use std::path::Path;
 use std::process::Stdio;
 use tauri::{AppHandle, Emitter, Manager, State};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 /// Mirrors `deploy.rb`'s `get_splash_config`: resolves whether a usable splash image
@@ -44,12 +44,8 @@ pub(crate) async fn stream_lines<R: tokio::io::AsyncRead + Unpin>(stream: R, app
         if line.trim().is_empty() {
             continue;
         }
-        if is_two_factor_prompt(&line) {
-            let _ = app.emit(&event_name, json!({ "type": "input_required", "prompt": line }));
-        } else {
-            let event_type = if is_error { "error" } else { "log" };
-            let _ = app.emit(&event_name, json!({ "type": event_type, "message": line }));
-        }
+        let event_type = if is_error { "error" } else { "log" };
+        let _ = app.emit(&event_name, json!({ "type": event_type, "message": line }));
     }
 }
 
@@ -190,9 +186,8 @@ pub async fn deploy_start(
         .env("RELEASE_TRACK", &track)
         .env("SMOKE_TEST", if smoke_test.unwrap_or(false) { "true" } else { "false" });
 
-    // Pass the App Store Connect API key through to fastlane so it authenticates
-    // with a key instead of the legacy Apple ID/app-specific-password session flow,
-    // which is prone to intermittent "Could not receive latest API key" failures.
+    // fastlane signs in to App Store Connect with the API key only (never an Apple ID, so no
+    // 2-step code is ever asked).
     if let Some(asc) = read_asc_config(&workspace_path) {
         command
             .env("ASC_KEY_ID", asc.key_id)
@@ -204,14 +199,11 @@ pub async fn deploy_start(
     }
 
     let mut child = command
-        .stdin(Stdio::piped())
+        .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Process error: {e}"))?;
-
-    let stdin = child.stdin.take().ok_or("Failed to get stdin")?;
-    registry.insert(process_id.clone(), stdin);
     if let Some(pid) = child.id() {
         registry.set_group(&process_id, pid);
     }
@@ -228,7 +220,6 @@ pub async fn deploy_start(
     tokio::spawn(async move {
         let status = child.wait().await;
         let registry = app_wait.state::<DeployRegistry>();
-        registry.remove(&process_id_wait);
         let cancelled = registry.take_group(&process_id_wait);
         let code = status.ok().and_then(|s| s.code());
         let _ = app_wait.emit(&event_wait, json!({ "type": "done", "success": code == Some(0), "exitCode": code, "cancelled": cancelled }));
@@ -254,14 +245,5 @@ pub async fn deploy_cancel(app: AppHandle, registry: State<'_, DeployRegistry>, 
             let _ = std::process::Command::new("kill").args(["-KILL", &format!("-{pgid}")]).status();
         }
     });
-    Ok(())
-}
-
-/// Equivalent of `POST /api/deploy/input` — writes the 2FA code to the running process's stdin.
-#[tauri::command]
-pub async fn deploy_submit_two_factor_code(registry: State<'_, DeployRegistry>, process_id: String, code: String) -> Result<(), String> {
-    let stdin_arc = registry.get(&process_id).ok_or("Process not found or already finished")?;
-    let mut stdin = stdin_arc.lock().await;
-    stdin.write_all(format!("{}\n", code.trim()).as_bytes()).await.map_err(|e| e.to_string())?;
     Ok(())
 }

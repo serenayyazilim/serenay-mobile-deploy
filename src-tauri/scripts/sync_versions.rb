@@ -143,28 +143,18 @@ ios_dir = File.join(workspace, 'ios')
 
 if Dir.exist?(ios_dir)
   begin
-    # Runs fastlane as a real subprocess (not backticks) so its output streams to our
-    # STDOUT line-by-line as it happens, and our own STDIN (piped from the Rust side) is
-    # forwarded live into fastlane's STDIN. This lets the 2-step verification code the
-    # user submits from the UI reach fastlane's Apple sign-in prompt while it's waiting.
+    # Runs fastlane as a real subprocess so its output streams to our STDOUT line-by-line.
+    # It signs in with the App Store Connect API key (ASC_* env vars) only; no Apple ID, no 2-step code.
     fastlane_lines = []
 
     Open3.popen2e({ 'LANG' => 'en_US.UTF-8' }, 'fastlane', 'fetch_all_versions', chdir: ios_dir) do |stdin, stdout_err, wait_thr|
-      forwarder = Thread.new do
-        loop { stdin.write(STDIN.readpartial(4096)) }
-      rescue IOError, Errno::EPIPE, EOFError
-        # child stdin closed or nothing left to read — stop forwarding
-      end
-
+      stdin.close
       stdout_err.each_line do |line|
         line = line.chomp
         next if line.empty?
         fastlane_lines << line
         puts line
       end
-
-      forwarder.kill
-      begin; stdin.close; rescue; end
 
       unless wait_thr.value.success?
         raise "fastlane fetch_all_versions exited with status #{wait_thr.value.exitstatus}"
@@ -175,6 +165,7 @@ if Dir.exist?(ios_dir)
     ios_versions = JSON.parse(match[1]) if match
     dates = fastlane_lines.join("\n").match(/IOS_DATES=(\{.*\})/)
     ios_dates = JSON.parse(dates[1]) if dates
+    log("  ⚠️", "The fetch_all_versions lane printed no IOS_DATES; iOS release dates are left empty (add it to the workspace ios/fastlane/Fastfile)") if ios_versions.any? && ios_dates.empty?
     if ios_versions.any?
       log("  ✅", "#{ios_versions.size} apps found")
     else
@@ -209,7 +200,7 @@ projects.each_key do |project_id|
   # Google Play gives no release date, so it is the day the sync first saw this version.
   # App Store Connect gives the version's release (or creation) date.
   fields['androidReleasedAt'] = (stored['android'] == android && stored['androidReleasedAt']) || synced_at if android
-  fields['iosReleasedAt'] = ios_dates[project_id] || ((stored['ios'] == ios && stored['iosReleasedAt']) || synced_at) if ios
+  fields['iosReleasedAt'] = ios_dates[project_id] || (stored['ios'] == ios ? stored['iosReleasedAt'] : nil) if ios
 
   if fields.slice('version', 'android', 'ios').all? { |k, v| v.nil? || stored[k] == v }
     save_version(project_id, fields.slice('androidReleasedAt', 'iosReleasedAt').merge('syncedAt' => synced_at))

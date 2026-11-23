@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+- Token manager: Settings has an MCP tab to create tokens, switch their permissions on and off, give a new secret and delete (show/copy the secret too). The same screen opens in a browser on the local network from the MCP tool `token_manager_link` (new `admin` permission; the link is valid 15 minutes and a new one replaces it). The browser page asks for the main password, `MCP_MAIN_PASSWORD` in `.env` next to `mcp-tokens.json` (made with a random value the first time, shown in Settings, MCP; 5 wrong passwords close the link). Settings, MCP also has an on/off switch for the whole MCP server (file `mcp-off`; off = every connection is refused, tokens are kept). The last token, and the last one with `admin`, cannot be deleted or lose it. Existing tokens do not have `admin` yet: switch it on in the app.
+
+- App Store Connect is reached with the API key only; there is no Apple ID sign-in and no 2-step code any more. The 2FA code dialog, its commands and the prompt detection are removed, and the `fetch_all_versions` / `fetch_locales` lanes and the generated `sermobile_api_key` lane stop with "API key is not set" instead of falling back to an Apple ID. Fastlane runs no longer get a stdin.
+- `fetch_all_versions` prints `IOS_DATES=` (release date, else creation date) so `iosReleasedAt` is the App Store date; when the lane gives none the date is left empty instead of the sync time.
+- A deploy no longer wipes `android`, `ios`, `syncedAt` and the release dates in `version.json` (it rewrote the file with only `version`).
+- `sync_store_versions` returns the sync's `⚠️` lines as `warnings`, so a project that got no store version shows why.
+
 ## [0.3.31] - 2026-11-20
 
 - MCP access by permission. Every request now needs a bearer token, also from this Mac, and the permissions switched on for the token decide which tools it may use: `read`, `run` (app and tests), `deploy`, `store` (App Store Connect changes), `project` (version, config, colors, setup) and `system` (git branch, workspace, app update, new Firebase/Sentry projects). Tokens and their permissions are in `mcp-tokens.json`, read on every request, so a permission is switched on or off by editing the list, with no restart; the old `mcp-token` becomes a token named `default` with every permission on the first start. A tool without the permission is left out of `tools/list` and refused with the permission it needs; a tool nobody classified needs `system` (a test checks that every tool is classified). **Claude Code on this Mac must send the token now**: `claude mcp add --transport http --scope user serenay-deploy http://127.0.0.1:47321/mcp --header "Authorization: Bearer <token>"`.

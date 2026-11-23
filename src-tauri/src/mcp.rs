@@ -34,6 +34,30 @@ pub fn mcp_status_set(status: Value) {
     *STATUS.lock().unwrap() = status;
 }
 
+/// The token manager's data and changes, for the app's Settings screen.
+#[tauri::command]
+pub fn mcp_tokens_list() -> Value {
+    mcp_access::list_tokens()
+}
+
+#[tauri::command]
+pub fn mcp_tokens_apply(action: String, name: String, permissions: Vec<String>) -> Result<Value, String> {
+    let permissions: Vec<Value> = permissions.into_iter().map(Value::String).collect();
+    mcp_access::apply(&action, &name, Some(&permissions))
+}
+
+/// The main password of the browser token manager (`MCP_MAIN_PASSWORD` in `.env`), for Settings.
+#[tauri::command]
+pub fn mcp_main_password() -> String {
+    mcp_access::main_password()
+}
+
+/// A fresh browser link to the token manager, for the app's Settings screen.
+#[tauri::command]
+pub fn mcp_tokens_link() -> String {
+    crate::token_page::new_link(lan_ip().as_deref())
+}
+
 /// The frontend's answer to `mcp-logs-request`: every log line of the deploy, run and tests.
 #[tauri::command]
 pub fn mcp_logs_reply(logs: Value) {
@@ -42,7 +66,20 @@ pub fn mcp_logs_reply(logs: Value) {
     }
 }
 
+/// The on/off switch of the MCP server (Settings, MCP). Off = every connection (JSON-RPC, simulator
+/// view, token manager page) is closed at once; the tokens stay.
+#[tauri::command]
+pub fn mcp_enabled_get() -> bool {
+    mcp_access::enabled()
+}
+
+#[tauri::command]
+pub fn mcp_enabled_set(on: bool) {
+    mcp_access::set_enabled(on);
+}
+
 pub fn start(app: AppHandle) {
+    mcp_access::load_enabled();
     tauri::async_runtime::spawn(async move {
         // Every request needs a token, this Mac's too (see mcp_access). Without any token, stay on this Mac.
         let host = if mcp_access::has_tokens() { "0.0.0.0" } else { "127.0.0.1" };
@@ -57,9 +94,16 @@ pub fn start(app: AppHandle) {
 }
 
 async fn serve(mut stream: TcpStream, app: AppHandle, peer: std::net::SocketAddr) {
+    if !mcp_access::enabled() {
+        let _ = stream.write_all(b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").await;
+        return;
+    }
     // The simulator viewer has its own session token in the URL; everything else is the JSON-RPC endpoint.
-    let mut head = [0u8; 10];
+    let mut head = [0u8; 16];
     let n = stream.peek(&mut head).await.unwrap_or(0);
+    if head[..n].starts_with(b"GET /tokens/") || head[..n].starts_with(b"POST /tokens/") {
+        return crate::token_page::serve(stream, peer).await;
+    }
     if head[..n].starts_with(b"GET /sim/") || head[..n].starts_with(b"POST /sim/") {
         return crate::sim::serve(stream, app, peer, status).await;
     }
@@ -181,7 +225,7 @@ const PROJECT: Param = ("project", "string", false, "Project id or app name from
 #[rustfmt::skip]
 pub const TOOLS: &[(&str, &str, &[Param])] = &[
     // Workspace
-    ("status", "The open workspace and the state of the deploy, the app run and the tests: status, progress, message, latest log lines, test results, and whether a 2FA code is awaited.", &[]),
+    ("status", "The open workspace and the state of the deploy, the app run and the tests: status, progress, message, latest log lines, and test results.", &[]),
     ("logs", "Every log line of the deploy, the app run or the tests (the last failed one's, once the app has cleared them), to find out why something failed. Lines are numbered; without contains or tail, the last 500 come back. With path it reads a log file under ~/Library/Logs instead, such as the gym log fastlane names when an iOS build fails, which holds the full xcodebuild output.", &[
         ("job", "string", false, "deploy (default), run or tests"),
         ("contains", "string", false, "Keep only lines containing this, ignoring case; separate alternatives with |, e.g. error|failed|warning"),
@@ -193,7 +237,7 @@ pub const TOOLS: &[(&str, &str, &[Param])] = &[
     ("git_status", "The workspace's git branch, its branches (local and remote), how many files have uncommitted changes, and commits ahead of / behind the remote as of the last fetch.", &[]),
     ("git_switch", "Switches the workspace to a branch with its latest commits: fetches, puts uncommitted changes aside in a git stash (the app's project setup changes many files; git stash pop brings them back), switches, pulls (fast-forward only) and runs flutter pub get. pod install runs on the next deploy. Takes up to a few minutes.", &[("branch", "string", true, "Branch name, e.g. main or develop")]),
     ("list_projects", "Projects in the open workspace with their bundle ids, local version (x.y.z+build) and their store versions from the last sync: storeVersion (x.y.z) when Google Play and the App Store have the same x.y.z, otherwise androidStoreVersion and iosStoreVersion. syncedAt is when the project's store versions were last synced (null if never). androidReleasedAt and iosReleasedAt are the dates of the store versions: App Store Connect's release (or creation) date, and for Google Play, which gives none, the day a sync first saw that version.", &[]),
-    ("sync_store_versions", "Fetches the latest versions from Google Play and the App Store, saves them, and returns the updated list_projects. With project only that app is synced (quick). Without it every project is synced in the background and the call returns at once; follow it with list_projects (lastSync, syncedAt). Fails if Apple asks for a 2-step code; then run the sync from the app.", &[("project", "string", false, "Project id or app name from list_projects; leave out to sync all projects")]),
+    ("sync_store_versions", "Fetches the latest versions from Google Play and the App Store, saves them, and returns the updated list_projects. With project only that app is synced (quick). Without it every project is synced in the background and the call returns at once; follow it with list_projects (lastSync, syncedAt).", &[("project", "string", false, "Project id or app name from list_projects; leave out to sync all projects")]),
     ("deploy_history", "The deploys that ran in this workspace, newest first: at (date and time), app, version, store (apple or google_play), track (production or test) and status (success or failed). A deploy to both stores adds one entry per store.", &[
         ("project", "string", false, "Only this project's deploys (id or app name from list_projects)"),
         ("limit", "integer", false, "How many entries to return (default 20)"),
@@ -209,12 +253,13 @@ pub const TOOLS: &[(&str, &str, &[Param])] = &[
         ("smoke_test", "boolean", false, "Run the project's smoke/<platform>.sh (crash check + Maestro order flow, which places a real order) after the build and before the upload (default false)"),
         ("allow_untranslated", "boolean", false, "If the release notes can't be translated for some store languages, continue and send them the notes as written instead of waiting for the app's confirmation dialog (default true)"),
     ]),
-    ("stop_deploy", "Stops the running deploy: ends the build and upload processes, and also answers a question the deploy is waiting on (a 2FA code or the release notes translation prompt) with \"no\". Nothing is rolled back; a build already uploaded to a store stays there.", &[]),
+    ("stop_deploy", "Stops the running deploy: ends the build and upload processes, and also answers the question the deploy is waiting on (the release notes translation prompt) with \"no\". Nothing is rolled back; a build already uploaded to a store stays there.", &[]),
     ("app_version", "This deploy app's own version and whether a newer one is published: version, updateAvailable, latestVersion, releaseNotes, lastChecked. The app checks by itself at start and then once a day while it is open; status carries the same data under \"app\".", &[]),
     ("app_check_update", "Checks for a newer version of this deploy app now instead of waiting for the daily check. Returns right away; read the result with app_version.", &[]),
     ("app_update", "Downloads and installs the newer version of this deploy app and restarts it (the MCP server is unreachable for a moment). Only when app_version says updateAvailable, and not while a deploy, app run or test is running.", &[]),
     ("list_devices", "Simulators, emulators and connected devices the app can run on.", &[("refresh", "boolean", false, "Look again instead of using the cached list")]),
     ("run_app", "Runs the app on a device in debug mode, the same as the start button. Follow it with status. The answer carries a link to a live view of the simulator/emulator that works from a browser on the same network.", &[PROJECT, ("device", "string", false, "Device id or name from list_devices; left out = Flutter's default")]),
+    ("token_manager_link", "The browser link of the token manager (create tokens, switch their permissions on and off, new secret, delete) for the local network; valid 15 minutes, a new call replaces the previous link. Needs the admin permission; the page asks for the main password (MCP_MAIN_PASSWORD in the app's .env, shown in Settings, MCP). The same screen is in the app: Settings, MCP.", &[]),
     ("sim_link", "The browser link of the running app's live simulator/emulator view (tap, swipe, type from any device on the same network; valid until stop_app). Also in run_app's answer and status run.viewUrl.", &[]),
     ("hot_reload", "Hot reloads the running app.", &[]),
     ("hot_restart", "Hot restarts the running app.", &[]),
@@ -498,6 +543,7 @@ async fn call_tool(app: &AppHandle, name: &str, args: &Value) -> Result<Value, S
             }
             return Ok(status);
         }
+        "token_manager_link" => return Ok(Value::String(crate::token_page::new_link(lan_ip().as_deref()))),
         "sim_link" => return crate::sim::view_url(lan_ip().as_deref(), &status).ok_or("No app is running; start one with run_app.".to_string()).map(Value::String),
         "logs" => return logs(app, args).await.map(Value::String),
         "list_workspaces" => return out(workspace::workspace_recent_get()),

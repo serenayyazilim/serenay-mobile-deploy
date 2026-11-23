@@ -1,5 +1,4 @@
 use crate::appstoreconnect::config::read_asc_config;
-use crate::deploy::is_two_factor_prompt;
 use crate::setup::{detect_kind, platform_dirs};
 use regex::Regex;
 use std::path::{Path, PathBuf};
@@ -26,8 +25,7 @@ pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path, workspace_path: &st
     let mut command = Command::new("fastlane");
     command.arg("fetch_locales").current_dir(fastlane_dir);
 
-    // Authenticate with the App Store Connect API key when configured, instead of
-    // fastlane's legacy Apple ID/app-specific-password session flow.
+    // App Store Connect API key only; never an Apple ID, so no 2-step code is asked.
     if let Some(asc) = read_asc_config(workspace_path) {
         command
             .env("ASC_KEY_ID", asc.key_id)
@@ -35,10 +33,6 @@ pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path, workspace_path: &st
             .env("ASC_PRIVATE_KEY", asc.private_key);
     }
 
-    // No dialog is reachable from this background prefetch (it can run before the deploy
-    // event channel exists), so stdin is explicitly closed: if Apple asks for a 2-step
-    // verification code here, fastlane can't get one and would otherwise hang until the
-    // timeout below burns through a code that already reached the user's device for nothing.
     let mut child = match command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -55,25 +49,22 @@ pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path, workspace_path: &st
     let read_fut = async {
         let mut out_lines: Vec<String> = Vec::new();
         let mut err_lines: Vec<String> = Vec::new();
-        let mut two_factor = false;
 
         let mut out_reader = BufReader::new(stdout).lines();
         let mut err_reader = BufReader::new(stderr).lines();
         let mut out_done = false;
         let mut err_done = false;
 
-        while !two_factor && !(out_done && err_done) {
+        while !(out_done && err_done) {
             tokio::select! {
                 line = out_reader.next_line(), if !out_done => match line {
                     Ok(Some(l)) => {
-                        if is_two_factor_prompt(&l) { two_factor = true; }
                         out_lines.push(l);
                     }
                     _ => out_done = true,
                 },
                 line = err_reader.next_line(), if !err_done => match line {
                     Ok(Some(l)) => {
-                        if is_two_factor_prompt(&l) { two_factor = true; }
                         err_lines.push(l);
                     }
                     _ => err_done = true,
@@ -81,19 +72,15 @@ pub async fn run_fastlane_fetch_locales(fastlane_dir: &Path, workspace_path: &st
             }
         }
 
-        (out_lines.join("\n"), err_lines.join("\n"), two_factor)
+        (out_lines.join("\n"), err_lines.join("\n"))
     };
 
     let result = tokio::time::timeout(Duration::from_secs(90), read_fut).await;
     let _ = child.kill().await;
 
-    let Ok((stdout_text, stderr_text, two_factor)) = result else {
+    let Ok((stdout_text, stderr_text)) = result else {
         return Err("Timed out (90s)".to_string());
     };
-
-    if two_factor {
-        return Err("Apple 2-step verification required — skipped during automatic locale detection (no code entry available here)".to_string());
-    }
 
     if stdout_text.contains("FASTLANE_APP_NOT_FOUND") {
         return Err(APP_NOT_FOUND.to_string());
