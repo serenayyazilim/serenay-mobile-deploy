@@ -1,6 +1,6 @@
 [package]
 name = "sermobile-tauri"
-version = "0.3.33"
+version = "0.3.34"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"

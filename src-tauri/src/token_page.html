@@ -1,0 +1,129 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<title>MCP tokens</title>
+<style>
+:root{color-scheme:light dark;--bg:#f2f2f7;--card:#fff;--fg:#000;--mut:#8e8e93;--line:rgba(60,60,67,.16);--blue:#007aff;--red:#ff3b30;--green:#34c759;--fill:rgba(120,120,128,.12)}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--fg:#fff;--mut:#98989f;--line:rgba(84,84,88,.55);--blue:#0a84ff;--red:#ff453a;--green:#30d158;--fill:rgba(120,120,128,.24)}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding:max(20px,env(safe-area-inset-top)) 16px 64px}
+main{max-width:640px;margin:0 auto}
+h1{font:700 34px/1.1 -apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;letter-spacing:.2px;margin:28px 4px 6px}
+.sub{color:var(--mut);font-size:15px;margin:0 4px 20px}
+h2{font-size:13px;font-weight:400;text-transform:uppercase;letter-spacing:.2px;color:var(--mut);margin:26px 16px 7px}
+.group{background:var(--card);border-radius:12px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:11px 16px;min-height:44px}
+.row+.row{border-top:.5px solid var(--line)}
+.grow{flex:1;min-width:0}.title{font-weight:600}.hint{color:var(--mut);font-size:13px;margin-top:1px}
+.foot{color:var(--mut);font-size:13px;margin:7px 16px 0}
+code{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--mut);word-break:break-all}
+input[type=text],input[type=password]{flex:1;min-width:0;font:inherit;color:var(--fg);background:none;border:0;outline:0;padding:0}
+input::placeholder{color:var(--mut);opacity:.7}
+button{font:inherit;color:var(--blue);background:none;border:0;padding:6px 2px;cursor:pointer}
+button:active{opacity:.4}button:disabled{color:var(--mut);opacity:.5;cursor:default}
+button.red{color:var(--red)}button.full{flex:1;text-align:center;padding:2px 0}
+.pill{background:var(--blue);color:#fff;border-radius:10px;padding:10px 20px;font-weight:600;width:100%}
+.pill:disabled{background:var(--fill);color:var(--mut);opacity:1}
+.acts{padding:4px 16px}.acts .row{padding:6px 0;min-height:40px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px}
+.chip{position:relative}
+.chip input{position:absolute;opacity:0;inset:0;cursor:pointer;margin:0}
+.chip span{display:block;background:var(--fill);border-radius:999px;padding:5px 13px;font-size:15px;transition:background .15s,color .15s}
+.chip input:checked+span{background:var(--blue);color:#fff}
+.chip input:focus-visible+span{outline:2px solid var(--blue);outline-offset:2px}
+.sw{appearance:none;-webkit-appearance:none;position:relative;width:51px;height:31px;border-radius:999px;background:var(--fill);flex:none;margin:0;cursor:pointer;transition:background .2s}
+.sw:before{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.25);transition:transform .2s}
+.sw:checked{background:var(--green)}.sw:checked:before{transform:translateX(20px)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--mut);flex:none}.on .dot{background:var(--green)}
+#list{transition:opacity .2s}#list.off{opacity:.45;pointer-events:none}
+.login{margin-top:12vh}
+#toast{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom));transform:translate(-50%,20px);opacity:0;pointer-events:none;background:rgba(60,60,67,.92);color:#fff;border-radius:14px;padding:11px 18px;font-size:15px;max-width:calc(100% - 32px);text-align:center;transition:.25s;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+#toast.show{opacity:1;transform:translate(-50%,0)}#toast.err{background:rgba(255,59,48,.95)}
+[hidden]{display:none!important}
+</style></head><body><main>
+<h1>MCP</h1>
+<p class="sub" id="desc"></p>
+
+<section id="login" class="login">
+  <div class="group"><div class="row"><input type="password" id="pw" autocomplete="current-password"></div></div>
+  <p class="foot" id="pwHint"></p>
+  <div style="margin-top:18px"><button class="pill" id="go"></button></div>
+</section>
+
+<section id="app" hidden>
+  <div class="group"><label class="row" id="srv">
+    <span class="dot"></span>
+    <span class="grow"><div class="title" id="srvT"></div><div class="hint" id="srvH"></div></span>
+    <input type="checkbox" class="sw" id="enabled">
+  </label></div>
+
+  <div id="list"></div>
+
+  <div id="newBox">
+    <h2 id="newH"></h2>
+    <div class="group">
+      <div class="row"><input type="text" id="name" autocapitalize="none" autocorrect="off"></div>
+      <div class="chips" id="newperms"></div>
+    </div>
+    <div style="margin-top:14px"><button class="pill" id="create"></button></div>
+  </div>
+</section>
+<div id="toast"></div>
+</main>
+<script>
+const L={
+tr:{desc:"Her token yalnızca izinleri açık olan araçları çağırabilir. Değişiklikler bir sonraki istekte geçerli olur.",pw:"Ana parola",pwHint:"MCP_MAIN_PASSWORD, uygulamanın Ayarlar → MCP ekranında ve .env dosyasında.",open:"Aç",
+srv:"MCP sunucusu",on:"Açık: token'ı olan istemciler bağlanabilir.",off:"Kapalı: tüm bağlantılar reddedilir, token'lar saklanır.",
+offWarn:"MCP kapatılırsa bu sayfa da dahil tüm bağlantılar reddedilir. Tekrar açmak için uygulamadaki Ayarlar → MCP kullanılır. Kapatılsın mı?",
+tokens:"Tokenlar",show:"Göster",hide:"Gizle",copy:"Kopyala",copied:"Kopyalandı",save:"İzinleri kaydet",saved:"Kaydedildi",secret:"Yeni anahtar",
+secretWarn:"Eski anahtar çalışmaz olur. Devam edilsin mi?",del:"Sil",delWarn:"{n} silinsin mi?",newH:"Yeni token",name:"Ad",create:"Oluştur",gone:"Sunucuya ulaşılamıyor. MCP kapalı olabilir."},
+en:{desc:"Each token may call only the tools its permissions allow. Changes apply to the next request.",pw:"Main password",pwHint:"MCP_MAIN_PASSWORD, shown in the app under Settings → MCP and kept in .env.",open:"Open",
+srv:"MCP server",on:"On: clients with a token can connect.",off:"Off: every connection is refused, tokens are kept.",
+offWarn:"With MCP off, every connection is refused, this page included. Turn it back on in the app under Settings → MCP. Switch it off?",
+tokens:"Tokens",show:"Show",hide:"Hide",copy:"Copy",copied:"Copied",save:"Save permissions",saved:"Saved",secret:"New secret",
+secretWarn:"The old secret stops working. Continue?",del:"Delete",delWarn:"Delete {n}?",newH:"New token",name:"Name",create:"Create",gone:"Server unreachable. MCP may be off."}
+}[(navigator.language||"").startsWith("tr")?"tr":"en"];
+const $=id=>document.getElementById(id);
+const h=(t,p={},...k)=>{const e=Object.assign(document.createElement(t),p);e.append(...k);return e};
+const api=location.pathname.replace(/\/$/,"")+"/api";
+let pw="",perms=[],toastT;
+function toast(m,err){const t=$("toast");t.textContent=m;t.className="show"+(err?" err":"");clearTimeout(toastT);toastT=setTimeout(()=>t.className="",2200)}
+async function call(body){
+  let j;
+  try{const r=await fetch(api,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...body,password:pw})});
+    j=await r.json().catch(()=>({error:L.gone}));if(!r.ok||j.error)throw j.error||L.gone}
+  catch(e){toast(typeof e==="string"?e:L.gone,1);throw e}
+  return j}
+const chips=on=>perms.map(p=>h("label",{className:"chip"},h("input",{type:"checkbox",value:p,checked:on.includes(p)}),h("span",{textContent:p})));
+const picked=box=>[...box.querySelectorAll("input:checked")].map(i=>i.value);
+function draw(j){
+  perms=j.permissions;
+  const on=j.enabled!==false;
+  $("enabled").checked=on;$("srv").className="row"+(on?" on":"");$("srvH").textContent=on?L.on:L.off;
+  $("newBox").hidden=!on;$("list").className=on?"":"off";
+  const list=$("list");list.replaceChildren(h("h2",{textContent:L.tokens}));
+  for(const t of j.tokens){
+    const box=h("div",{className:"chips"},...chips(t.permissions||[]));
+    const val=h("code",{className:"grow",textContent:"•".repeat(12)});let shown=false;
+    const eye=h("button",{textContent:L.show,onclick(){shown=!shown;val.textContent=shown?t.token:"•".repeat(12);eye.textContent=shown?L.hide:L.show}});
+    const cp=h("button",{textContent:L.copy,async onclick(){try{await navigator.clipboard.writeText(t.token);toast(L.copied)}catch{toast(t.token)}}});
+    list.append(h("div",{className:"group",style:"margin-bottom:16px"},
+      h("div",{className:"row"},h("span",{className:"title grow",textContent:t.name})),
+      h("div",{className:"row"},val,eye,cp),box,
+      h("div",{className:"acts"},
+        h("div",{className:"row"},h("button",{className:"full",textContent:L.save,onclick:()=>call({action:"update",name:t.name,permissions:picked(box)}).then(j=>{draw(j);toast(L.saved)}).catch(()=>{})})),
+        h("div",{className:"row"},
+          h("button",{className:"full",textContent:L.secret,onclick:()=>confirm(L.secretWarn)&&call({action:"regenerate",name:t.name}).then(draw).catch(()=>{})}),
+          h("button",{className:"full red",textContent:L.del,onclick:()=>confirm(L.delWarn.replace("{n}",t.name))&&call({action:"delete",name:t.name}).then(draw).catch(()=>{})})))))}
+  const np=$("newperms");if(!np.children.length)np.replaceChildren(...chips(["read"]));
+}
+$("enabled").onchange=e=>{
+  const on=e.target.checked;
+  if(!on&&!confirm(L.offWarn)){e.target.checked=true;return}
+  call({action:"set_enabled",on}).then(draw).catch(()=>{e.target.checked=!on})};
+$("create").onclick=()=>call({action:"create",name:$("name").value,permissions:picked($("newperms"))}).then(j=>{$("name").value="";draw(j)}).catch(()=>{});
+const login=()=>{pw=$("pw").value;call({action:"list"}).then(j=>{$("login").remove();$("app").hidden=false;draw(j)}).catch(()=>{})};
+$("go").onclick=login;$("pw").onkeydown=e=>e.key==="Enter"&&login();
+$("desc").textContent=L.desc;$("pw").placeholder=L.pw;$("pwHint").textContent=L.pwHint;$("go").textContent=L.open;
+$("srvT").textContent=L.srv;$("newH").textContent=L.newH;$("name").placeholder=L.name;$("create").textContent=L.create;
+</script></body></html>

@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.34] - 2026-11-24
+
+- The browser token manager page is redesigned in the Apple style (grouped cards, iOS switch, permission chips, light and dark mode, Turkish or English by the browser language) and has the on/off switch of the MCP server. Switching MCP off there closes the page too; it is switched back on in the app, Settings, MCP. The page now lives in its own file, `token_page.html`.
+
 ## [0.3.33] - 2026-11-23
 
 - A run that got stuck as "running" (it died before reporting done, or hung while the project was activating) no longer blocks `run_app` with "An app is already running": stopping it when the backend no longer knows the job clears the state, a second stop clears a run that never got a job, and a stop that failed for another reason can be pressed again.

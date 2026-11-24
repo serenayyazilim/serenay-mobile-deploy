@@ -63,10 +63,18 @@ pub async fn serve(mut stream: TcpStream, peer: SocketAddr) {
                     }
                     return Err("Wrong password.".to_string());
                 }
-                match text("action").as_str() {
+                let list = match text("action").as_str() {
                     "list" => Ok(mcp_access::list_tokens()),
+                    "set_enabled" => {
+                        mcp_access::set_enabled(b.get("on").and_then(Value::as_bool).unwrap_or(true));
+                        Ok(mcp_access::list_tokens())
+                    }
                     action => mcp_access::apply(action, &text("name"), b.get("permissions").and_then(Value::as_array).map(Vec::as_slice)),
-                }
+                };
+                list.map(|mut v| {
+                    v["enabled"] = json!(mcp_access::enabled());
+                    v
+                })
             });
             match result {
                 Ok(list) => reply(&mut stream, "200 OK", "application/json", list.to_string().as_bytes()).await,
@@ -77,41 +85,7 @@ pub async fn serve(mut stream: TcpStream, peer: SocketAddr) {
     }
 }
 
-const PAGE: &str = r##"<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MCP tokens</title>
-<style>
-:root{color-scheme:light dark;--bg:#fff;--fg:#111;--mut:#666;--line:#ddd;--acc:#2563eb}
-@media(prefers-color-scheme:dark){:root{--bg:#111;--fg:#eee;--mut:#999;--line:#333;--acc:#60a5fa}}
-body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:14px system-ui,sans-serif;max-width:720px;margin-inline:auto}
-h1{font-size:18px}.card{border:1px solid var(--line);border-radius:10px;padding:12px;margin:12px 0}
-code{word-break:break-all}label{display:inline-flex;gap:4px;margin:2px 10px 2px 0;align-items:center}
-button{font:inherit;border:1px solid var(--line);background:none;color:var(--fg);border-radius:6px;padding:4px 10px;cursor:pointer}
-button.p{background:var(--acc);border-color:var(--acc);color:#fff}input[type=text],input[type=password]{font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:none;color:var(--fg)}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}.mut{color:var(--mut)}#err{color:#dc2626}
-</style></head><body>
-<h1>MCP tokens</h1><p class="mut">Each token may call only the tools its permissions allow. Changes apply to the next request.</p>
-<div id="err"></div>
-<div class="card" id="login"><b>Main password</b><div class="row"><input type="password" id="pw" placeholder="MCP_MAIN_PASSWORD"><button class="p" id="go">Open</button></div></div>
-<div id="list"></div>
-<div class="card"><b>New token</b><div class="row"><input type="text" id="name" placeholder="name"></div><div id="newperms" class="row"></div><div class="row"><button class="p" id="create">Create</button></div></div>
-<script>
-const api=location.pathname.replace(/\/$/,'')+'/api';let perms=[];let pw='';
-const $=(t,p={},...k)=>{const e=Object.assign(document.createElement(t),p);k.forEach(c=>e.append(c));return e};
-async function call(body){const r=await fetch(api,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...body,password:pw})});const j=await r.json();document.getElementById('err').textContent=j.error||'';if(!r.ok)throw 0;return j}
-function boxes(sel,on){return perms.map(p=>$('label',{},$('input',{type:'checkbox',value:p,checked:on.includes(p)}),p))}
-function checked(box){return[...box.querySelectorAll('input:checked')].map(i=>i.value)}
-function draw(j){perms=j.permissions;const L=document.getElementById('list');L.replaceChildren();
-for(const t of j.tokens){const boxesEl=$('div',{},...boxes(0,t.permissions||[]));const tok=$('code',{textContent:'•'.repeat(12)});let shown=0;
-L.append($('div',{className:'card'},$('b',{textContent:t.name}),$('div',{className:'row'},tok,
-$('button',{textContent:'Show',onclick(e){shown=!shown;tok.textContent=shown?t.token:'•'.repeat(12);e.target.textContent=shown?'Hide':'Show'}}),
-$('button',{textContent:'Copy',onclick:()=>navigator.clipboard&&navigator.clipboard.writeText(t.token)})),boxesEl,
-$('div',{className:'row'},$('button',{className:'p',textContent:'Save permissions',onclick:()=>call({action:'update',name:t.name,permissions:checked(boxesEl)}).then(draw)}),
-$('button',{textContent:'New secret',onclick:()=>confirm('The old secret stops working. Continue?')&&call({action:'regenerate',name:t.name}).then(draw)}),
-$('button',{textContent:'Delete',onclick:()=>confirm('Delete '+t.name+'?')&&call({action:'delete',name:t.name}).then(draw)}))))}
-const np=document.getElementById('newperms');np.replaceChildren(...boxes(0,['read']))}
-document.getElementById('create').onclick=()=>call({action:'create',name:document.getElementById('name').value,permissions:checked(document.getElementById('newperms'))}).then(j=>{document.getElementById('name').value='';draw(j)});
-document.getElementById('go').onclick=()=>{pw=document.getElementById('pw').value;call({action:'list'}).then(j=>{document.getElementById('login').remove();draw(j)}).catch(()=>{})};
-</script></body></html>"##;
+const PAGE: &str = include_str!("token_page.html");
 
 #[cfg(test)]
 mod tests {
@@ -152,6 +126,11 @@ mod tests {
         assert!(call(port, &api, Some(json!({ "action": "list", "password": "nope" }))).await.0.contains("422"));
         let (status, body) = call(port, &api, Some(json!({ "action": "list", "password": password }))).await;
         assert!(status.contains("200") && body.contains("default"));
+
+        let (_, body) = call(port, &api, Some(json!({ "action": "set_enabled", "on": false, "password": password }))).await;
+        assert!(body.contains("\"enabled\":false"), "{body}");
+        let (_, body) = call(port, &api, Some(json!({ "action": "set_enabled", "on": true, "password": password }))).await;
+        assert!(body.contains("\"enabled\":true"), "{body}");
 
         let (_, body) = call(port, &api, Some(json!({ "action": "create", "name": "ci", "permissions": ["read", "admin"], "password": password }))).await;
         assert!(body.contains("\"ci\""));
